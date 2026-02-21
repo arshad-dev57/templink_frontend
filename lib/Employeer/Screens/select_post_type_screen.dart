@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:templink/Controllers/post_type_controller.dart';
 import 'package:templink/Employeer/Screens/PostProjectScreen.dart';
 import 'package:templink/Employeer/Screens/Post_Job_screen.dart';
 import 'package:templink/Utils/colors.dart';
@@ -72,7 +71,7 @@ class SelectPostTypeScreen extends StatelessWidget {
                           if (controller.selectedType.value == PostType.project) {
                             Get.to(() => PostProjectScreen());
                           } else if (controller.selectedType.value == PostType.hiring) {
-                            Get.to(() => JobPostScreen());
+                            // Get.to(() => JobPostScreen());
                           }
                         }
                       : null, 
@@ -148,5 +147,17 @@ class SelectPostTypeScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+
+
+enum PostType { project, hiring }
+
+class PostTypeController extends GetxController {
+  final selectedType = Rx<PostType?>(null);
+
+  void select(PostType type) {
+    selectedType.value = type;
   }
 }

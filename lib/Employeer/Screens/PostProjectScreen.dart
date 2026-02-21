@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:templink/Employeer/Screens/homescreen.dart';
+import 'package:templink/Employeer/Controller/project_controller.dart';
+import 'package:templink/Employeer/model/project_model.dart';
 import 'package:templink/Utils/colors.dart';
 
 class PostProjectScreen extends StatefulWidget {
@@ -12,77 +12,7 @@ class PostProjectScreen extends StatefulWidget {
 }
 
 class _PostProjectScreenState extends State<PostProjectScreen> {
-  int _currentStep = 0;
-  final _formKey = GlobalKey<FormState>();
-
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  String? _selectedCategory;
-
-  String _selectedDuration = '3-6 months';
-  String _selectedExperience = 'Expert';
-  String _budgetType = 'FIXED';
-  final TextEditingController _minBudgetController = TextEditingController();
-  final TextEditingController _maxBudgetController = TextEditingController();
- final List<String> _deliverables = [
-    'Comprehensive UX Audit & Research Report',
-    'Interactive High-Fidelity Figma Prototype',
-  ];
-
-  final List<String> _skills = ['Figma', 'SaaS', 'User Research'];
-  final TextEditingController _skillController = TextEditingController();
-  final TextEditingController _deliverableController = TextEditingController();
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _minBudgetController.dispose();
-    _maxBudgetController.dispose();
-    _skillController.dispose();
-    _deliverableController.dispose();
-    super.dispose();
-  }
-
-  void _addDeliverable(String deliverable) {
-    setState(() {
-      _deliverables.add(deliverable);
-    });
-  }
-
-  void _removeDeliverable(int index) {
-    setState(() {
-      _deliverables.removeAt(index);
-    });
-  }
-
-  void _addSkill(String skill) {
-    setState(() {
-      _skills.add(skill);
-    });
-  }
-
-  void _removeSkill(String skill) {
-    setState(() {
-      _skills.remove(skill);
-    });
-  }
-
-  void _nextStep() {
-    if (_currentStep < 2) {
-      setState(() {
-        _currentStep++;
-      });
-    }
-  }
-
-  void _previousStep() {
-    if (_currentStep > 0) {
-      setState(() {
-        _currentStep--;
-      });
-    }
-  }
+  final ProjectController controller = Get.put(ProjectController());
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +25,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
           icon: const Icon(Icons.close, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Column(
+        title: Obx(() => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
@@ -107,7 +37,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
               ),
             ),
             Text(
-              'STEP ${_currentStep + 1} OF 3',
+              'STEP ${controller.currentStep.value + 1} OF 3',
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 12,
@@ -115,20 +45,19 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
               ),
             ),
           ],
-        ),
-       
+        )),
       ),
-      body: Column(
+      body: Obx(() => Column(
         children: [
           LinearProgressIndicator(
-            value: (_currentStep + 1) / 3,
+            value: (controller.currentStep.value + 1) / 3,
             backgroundColor: Colors.grey[200],
             valueColor: const AlwaysStoppedAnimation<Color>(primary),
             minHeight: 4,
           ),
           Expanded(
             child: IndexedStack(
-              index: _currentStep,
+              index: controller.currentStep.value,
               children: [
                 _buildStep1(),
                 _buildStep2(),
@@ -137,8 +66,8 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: Container(
+      )),
+      bottomNavigationBar: Obx(() => Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -156,10 +85,10 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
         child: SafeArea(
           child: Row(
             children: [
-              if (_currentStep > 0)
+              if (controller.currentStep.value > 0)
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _previousStep,
+                    onPressed: controller.previousStep,
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       side: BorderSide(color: Colors.grey[300]!),
@@ -183,15 +112,19 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                     ),
                   ),
                 ),
-              if (_currentStep > 0) const SizedBox(width: 12),
+              if (controller.currentStep.value > 0) const SizedBox(width: 12),
               Expanded(
-                flex: _currentStep == 0 ? 1 : 2,
+                flex: controller.currentStep.value == 0 ? 1 : 2,
                 child: ElevatedButton(
-                  onPressed: _currentStep == 2
-                      ? () {
-                        Get.offAll(() => const HomeScreen());
-                        }
-                      : _nextStep,
+                  onPressed: controller.isLoading.value
+                      ? null
+                      : () {
+                          if (controller.currentStep.value == 2) {
+                            _handlePublish();
+                          } else {
+                            _handleNext();
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -199,38 +132,67 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _currentStep == 2 ? 'Publish Project' : 'Next',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                  child: controller.isLoading.value
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              controller.currentStep.value == 2
+                                  ? 'Publish Project'
+                                  : 'Next',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              controller.currentStep.value == 2
+                                  ? Icons.rocket_launch
+                                  : Icons.arrow_forward,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        _currentStep == 2
-                            ? Icons.rocket_launch
-                            : Icons.arrow_forward,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 
+  void _handleNext() {
+    if (controller.currentStep.value == 0) {
+      if (controller.validateStep1()) {
+        controller.nextStep();
+      }
+    } else if (controller.currentStep.value == 1) {
+      if (controller.validateStep2()) {
+        controller.nextStep();
+      }
+    }
+  }
+
+  void _handlePublish() {
+    if (controller.validateStep3()) {
+      _showPublishConfirmationDialog();
+    }
+  }
+
   Widget _buildStep1() {
-    return SingleChildScrollView(
+    return Obx(() => SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -265,7 +227,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: _titleController,
+              controller: controller.titleController,
               decoration: InputDecoration(
                 hintText: 'e.g. Enterprise SaaS UI/UX Overhaul',
                 hintStyle: TextStyle(color: Colors.grey[400]),
@@ -315,7 +277,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                 border: Border.all(color: Colors.grey[300]!),
               ),
               child: DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                value: controller.selectedCategory.value,
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
@@ -337,11 +299,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                     child: Text(category),
                   );
                 }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCategory = value;
-                  });
-                },
+                onChanged: (value) => controller.selectedCategory.value = value,
               ),
             ),
             const SizedBox(height: 24),
@@ -363,7 +321,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
               ),
               child: Column(
                 children: [
-                  // Toolbar
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -406,7 +363,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                     ),
                   ),
                   TextField(
-                    controller: _descriptionController,
+                    controller: controller.descriptionController,
                     maxLines: 10,
                     decoration: InputDecoration(
                       hintText:
@@ -427,26 +384,30 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                   'Min. 100 characters recommended',
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.grey[500],
+                    color: controller.descriptionController.text.length >= 100
+                        ? Colors.green
+                        : Colors.grey[500],
                   ),
                 ),
                 Text(
-                  '${_descriptionController.text.length}/5000',
+                  '${controller.descriptionController.text.length}/5000',
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.grey[500],
+                    color: controller.descriptionController.text.length >= 100
+                        ? Colors.green
+                        : Colors.grey[500],
                   ),
                 ),
               ],
-            ),
+            )
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildStep2() {
-    return SingleChildScrollView(
+    return Obx(() => SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -469,8 +430,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
               ),
             ),
             const SizedBox(height: 32),
-
-            // Duration and Experience Level
             Row(
               children: [
                 Expanded(
@@ -494,7 +453,8 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                           border: Border.all(color: Colors.grey[300]!),
                         ),
                         child: DropdownButtonFormField<String>(
-                          value: _selectedDuration,
+                          isExpanded: true,
+                          value: controller.selectedDuration.value,
                           decoration: const InputDecoration(
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(
@@ -509,22 +469,22 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                             '3-6 months',
                             '6+ months',
                           ].map((duration) {
-                            return DropdownMenuItem(
+                            return DropdownMenuItem<String>(
                               value: duration,
-                              child: Text(duration),
+                              child: Text(
+                                duration,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             );
                           }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedDuration = value!;
-                            });
-                          },
+                          onChanged: (value) =>
+                              controller.selectedDuration.value = value!,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -546,7 +506,8 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                           border: Border.all(color: Colors.grey[300]!),
                         ),
                         child: DropdownButtonFormField<String>(
-                          value: _selectedExperience,
+                          isExpanded: true,
+                          value: controller.selectedExperience.value,
                           decoration: const InputDecoration(
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(
@@ -555,21 +516,31 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                             ),
                           ),
                           icon: const Icon(Icons.keyboard_arrow_down),
-                          items: [
-                            'Entry Level',
-                            'Intermediate',
-                            'Expert',
-                          ].map((level) {
-                            return DropdownMenuItem(
-                              value: level,
-                              child: Text(level),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedExperience = value!;
-                            });
-                          },
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'Entry Level',
+                              child: Text(
+                                'Entry Level',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Intermediate',
+                              child: Text(
+                                'Intermediate',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Expert',
+                              child: Text(
+                                'Expert',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) =>
+                              controller.selectedExperience.value = value!,
                         ),
                       ),
                     ],
@@ -608,7 +579,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                         child: Row(
                           children: [
                             _buildBudgetTypeButton('FIXED'),
-                            _buildBudgetTypeButton('HOURLY'),
                           ],
                         ),
                       ),
@@ -619,7 +589,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                     children: [
                       Expanded(
                         child: TextField(
-                          controller: _minBudgetController,
+                          controller: controller.minBudgetController,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
                             prefixText: '\$ ',
@@ -637,13 +607,10 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                           ),
                         ),
                       ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('—', style: TextStyle(fontSize: 18)),
-                      ),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: TextField(
-                          controller: _maxBudgetController,
+                          controller: controller.maxBudgetController,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
                             prefixText: '\$ ',
@@ -669,7 +636,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                       Icon(Icons.info_outline, size: 16, color: Colors.grey[500]),
                       const SizedBox(width: 6),
                       Text(
-                        'Average market rate for Expert level: \$85 - \$150/hr',
+                        'Average market rate for Expert level: \$850 - \$2000',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey[600],
@@ -682,7 +649,13 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
             ),
             const SizedBox(height: 24),
 
-             Row(
+            // MILESTONES SECTION
+            _buildMilestonesSection(),
+            
+            const SizedBox(height: 24),
+
+            // Key Deliverables
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
@@ -693,9 +666,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                   ),
                 ),
                 TextButton.icon(
-                  onPressed: () {
-                    _showAddDeliverableDialog();
-                  },
+                  onPressed: _showAddDeliverableDialog,
                   icon: const Icon(Icons.add_circle, size: 20),
                   label: const Text('Add Item'),
                   style: TextButton.styleFrom(
@@ -705,7 +676,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            ..._deliverables.asMap().entries.map((entry) {
+            ...controller.deliverables.asMap().entries.map((entry) {
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -726,7 +697,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                     ),
                     IconButton(
                       icon: Icon(Icons.delete_outline, color: Colors.grey[400]),
-                      onPressed: () => _removeDeliverable(entry.key),
+                      onPressed: () => controller.removeDeliverable(entry.key),
                       iconSize: 20,
                     ),
                   ],
@@ -734,9 +705,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
               );
             }),
             TextButton.icon(
-              onPressed: () {
-                _showAddDeliverableDialog();
-              },
+              onPressed: _showAddDeliverableDialog,
               icon: const Icon(Icons.add, size: 18),
               label: Text(
                 'Add another deliverable...',
@@ -749,11 +718,572 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
           ],
         ),
       ),
+    ));
+  }
+
+  // Milestones Section with Budget Validation
+  Widget _buildMilestonesSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Project Milestones',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (!controller.showMilestoneForm.value)
+                TextButton.icon(
+                  onPressed: () {
+                    controller.showMilestoneForm.value = true;
+                  },
+                  icon: const Icon(Icons.add_circle, size: 20),
+                  label: const Text('Add Milestone'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: primary,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Break down your project into milestones (Optional)',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // List of added milestones
+          Obx(() {
+            if (controller.milestonesList.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.flag_outlined,
+                        size: 40,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No milestones added yet',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Add milestones to break down payment',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: controller.milestonesList.length,
+              itemBuilder: (context, index) {
+                final milestone = controller.milestonesList[index];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${index + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              milestone['title'],
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              milestone['description'],
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green[50],
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.green[200]!),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.attach_money,
+                                        size: 14,
+                                        color: Colors.green,
+                                      ),
+                                      Text(
+                                        '\$${milestone['amount'].toStringAsFixed(0)}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.green[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (milestone['dueDate'] != null) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue[50],
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: Colors.blue[200]!),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.calendar_today,
+                                          size: 12,
+                                          color: Colors.blue[600],
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _formatDate(milestone['dueDate']),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.blue[700],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () {
+                          controller.milestonesList.removeAt(index);
+                        },
+                        color: Colors.grey[600],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          }),
+
+          const SizedBox(height: 16),
+
+          // Milestone Form
+          Obx(() {
+            if (!controller.showMilestoneForm.value) return const SizedBox.shrink();
+
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Add New Milestone',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller.milestoneTitleController,
+                    decoration: InputDecoration(
+                      labelText: 'Milestone Title',
+                      hintText: 'e.g., Design Phase, Development, Testing',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller.milestoneDescController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      hintText: 'Describe what needs to be delivered',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.blue, width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: controller.milestoneAmountController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Amount',
+                            prefixText: '\$ ',
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Colors.blue, width: 2),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.now(),
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (date != null) {
+                              controller.selectedMilestoneDueDate.value = date;
+                            }
+                          },
+                          child: Container(
+                            height: 56,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(color: Colors.grey[300]!),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 18,
+                                  color: Colors.grey[600],
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Obx(() => Text(
+                                    controller.selectedMilestoneDueDate.value == null
+                                        ? 'Due Date (Optional)'
+                                        : _formatDate(controller.selectedMilestoneDueDate.value!),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: controller.selectedMilestoneDueDate.value == null
+                                          ? Colors.grey[500]
+                                          : Colors.black87,
+                                    ),
+                                  )),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Budget validation for fixed price
+                  Obx(() {
+                    if (controller.budgetType.value == 'FIXED' && controller.maxBudgetController.text.isNotEmpty) {
+                      final maxBudget = double.tryParse(controller.maxBudgetController.text) ?? 0;
+                      final currentTotal = controller.milestonesList.fold<double>(
+                        0, (sum, m) => sum + (m['amount'] as double)
+                      );
+                      final newAmount = double.tryParse(controller.milestoneAmountController.text) ?? 0;
+                      
+                      if (currentTotal + newAmount > maxBudget + 0.01) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.orange[50],
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.orange[300]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.warning_amber,
+                                  size: 16,
+                                  color: Colors.orange[700],
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Total will exceed budget by \$${(currentTotal + newAmount - maxBudget).toStringAsFixed(0)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.orange[700],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                    return const SizedBox.shrink();
+                  }),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            controller.milestoneTitleController.clear();
+                            controller.milestoneDescController.clear();
+                            controller.milestoneAmountController.clear();
+                            controller.selectedMilestoneDueDate.value = null;
+                            controller.showMilestoneForm.value = false;
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.grey[700],
+                            side: BorderSide(color: Colors.grey[300]!),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _addMilestone,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: const Text('Add Milestone'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+
+          // Total milestones summary with budget validation status
+          Obx(() {
+            if (controller.milestonesList.isEmpty) return const SizedBox.shrink();
+            
+            final minBudget = double.tryParse(controller.minBudgetController.text) ?? 0;
+            final maxBudget = double.tryParse(controller.maxBudgetController.text) ?? 0;
+            final total = controller.milestonesList.fold<double>(
+              0, (sum, m) => sum + (m['amount'] as double)
+            );
+            
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Total Milestones Amount:',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          '\$${total.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Budget validation status
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: total >= minBudget && total <= maxBudget 
+                          ? Colors.green[50] 
+                          : Colors.orange[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: total >= minBudget && total <= maxBudget 
+                            ? Colors.green[200]! 
+                            : Colors.orange[200]!,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          total >= minBudget && total <= maxBudget 
+                              ? Icons.check_circle 
+                              : Icons.warning_amber,
+                          color: total >= minBudget && total <= maxBudget 
+                              ? Colors.green[700] 
+                              : Colors.orange[700],
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            total < minBudget
+                                ? '⚠️ Total (\$${total.toStringAsFixed(0)}) is below minimum budget (\$${minBudget.toStringAsFixed(0)})'
+                                : total > maxBudget
+                                    ? '❌ Total (\$${total.toStringAsFixed(0)}) exceeds maximum budget (\$${maxBudget.toStringAsFixed(0)})'
+                                    : '✅ Total (\$${total.toStringAsFixed(0)}) is within budget range',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: total >= minBudget && total <= maxBudget 
+                                  ? Colors.green[700] 
+                                  : Colors.orange[700],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ],
+      ),
     );
   }
 
   Widget _buildStep3() {
-    return SingleChildScrollView(
+    return Obx(() => SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -799,11 +1329,11 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: _skills.map((skill) {
+                    children: controller.skills.map((skill) {
                       return Chip(
                         label: Text(skill),
                         deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () => _removeSkill(skill),
+                        onDeleted: () => controller.removeSkill(skill),
                         backgroundColor: Colors.grey.shade100,
                         labelStyle: const TextStyle(color: Colors.black87),
                         side: BorderSide.none,
@@ -815,7 +1345,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                     children: [
                       Expanded(
                         child: TextField(
-                          controller: _skillController,
+                          controller: controller.skillController,
                           decoration: InputDecoration(
                             hintText: 'Add a skill...',
                             hintStyle: TextStyle(color: Colors.grey[400]),
@@ -836,8 +1366,8 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                           ),
                           onSubmitted: (value) {
                             if (value.trim().isNotEmpty) {
-                              _addSkill(value.trim());
-                              _skillController.clear();
+                              controller.addSkill(value.trim());
+                              controller.skillController.clear();
                             }
                           },
                         ),
@@ -845,9 +1375,9 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                       const SizedBox(width: 12),
                       ElevatedButton(
                         onPressed: () {
-                          if (_skillController.text.trim().isNotEmpty) {
-                            _addSkill(_skillController.text.trim());
-                            _skillController.clear();
+                          if (controller.skillController.text.trim().isNotEmpty) {
+                            controller.addSkill(controller.skillController.text.trim());
+                            controller.skillController.clear();
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -885,125 +1415,198 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.grey[300]!,
-                  style: BorderStyle.solid,
+            
+            // Upload Area
+            GestureDetector(
+              onTap: () => controller.pickFiles(),
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.grey[300]!,
+                    style: BorderStyle.solid,
+                  ),
                 ),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.cloud_upload_outlined,
-                      size: 40,
-                      color: primary,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Upload Supporting Files',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Drag & drop files or click to browse',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primary,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.cloud_upload_outlined,
+                        size: 40,
+                        color: primary,
                       ),
                     ),
-                    child: const Text(
-                      'Browse Files',
-                      style: TextStyle(color: Colors.white),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Upload Supporting Files',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Supports: PDF, DOCX, FIGMA, JPEG, PNG\nMax file size: 25MB',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
+                    const SizedBox(height: 8),
+                    Text(
+                      'Drag & drop files or click to browse',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => controller.pickFiles(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primary,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Browse Files',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Supports: PDF, DOCX, JPEG, PNG\nMax file size: 25MB',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+            
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
+            
+            // File requirement warning
+            Obx(() {
+              if (controller.mediaFiles.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey[100],
+                      color: Colors.orange[50],
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange[300]!),
                     ),
-                    child: const Icon(Icons.picture_as_pdf,
-                        color: Colors.red, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        const Text(
-                          'Project_Requirements_v2.pdf',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          '2.4 MB • Uploaded 2 hours ago',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                        Icon(Icons.warning_amber, color: Colors.orange[700], size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '⚠️ At least one file is required before publishing',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.orange[700],
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.grey),
-                    onPressed: () {},
+                );
+              }
+              return const SizedBox.shrink();
+            }),
+            
+            // Selected Files List
+            if (controller.mediaFiles.isNotEmpty)
+              ...controller.mediaFiles.asMap().entries.map((entry) {
+                int index = entry.key;
+                MediaFile file = entry.value;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
                   ),
-                ],
-              ),
-            ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: controller.getFileColor(file.fileName).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          controller.getFileIcon(file.fileName),
+                          color: controller.getFileColor(file.fileName),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              file.fileName,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: controller.getFileColor(file.fileName).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    file.fileType.split('/').last.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: controller.getFileColor(file.fileName),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                        onPressed: () => controller.removeFile(index),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            
             const SizedBox(height: 24),
+            
+            // Info Container
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1031,23 +1634,18 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildBudgetTypeButton(String type) {
-    final isSelected = _budgetType == type;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _budgetType = type;
-        });
-      },
+    return Obx(() => GestureDetector(
+      onTap: () => controller.budgetType.value = type,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
+          color: controller.budgetType.value == type ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
-          boxShadow: isSelected
+          boxShadow: controller.budgetType.value == type
               ? [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.1),
@@ -1062,11 +1660,109 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: isSelected ? primary : Colors.grey[600],
+            color: controller.budgetType.value == type ? primary : Colors.grey[600],
           ),
         ),
       ),
+    ));
+  }
+
+  void _addMilestone() {
+    if (controller.milestoneTitleController.text.isEmpty ||
+        controller.milestoneDescController.text.isEmpty ||
+        controller.milestoneAmountController.text.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Please fill all fields',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    final amount = double.tryParse(controller.milestoneAmountController.text);
+    if (amount == null || amount <= 0) {
+      Get.snackbar(
+        'Error',
+        'Please enter a valid amount',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // Get budget values
+    final minBudget = double.tryParse(controller.minBudgetController.text) ?? 0;
+    final maxBudget = double.tryParse(controller.maxBudgetController.text) ?? 0;
+    
+    // Calculate current total including new milestone
+    final currentTotal = controller.milestonesList.fold<double>(
+      0, (sum, m) => sum + (m['amount'] as double)
     );
+    final newTotal = currentTotal + amount;
+
+    // Validate against budget range
+    if (controller.budgetType.value == 'FIXED') {
+      // Check if exceeds max budget
+      if (newTotal > maxBudget + 0.01) {
+        Get.snackbar(
+          'Error',
+          'Total milestone amount (\$${newTotal.toStringAsFixed(0)}) exceeds max budget (\$${maxBudget.toStringAsFixed(0)})',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+      
+      // Check if below min budget
+      if (newTotal < minBudget - 0.01) {
+        Get.snackbar(
+          'Warning',
+          'Total milestone amount (\$${newTotal.toStringAsFixed(0)}) is below min budget (\$${minBudget.toStringAsFixed(0)})',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        // Allow adding but show warning
+      }
+    }
+
+    // Add milestone to list
+    Map<String, dynamic> newMilestone = {
+      'title': controller.milestoneTitleController.text,
+      'description': controller.milestoneDescController.text,
+      'amount': amount,
+    };
+    
+    if (controller.selectedMilestoneDueDate.value != null) {
+      newMilestone['dueDate'] = controller.selectedMilestoneDueDate.value;
+    }
+    
+    controller.milestonesList.add(newMilestone);
+
+    // Clear form
+    controller.milestoneTitleController.clear();
+    controller.milestoneDescController.clear();
+    controller.milestoneAmountController.clear();
+    controller.selectedMilestoneDueDate.value = null;
+    controller.showMilestoneForm.value = false;
+    
+    // Show success message
+    Get.snackbar(
+      '✅ Success',
+      'Milestone added successfully',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.green,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   void _showAddDeliverableDialog() {
@@ -1100,7 +1796,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                 ),
                 const SizedBox(height: 24),
                 TextField(
-                  controller: _deliverableController,
+                  controller: controller.deliverableController,
                   maxLines: 3,
                   decoration: InputDecoration(
                     hintText: 'e.g. Complete wireframes for all screens',
@@ -1142,9 +1838,9 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          if (_deliverableController.text.isNotEmpty) {
-                            _addDeliverable(_deliverableController.text);
-                            _deliverableController.clear();
+                          if (controller.deliverableController.text.isNotEmpty) {
+                            controller.addDeliverable(controller.deliverableController.text);
+                            controller.deliverableController.clear();
                             Navigator.pop(context);
                           }
                         },
@@ -1229,22 +1925,13 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          // Add actual publish logic here
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('Project published successfully!'),
-                              backgroundColor: Colors.green,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          );
-                          Navigator.pop(context);
-                        },
+                      child: Obx(() => ElevatedButton(
+                        onPressed: controller.isLoading.value
+                            ? null
+                            : () async {
+                                Navigator.pop(context);
+                                await controller.createProject();
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1252,33 +1939,35 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Publish Now',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                        child: controller.isLoading.value
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Publish Now',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.rocket_launch, size: 20, color: Colors.white),
+                                ],
                               ),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(Icons.rocket_launch, size: 20, color: Colors.white),
-                          ],
-                        ),
-                      ),
+                      )),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    // Save as draft logic
-                  },
-                  child: const Text('Save as Draft'),
-                ),
               ],
             ),
           ),

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "60304179650",
+    "project_id": "templink-f3d9d",
+    "storage_bucket": "templink-f3d9d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:60304179650:android:46639ab55f9538e3cd565b",
+        "android_client_info": {
+          "package_name": "com.example.templink"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9ic8e5sV4jRSeSogtNiY2ZSQ9IanFAhY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

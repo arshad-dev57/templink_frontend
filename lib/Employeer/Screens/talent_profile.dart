@@ -1,8 +1,20 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:templink/Employeer/model/talent_model.dart';
+import 'package:templink/Global_Screens/Chat_Screen.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:templink/config/api_config.dart';
 
 class TalentProfileScreen extends StatefulWidget {
-  const TalentProfileScreen({Key? key}) : super(key: key);
+  final TalentModel talent;
+
+  const TalentProfileScreen({
+    Key? key, 
+    required this.talent
+  }) : super(key: key);
 
   @override
   State<TalentProfileScreen> createState() => _TalentProfileScreenState();
@@ -10,6 +22,8 @@ class TalentProfileScreen extends StatefulWidget {
 
 class _TalentProfileScreenState extends State<TalentProfileScreen> {
   bool _isBookmarked = false;
+
+  TalentModel get talent => widget.talent;
 
   @override
   Widget build(BuildContext context) {
@@ -86,9 +100,9 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
-                        "\$85/hr",
-                        style: TextStyle(
+                      Text(
+                        talent.hourlyRate,
+                        style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
@@ -96,134 +110,101 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
                       ),
                     ],
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.check_circle,
-                          color: Colors.green.shade700,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Available Now',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.green.shade700,
-                            fontWeight: FontWeight.w600,
+                  if (talent.badge.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: talent.badgeColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            color: talent.badgeColor,
+                            size: 16,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Text(
+                            talent.badge,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: talent.badgeColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
 
             // About Section
-            _buildSectionCard(
-              title: 'About',
-              icon: Icons.info_outline,
-              child: const Text(
-                "Passionate Senior Product Designer with 8+ years of experience in creating scalable design systems and user-centric mobile applications. Expert in Flutter, Figma, and Agile methodologies. I love bringing ideas to life through beautiful, functional designs.",
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.6,
-                  color: Colors.black87,
+            if (talent.employeeProfile['bio'] != null && 
+                talent.employeeProfile['bio'].toString().isNotEmpty)
+              _buildSectionCard(
+                title: 'About',
+                icon: Icons.info_outline,
+                child: Text(
+                  talent.employeeProfile['bio'].toString(),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
-            ),
 
-            _buildSectionCard(
-              title: 'Skills & Expertise',
-              icon: Icons.stars_outlined,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildSkillChip('User Experience (UX)'),
-                  _buildSkillChip('Flutter'),
-                  _buildSkillChip('Dart'),
-                  _buildSkillChip('Mobile Design'),
-                  _buildSkillChip('System Architecture'),
-                  _buildSkillChip('Figma'),
-                  _buildSkillChip('Design Systems'),
-                  _buildSkillChip('Prototyping'),
-                ],
+            // Skills Section
+            if (talent.skills.isNotEmpty)
+              _buildSectionCard(
+                title: 'Skills & Expertise',
+                icon: Icons.stars_outlined,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: talent.skills.map((skill) {
+                    return _buildSkillChip(skill);
+                  }).toList(),
+                ),
               ),
-            ),
 
-            // Experience Section
-            _buildSectionCard(
-              title: 'Work Experience',
-              icon: Icons.work_outline,
-              child: Column(
-                children: [
-                  _buildExperienceItem(
-                    'Senior Product Designer',
-                    'Google',
-                    'Full-time',
-                    'Jan 2021 - Present • 3 yrs',
-                    'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
-                    Colors.blue.shade700,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildExperienceItem(
-                    'UI/UX Designer',
-                    'Airbnb',
-                    'Contract',
-                    'Jun 2018 - Dec 2020 • 2 yrs 6 mos',
-                    'https://cdn-icons-png.flaticon.com/512/2111/2111307.png',
-                    Colors.pink.shade400,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildExperienceItem(
-                    'Product Designer',
-                    'Spotify',
-                    'Full-time',
-                    'Jan 2016 - May 2018 • 2 yrs 4 mos',
-                    'https://cdn-icons-png.flaticon.com/512/174/174872.png',
-                    Colors.green.shade600,
-                  ),
-                ],
+            // Work Experience
+            if (talent.employeeProfile['workExperiences'] != null &&
+                (talent.employeeProfile['workExperiences'] as List).isNotEmpty)
+              _buildSectionCard(
+                title: 'Work Experience',
+                icon: Icons.work_outline,
+                child: Column(
+                  children: _buildWorkExperiences(),
+                ),
               ),
-            ),
 
+            // Education
+            if (talent.employeeProfile['educations'] != null &&
+                (talent.employeeProfile['educations'] as List).isNotEmpty)
+              _buildSectionCard(
+                title: 'Education',
+                icon: Icons.school_outlined,
+                child: Column(
+                  children: _buildEducations(),
+                ),
+              ),
+
+            // Featured Projects - Static
             _buildSectionCard(
               title: 'Featured Projects',
               icon: Icons.folder_outlined,
               child: Column(
-                children: [
-                  _buildPortfolioItem(
-                    'FinTech Mobile App',
-                    'Complete redesign of banking experience',
-                    'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=400',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildPortfolioItem(
-                    'E-commerce Dashboard',
-                    'Admin panel with analytics integration',
-                    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildPortfolioItem(
-                    'Health & Fitness App',
-                    'iOS & Android native design system',
-                    'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=400',
-                  ),
-                ],
+                children: _buildPortfolioItems(),
               ),
             ),
 
-            // Reviews Section
+            // Reviews - Static
             _buildSectionCard(
               title: 'Client Reviews',
               icon: Icons.star_outline,
@@ -233,7 +214,7 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
                     'Sarah Johnson',
                     'CEO at TechStart',
                     '5.0',
-                    'Outstanding work! Alex delivered beyond expectations. The design was pixel-perfect and the communication was excellent throughout.',
+                    'Outstanding work! ${talent.firstName} delivered beyond expectations.',
                     'https://i.pravatar.cc/150?img=45',
                   ),
                   const SizedBox(height: 16),
@@ -241,7 +222,7 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
                     'Michael Chen',
                     'Product Manager at InnovateCo',
                     '5.0',
-                    'Alex is a true professional. Great attention to detail and always meets deadlines. Highly recommended!',
+                    'Great attention to detail and always meets deadlines. Highly recommended!',
                     'https://i.pravatar.cc/150?img=33',
                   ),
                 ],
@@ -252,7 +233,7 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
           ],
         ),
       ),
-      // Bottom Navigation Bar with Action Buttons
+      // Bottom Navigation Bar with Action Buttons - ✅ UPDATED
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -270,7 +251,9 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    // Hire Now - Future implementation
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primary,
                     foregroundColor: Colors.white,
@@ -292,7 +275,7 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {},
+                  onPressed: _openChat, 
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     side: BorderSide(color: primary, width: 1.5),
@@ -316,14 +299,69 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
       ),
     );
   }
+  void _openChat() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final myUserId = prefs.getString('auth_user_id') ?? '';
+      final myToken = prefs.getString('auth_token') ?? '';
+      final userJson = prefs.getString('auth_user');
+      
+      String myName = 'You';
+      if (userJson != null) {
+        final userData = jsonDecode(userJson);
+        myName = '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'.trim();
+        if (myName.isEmpty) myName = 'You';
+      }
 
+      // Validation
+      if (myUserId.isEmpty) {
+        Get.snackbar(
+          'Error',
+          'User not logged in',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      if (myToken.isEmpty) {
+        Get.snackbar(
+          'Error',
+          'Authentication token missing',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // Get.to(() => ChatScreen(
+      //   userName: talent.fullName,        // Talent's name
+      //   userOnline: false,               // Will implement later
+      //   toUserId: talent.id,            // Talent's user ID
+      //   baseUrl: ApiConfig.baseUrl,     // From config
+      //   myToken: myToken,              // Employer's token
+      //   myUserId: myUserId,           // Employer's user ID
+      // ));
+
+    } catch (e) {
+      print('❌ Error opening chat: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to open chat',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  // ✅ DYNAMIC: Profile Header
   Widget _buildProfileHeader() {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.only(top: 20, bottom: 30),
       child: Column(
         children: [
-          // Profile Image with Shadow
+          // Profile Image
           Container(
             width: 120,
             height: 120,
@@ -344,21 +382,36 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(56),
-              child: const CircleAvatar(
-                radius: 56,
-                backgroundImage: NetworkImage(
-                    'https://i.pravatar.cc/300?img=11'),
-              ),
+              child: talent.photoUrl.isNotEmpty
+                  ? CircleAvatar(
+                      radius: 56,
+                      backgroundImage: NetworkImage(talent.photoUrl),
+                    )
+                  : CircleAvatar(
+                      radius: 56,
+                      backgroundColor: talent.bgColor,
+                      child: Text(
+                        talent.fullName.isNotEmpty 
+                            ? talent.fullName[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 20),
+          
           // Name and Verified Badge
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                "Alex Rivera",
-                style: TextStyle(
+              Text(
+                talent.fullName,
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
@@ -380,9 +433,10 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
             ],
           ),
           const SizedBox(height: 8),
+          
           // Title
           Text(
-            "SENIOR PRODUCT DESIGNER",
+            talent.title.toUpperCase(),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -391,6 +445,7 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
             ),
           ),
           const SizedBox(height: 8),
+          
           // Location
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -399,7 +454,7 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
                   size: 16, color: Colors.grey[600]),
               const SizedBox(width: 4),
               Text(
-                "San Francisco, California",
+                talent.location,
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[700],
@@ -408,17 +463,21 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
             ],
           ),
           const SizedBox(height: 20),
+          
           // Stats Row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
                 Expanded(
-                  child: _buildStatCard('4.9★', 'Rating'),
+                  child: _buildStatCard('${talent.rating}★', 'Rating'),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildStatCard('127', 'Projects'),
+                  child: _buildStatCard(
+                    talent.completedProjects.toString(), 
+                    'Projects'
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -431,6 +490,103 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
       ),
     );
   }
+
+  // ✅ Build Work Experiences
+  List<Widget> _buildWorkExperiences() {
+    final experiences = talent.employeeProfile['workExperiences'] as List? ?? [];
+    final List<Widget> items = [];
+    
+    for (var i = 0; i < experiences.length; i++) {
+      final exp = experiences[i];
+      items.add(
+        _buildExperienceItem(
+          exp['title'] ?? 'Position',
+          exp['company'] ?? 'Company',
+          exp['currentlyWorking'] == true ? 'Present' : (exp['endYear'] ?? ''),
+          _formatDuration(exp),
+          'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
+          Colors.blue.shade700,
+        ),
+      );
+      if (i < experiences.length - 1) {
+        items.add(const SizedBox(height: 20));
+      }
+    }
+    
+    return items;
+  }
+
+  // ✅ Build Education
+  List<Widget> _buildEducations() {
+    final educations = talent.employeeProfile['educations'] as List? ?? [];
+    final List<Widget> items = [];
+    
+    for (var i = 0; i < educations.length; i++) {
+      final edu = educations[i];
+      items.add(
+        _buildEducationItem(
+          edu['degree'] ?? 'Degree',
+          edu['school'] ?? 'School',
+          edu['field'] ?? '',
+          _formatEducationDuration(edu),
+        ),
+      );
+      if (i < educations.length - 1) {
+        items.add(const SizedBox(height: 20));
+      }
+    }
+    
+    return items;
+  }
+
+  // ✅ Format work experience duration
+  String _formatDuration(Map<String, dynamic> exp) {
+    final startYear = exp['startYear'] ?? '';
+    final endYear = exp['currentlyWorking'] == true 
+        ? 'Present' 
+        : (exp['endYear'] ?? '');
+    
+    if (startYear.isEmpty) return '';
+    if (endYear.isEmpty) return '$startYear';
+    return '$startYear - $endYear';
+  }
+
+  // ✅ Format education duration
+  String _formatEducationDuration(Map<String, dynamic> edu) {
+    final startYear = edu['startYear'] ?? '';
+    final endYear = edu['currentlyAttending'] == true 
+        ? 'Present' 
+        : (edu['endYear'] ?? '');
+    
+    if (startYear.isEmpty) return '';
+    if (endYear.isEmpty) return '$startYear';
+    return '$startYear - $endYear';
+  }
+
+  // ✅ Build Portfolio Items (Static)
+  List<Widget> _buildPortfolioItems() {
+    return [
+      _buildPortfolioItem(
+        'FinTech Mobile App',
+        'Complete redesign of banking experience',
+        'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=400',
+      ),
+      const SizedBox(height: 12),
+      _buildPortfolioItem(
+        'E-commerce Dashboard',
+        'Admin panel with analytics integration',
+        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400',
+      ),
+      const SizedBox(height: 12),
+      _buildPortfolioItem(
+        'Health & Fitness App',
+        'iOS & Android native design system',
+        'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=400',
+      ),
+    ];
+  }
+
+  // ============ STATIC/REUSABLE WIDGETS ============
 
   Widget _buildStatCard(String value, String label) {
     return Container(
@@ -587,12 +743,91 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$company • $type',
+                  company,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey.shade700,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  duration,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEducationItem(
+    String degree,
+    String school,
+    String field,
+    String duration,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.school, color: primary, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  degree,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  school,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                if (field.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    field,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 4),
                 Text(
                   duration,

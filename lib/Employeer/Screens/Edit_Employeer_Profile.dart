@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:templink/Employeer/Controller/employer_profile_controller.dart';
 import 'package:templink/Utils/colors.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
 class EditEmployerProfileScreen extends StatefulWidget {
   const EditEmployerProfileScreen({Key? key}) : super(key: key);
@@ -10,17 +14,35 @@ class EditEmployerProfileScreen extends StatefulWidget {
 }
 
 class _EditEmployerProfileScreenState extends State<EditEmployerProfileScreen> {
+  final EmployerProfileController controller = Get.find<EmployerProfileController>();
   final _formKey = GlobalKey<FormState>();
-  final _companyNameController = TextEditingController(text: 'Creative Tech Agency');
-  final _industryController = TextEditingController(text: 'Enterprise Software');
-  final _locationController = TextEditingController(text: 'San Francisco, CA');
-  final _companySizeController = TextEditingController(text: '250+');
-  final _websiteController = TextEditingController(text: 'www.creativetech.com');
-  final _aboutController = TextEditingController(
-    text: 'Creative Tech Agency is a leading enterprise software company specializing in innovative solutions for modern businesses.',
-  );
+  
+  late TextEditingController _companyNameController;
+  late TextEditingController _industryController;
+  late TextEditingController _locationController;
+  late TextEditingController _companySizeController;
+  late TextEditingController _websiteController;
+  late TextEditingController _aboutController;
 
   bool _isLoading = false;
+  File? _selectedLogoImage;
+  final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _companyNameController = TextEditingController(text: controller.companyName.value);
+    _industryController = TextEditingController(text: controller.industry.value);
+        String location = controller.city.value;
+    if (controller.country.value.isNotEmpty && controller.country.value != 'Location not set') {
+      location = '${controller.city.value}, ${controller.country.value}';
+    }
+    _locationController = TextEditingController(text: location);
+    
+    _companySizeController = TextEditingController(text: controller.companySize.value);
+    _websiteController = TextEditingController(text: controller.website.value);
+    _aboutController = TextEditingController(text: controller.about.value);
+  }
 
   @override
   void dispose() {
@@ -33,37 +55,45 @@ class _EditEmployerProfileScreenState extends State<EditEmployerProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _pickCoverImage() async {
-    // Cover image pick functionality
-    // You can use image_picker package here
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cover image picker will be implemented')),
-    );
-  }
-
   Future<void> _pickLogoImage() async {
-    // Logo image pick functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Logo image picker will be implemented')),
-    );
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 500,
+        maxHeight: 500,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedLogoImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      print("Error picking image: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to pick image')),
+      );
+    }
   }
 
   Future<void> _saveProfile() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
+      final success = await controller.updateProfileFromEdit(
+        companyName: _companyNameController.text.trim(),
+        industry: _industryController.text.trim(),
+        location: _locationController.text.trim(),
+        companySize: _companySizeController.text.trim(),
+        website: _websiteController.text.trim(),
+        about: _aboutController.text.trim(),
+        logoImage: _selectedLogoImage,
+      );
       
       setState(() => _isLoading = false);
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+      if (success && mounted) {
         Navigator.pop(context);
       }
     }
@@ -114,64 +144,18 @@ class _EditEmployerProfileScreenState extends State<EditEmployerProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Cover Image Section
-              Stack(
-                children: [
-                  Container(
-                    height: 180,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.blue.shade100,
-                          Colors.teal.shade50,
-                        ],
-                      ),
-                    ),
-                    child: Image.network(
-                      'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 16,
-                    right: 16,
-                    child: ElevatedButton.icon(
-                      onPressed: _pickCoverImage,
-                      icon: const Icon(Icons.camera_alt, size: 18),
-                      label: const Text('Change Cover'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black87,
-                        elevation: 2,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              // Logo Section
-              Transform.translate(
-                offset: const Offset(0, -50),
+              // Profile Image Section
+              Padding(
+                padding: const EdgeInsets.only(top: 24, bottom: 16),
                 child: Center(
                   child: Stack(
                     children: [
                       Container(
-                        width: 100,
-                        height: 100,
+                        width: 110,
+                        height: 110,
                         decoration: BoxDecoration(
                           color: const Color(0xFF1A3A52),
-                          borderRadius: BorderRadius.circular(20),
+                          shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 4),
                           boxShadow: [
                             BoxShadow(
@@ -180,12 +164,26 @@ class _EditEmployerProfileScreenState extends State<EditEmployerProfileScreen> {
                               offset: const Offset(0, 4),
                             ),
                           ],
+                          image: _selectedLogoImage != null
+                              ? DecorationImage(
+                                  image: FileImage(_selectedLogoImage!),
+                                  fit: BoxFit.cover,
+                                )
+                              : (controller.logoUrl.value.isNotEmpty
+                                  ? DecorationImage(
+                                      image: NetworkImage(controller.logoUrl.value),
+                                      fit: BoxFit.cover,
+                                      onError: (error, stackTrace) {},
+                                    )
+                                  : null),
                         ),
-                        child: const Icon(
-                          Icons.business,
-                          color: Colors.teal,
-                          size: 50,
-                        ),
+                        child: (_selectedLogoImage == null && controller.logoUrl.value.isEmpty)
+                            ? const Icon(
+                                Icons.business,
+                                color: Colors.teal,
+                                size: 54,
+                              )
+                            : null,
                       ),
                       Positioned(
                         bottom: 0,
@@ -219,7 +217,6 @@ class _EditEmployerProfileScreenState extends State<EditEmployerProfileScreen> {
                 ),
               ),
 
-              // Form Fields
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Column(
@@ -265,7 +262,7 @@ class _EditEmployerProfileScreenState extends State<EditEmployerProfileScreen> {
 
                     _buildTextField(
                       controller: _locationController,
-                      label: 'Location',
+                      label: 'Location (City, Country)',
                       icon: Icons.location_on_outlined,
                       validator: (value) {
                         if (value == null || value.isEmpty) {

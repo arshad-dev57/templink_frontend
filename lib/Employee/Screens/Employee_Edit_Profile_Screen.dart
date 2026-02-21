@@ -7,6 +7,7 @@ import 'package:open_file/open_file.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({Key? key}) : super(key: key);
@@ -1053,74 +1054,122 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  // Resume Methods with Real Logic
-  void _uploadResume() async {
-    // Check storage permission
-    PermissionStatus status = await Permission.storage.status;
-    if (!status.isGranted) {
-      status = await Permission.storage.request();
-      if (!status.isGranted) {
-        _showErrorSnackbar('Storage permission is required to upload resume');
+  Future<bool> _checkAndRequestFilePermission() async {
+  if (Platform.isAndroid) {
+    // Check Android version
+    final androidInfo = await DeviceInfoPlugin().androidInfo;
+    final sdkInt = androidInfo.version.sdkInt;
+    
+    if (sdkInt >= 33) {
+      // Android 13+ - use mediaLibrary permission
+      var status = await Permission.mediaLibrary.status;
+      if (status.isDenied) {
+        status = await Permission.mediaLibrary.request();
+      }
+      return status.isGranted;
+    } else {
+      // Android <13 - use storage permission
+      var status = await Permission.storage.status;
+      if (status.isDenied) {
+        status = await Permission.storage.request();
+      }
+      return status.isGranted;
+    }
+  } else if (Platform.isIOS) {
+    // iOS - use photos permission
+    var status = await Permission.photos.status;
+    if (status.isDenied) {
+      status = await Permission.photos.request();
+    }
+    return status.isGranted;
+  }
+  return true; // For other platforms
+}
+void _uploadResume() async {
+    bool hasPermission = await _checkAndRequestFilePermission();
+  
+  if (!hasPermission) {
+    _showErrorSnackbar('Permission is required to upload resume');
+    return;
+  } 
+  // Check for required permissions based on platform and version
+  PermissionStatus status;
+  
+  if (Platform.isAndroid) {
+    // For Android 13+ (API 33+), use mediaLibrary permission
+    if (await Permission.mediaLibrary.isGranted) {
+      status = PermissionStatus.granted;
+    } else {
+      status = await Permission.mediaLibrary.request();
+    }
+  } else if (Platform.isIOS) {
+    // For iOS, use photos permission
+    status = await Permission.photos.request();
+  } else {
+    // For other platforms
+    status = await Permission.storage.request();
+  }
+  
+  if (!status.isGranted) {
+    _showErrorSnackbar('Permission is required to upload resume');
+    return;
+  }
+  
+  try {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      allowMultiple: false,
+    );
+    
+    if (result != null && result.files.isNotEmpty) {
+      PlatformFile file = result.files.first;
+      
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        _showErrorSnackbar('File size must be less than 5MB');
         return;
       }
-    }
-    
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        allowMultiple: false,
-      );
       
-      if (result != null && result.files.isNotEmpty) {
-        PlatformFile file = result.files.first;
-        
-        // Check file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          _showErrorSnackbar('File size must be less than 5MB');
-          return;
-        }
-        
-        // Show loading
-        setState(() {
-          _isUploading = true;
-        });
-        
-        // Save file locally
-        final directory = await getApplicationDocumentsDirectory();
-        final savedFile = File('${directory.path}/${file.name}');
-        
-        if (file.bytes != null) {
-          await savedFile.writeAsBytes(file.bytes!);
-        } else if (file.path != null) {
-          File localFile = File(file.path!);
-          await localFile.copy(savedFile.path);
-        }
-        
-        // Update state
-        setState(() {
-          _hasResume = true;
-          _resumeName = file.name;
-          _resumeFilePath = savedFile.path;
-          _resumeUploadDate = "Uploaded on ${_formatDate(DateTime.now())}";
-          _resumeFileSize = file.size / (1024 * 1024);
-          _selectedResumeFile = savedFile;
-          _isUploading = false;
-        });
-        
-        _showSuccessSnackbar('Resume uploaded successfully!');
-        
-        // TODO: Upload to your backend API here
-        // await _uploadToBackend(savedFile, file.name);
-        
-      }
-    } catch (e) {
+      // Show loading
       setState(() {
+        _isUploading = true;
+      });
+      
+      // Save file locally
+      final directory = await getApplicationDocumentsDirectory();
+      final savedFile = File('${directory.path}/${file.name}');
+      
+      if (file.bytes != null) {
+        await savedFile.writeAsBytes(file.bytes!);
+      } else if (file.path != null) {
+        File localFile = File(file.path!);
+        await localFile.copy(savedFile.path);
+      }
+      
+      // Update state
+      setState(() {
+        _hasResume = true;
+        _resumeName = file.name;
+        _resumeFilePath = savedFile.path;
+        _resumeUploadDate = "Uploaded on ${_formatDate(DateTime.now())}";
+        _resumeFileSize = file.size / (1024 * 1024);
+        _selectedResumeFile = savedFile;
         _isUploading = false;
       });
-      _showErrorSnackbar('Error uploading resume: ${e.toString()}');
+      
+      _showSuccessSnackbar('Resume uploaded successfully!');
+      
+      // TODO: Upload to your backend API here
+      // await _uploadToBackend(savedFile, file.name);
     }
+  } catch (e) {
+    setState(() {
+      _isUploading = false;
+    });
+    _showErrorSnackbar('Error uploading resume: ${e.toString()}');
   }
+}
 
   void _viewResume() {
     if (_resumeFilePath != null) {

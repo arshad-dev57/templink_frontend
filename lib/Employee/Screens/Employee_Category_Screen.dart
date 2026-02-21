@@ -103,7 +103,7 @@ class _EmployeeCategoryScreenState extends State<EmployeeCategoryScreen> {
                         "Error", "Please select at least one category");
                     return;
                   }
-                  Get.to(() => const EmployeeProfileCompleteScreen());
+                  // Get.to(() => const EmployeeProfileCompleteScreen());
                 },
                 child: const Text(
                   "Continue",

@@ -1,420 +1,228 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:templink/Employee/Controllers/Employee_Profile_Controller.dart';
 import 'package:templink/Employee/Screens/Employee_Edit_Profile_Screen.dart';
+
 import 'package:templink/Utils/colors.dart';
 
-class MyProfileScreen extends StatefulWidget {
-  const MyProfileScreen({Key? key}) : super(key: key);
+class EmployeeProfileScreen extends StatefulWidget {
+  const EmployeeProfileScreen({super.key});
 
   @override
-  State<MyProfileScreen> createState() => _MyProfileScreenState();
+  State<EmployeeProfileScreen> createState() => _EmployeeProfileScreenState();
 }
 
-class _MyProfileScreenState extends State<MyProfileScreen> {
-  // Sample data that would come from user's profile
-  Map<String, dynamic> userProfile = {
-    'name': 'Alex Rivera',
-    'title': 'SENIOR PRODUCT DESIGNER',
-    'location': 'San Francisco, California',
-    'hourlyRate': 85,
-    'isAvailable': true,
-    'about': 'Passionate Senior Product Designer with 8+ years of experience in creating scalable design systems and user-centric mobile applications. Expert in Flutter, Figma, and Agile methodologies. I love bringing ideas to life through beautiful, functional designs.',
-    'skills': [
-      'User Experience (UX)',
-      'Flutter',
-      'Dart',
-      'Mobile Design',
-      'System Architecture',
-      'Figma',
-      'Design Systems',
-      'Prototyping',
-    ],
-  };
-
-  // Resume data
-  bool _hasResume = true;
-  String _resumeName = "Alex_Rivera_Resume.pdf";
-  String _resumeUploadDate = "Uploaded on Jan 15, 2024";
-  double _resumeFileSize = 2.5; // MB
+class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
+  final EmployeeProfileController controller = Get.put(EmployeeProfileController());
+  
+  final bool _hasResume = false; // Change to false to show add button
+  final String _resumeName = "Alex_Rivera_Resume.pdf";
+  final String _resumeUploadDate = "Uploaded on Jan 15, 2024";
+  final double _resumeFileSize = 2.5; 
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              backgroundColor: Colors.white,
-              pinned: true,
-              elevation: 0,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black),
-                onPressed: () => Navigator.pop(context),
-              ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, color: Colors.black87),
-                  onPressed: () {
-                    Get.to(() => const EditProfileScreen());
-                  },
-                  tooltip: 'Edit Profile',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined, color: Colors.black87),
-                  onPressed: () {
-                    // Navigate to settings
-                  },
-                  tooltip: 'Settings',
-                ),
-              ],
-            ),
-            SliverToBoxAdapter(
-              child: _buildProfileHeader(),
-            ),
-          ];
-        },
-        body: ListView(
-          children: [
-            // Hourly Rate & Availability Card
-            Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverAppBar(
+                backgroundColor: Colors.white,
+                pinned: true,
+                elevation: 0,
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: Colors.black87),
+                    onPressed: () {
+                      Get.to(() => const EditProfileScreen());
+                    },
+                    tooltip: 'Edit Profile',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined, color: Colors.black87),
+                    onPressed: () {},
+                    tooltip: 'Settings',
                   ),
                 ],
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "HOURLY RATE",
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade600,
-                          letterSpacing: 0.5,
-                        ),
+              SliverToBoxAdapter(
+                child: _buildProfileHeader(),
+              ),
+            ];
+          },
+          body: ListView(
+            children: [
+              // Resume Section
+              _buildSectionCard(
+                title: 'Resume',
+                icon: Icons.description_outlined,
+                showAddButton: !_hasResume,
+                onAddPressed: () => _uploadResume(),
+                child: _hasResume
+                    ? _buildResumeItem()
+                    : _buildEmptyState(
+                        icon: Icons.upload_file,
+                        message: 'No resume uploaded',
+                        subMessage: 'Upload your resume to increase hire chances',
+                        buttonText: 'Upload Resume',
+                        onPressed: _uploadResume,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "\$${userProfile['hourlyRate']}/hr",
+              ),
+
+              // Hourly Rate Card
+              _buildHourlyRateCard(),
+
+              // About Section
+              _buildSectionCard(
+                title: 'About',
+                icon: Icons.info_outline,
+                showAddButton: controller.bio.value.isEmpty,
+                onAddPressed: () => Get.to(() => const EditProfileScreen()),
+                child: controller.bio.value.isNotEmpty
+                    ? Text(
+                        controller.bio.value,
                         style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          height: 1.6,
                           color: Colors.black87,
                         ),
+                      )
+                    : _buildEmptyState(
+                        icon: Icons.info_outline,
+                        message: 'No about added',
+                        subMessage: 'Tell employers about yourself',
+                        buttonText: 'Add About',
+                        onPressed: () => Get.to(() => const EditProfileScreen()),
                       ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: userProfile['isAvailable']
-                          ? Colors.green.shade50
-                          : Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          userProfile['isAvailable']
-                              ? Icons.check_circle
-                              : Icons.do_not_disturb,
-                          color: userProfile['isAvailable']
-                              ? Colors.green.shade700
-                              : Colors.red.shade700,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          userProfile['isAvailable']
-                              ? 'Available Now'
-                              : 'Not Available',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: userProfile['isAvailable']
-                                ? Colors.green.shade700
-                                : Colors.red.shade700,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ),
-            ),
 
-            // About Section
-            _buildSectionCard(
-              title: 'About',
-              icon: Icons.info_outline,
-              child: Text(
-                userProfile['about'],
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.6,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-
-            // Skills & Expertise Section
-            _buildSectionCard(
-              title: 'Skills & Expertise',
-              icon: Icons.stars_outlined,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (var skill in userProfile['skills'])
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        skill,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            // Resume Section
-            _buildSectionCard(
-              title: 'Resume',
-              icon: Icons.description_outlined,
-              child: Column(
-                children: [
-                  if (_hasResume)
-                    _buildResumeItem()
-                  else
-                    _buildNoResumePlaceholder(),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Action Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            _viewResume();
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: primary,
-                            side: BorderSide(color: primary, width: 1),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+              
+              _buildSectionCard(
+                title: 'Skills & Expertise',
+                icon: Icons.stars_outlined,
+                showAddButton: controller.skills.isEmpty,
+                onAddPressed: () => Get.to(() => const EditProfileScreen()),
+                child: controller.skills.isNotEmpty
+                    ? Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: controller.skills.map((skill) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          icon: const Icon(Icons.visibility_outlined, size: 18),
-                          label: const Text('View Resume'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Get.to(() => const EditProfileScreen());
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                          label: const Text('Update'),
-                        ),
+                            child: Text(
+                              skill,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      )
+                    : _buildEmptyState(
+                        icon: Icons.stars_outlined,
+                        message: 'No skills added',
+                        subMessage: 'Add your skills to get better matches',
+                        buttonText: 'Add Skills',
+                        onPressed: () => Get.to(() => const EditProfileScreen()),
                       ),
-                    ],
-                  ),
-                ],
               ),
-            ),
 
-            // Work Experience Section
-            _buildSectionCard(
-              title: 'Work Experience',
-              icon: Icons.work_outline,
-              child: Column(
-                children: [
-                  _buildExperienceItem(
-                    'Senior Product Designer',
-                    'Google',
-                    'Full-time',
-                    'Jan 2021 - Present • 3 yrs',
-                    'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
-                    Colors.blue.shade700,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildExperienceItem(
-                    'UI/UX Designer',
-                    'Airbnb',
-                    'Contract',
-                    'Jun 2018 - Dec 2020 • 2 yrs 6 mos',
-                    'https://cdn-icons-png.flaticon.com/512/2111/2111307.png',
-                    Colors.pink.shade400,
-                  ),
-                ],
-              ),
-            ),
-
-            // Featured Projects Section
-            _buildSectionCard(
-              title: 'Featured Projects',
-              icon: Icons.folder_outlined,
-              child: Column(
-                children: [
-                  _buildPortfolioItem(
-                    'FinTech Mobile App',
-                    'Complete redesign of banking experience',
-                    'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=400',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildPortfolioItem(
-                    'E-commerce Dashboard',
-                    'Admin panel with analytics integration',
-                    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400',
-                  ),
-                ],
-              ),
-            ),
-
-            // Reviews Section
-            _buildSectionCard(
-              title: 'Client Reviews',
-              icon: Icons.star_outline,
-              child: Column(
-                children: [
-                  _buildReviewItem(
-                    'Sarah Johnson',
-                    'CEO at TechStart',
-                    '5.0',
-                    'Outstanding work! Alex delivered beyond expectations. The design was pixel-perfect and the communication was excellent throughout.',
-                    'https://i.pravatar.cc/150?img=45',
-                  ),
-                ],
-              ),
-            ),
-
-            // Profile Analytics Section
-            _buildSectionCard(
-              title: 'Profile Analytics',
-              icon: Icons.analytics_outlined,
-              child: Column(
-                children: [
-                  // First row of stats
-                  Row(
-                    children: [
-                      Expanded(child: _buildStatItem(
-                        icon: Icons.remove_red_eye,
-                        value: '1,247',
-                        label: 'Profile Views',
-                        color: Colors.blue.shade600,
-                      )),
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: Colors.grey.shade200,
-                      ),
-                      Expanded(child: _buildStatItem(
+              // Work Experience Section
+              _buildSectionCard(
+                title: 'Work Experience',
+                icon: Icons.work_outline,
+                showAddButton: controller.workExperiences.isEmpty,
+                // onAddPressed: () => Get.to(() => AddWorkExperienceScreen()),
+                child: controller.workExperiences.isNotEmpty
+                    ? Column(
+                        children: controller.workExperiences.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final exp = entry.value;
+                          return Column(
+                            children: [
+                              _buildExperienceItem(exp),
+                              if (index < controller.workExperiences.length - 1)
+                                const SizedBox(height: 12),
+                            ],
+                          );
+                        }).toList(),
+                      )
+                    : _buildEmptyState(
                         icon: Icons.work_outline,
-                        value: '24',
-                        label: 'Hire Requests',
-                        color: Colors.green.shade600,
-                      )),
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: Colors.grey.shade200,
+                        message: 'No work experience',
+                        subMessage: 'Add your work history',
+                        buttonText: 'Add Experience',
+                        onPressed: (){},
                       ),
-                      Expanded(child: _buildStatItem(
-                        icon: Icons.message_outlined,
-                        value: '156',
-                        label: 'Messages',
-                        color: Colors.orange.shade600,
-                      )),
-                    ],
-                  ),
-                  
-                  // Divider
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 16),
-                    height: 1,
-                    color: Colors.grey.shade200,
-                  ),
-                  
-                  // Second row of stats
-                  Row(
-                    children: [
-                      Expanded(child: _buildStatItem(
-                        icon: Icons.check_circle_outline,
-                        value: '42',
-                        label: 'Completed Jobs',
-                        color: Colors.purple.shade600,
-                      )),
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: Colors.grey.shade200,
-                      ),
-                      Expanded(child: _buildStatItem(
-                        icon: Icons.timer_outlined,
-                        value: '98%',
-                        label: 'Response Rate',
-                        color: Colors.teal.shade600,
-                      )),
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: Colors.grey.shade200,
-                      ),
-                      Expanded(child: _buildStatItem(
-                        icon: Icons.star_outline,
-                        value: '4.9',
-                        suffix: '★',
-                        label: 'Avg. Rating',
-                        color: Colors.amber.shade700,
-                      )),
-                    ],
-                  ),
-                ],
               ),
-            ),
 
-            const SizedBox(height: 100),
-          ],
-        ),
-      ),
+              // Education Section
+              _buildSectionCard(
+                title: 'Education',
+                icon: Icons.school_outlined,
+                showAddButton: controller.educations.isEmpty,
+                onAddPressed: () {},
+                child: controller.educations.isNotEmpty
+                    ? Column(
+                        children: controller.educations.map((edu) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildEducationItem(edu),
+                          );
+                        }).toList(),
+                      )
+                    : _buildEmptyState(
+                        icon: Icons.school_outlined,
+                        message: 'No education added',
+                        subMessage: 'Add your educational background',
+                        buttonText: 'Add Education',
+                        onPressed: () {},
+                      ),
+              ),
+
+              // Portfolio Section
+              _buildSectionCard(
+                title: 'Portfolio Projects',
+                icon: Icons.folder_outlined,
+                showAddButton: controller.portfolioProjects.isEmpty,
+                onAddPressed: () {},
+                child: controller.portfolioProjects.isNotEmpty
+                    ? Column(
+                        children: controller.portfolioProjects.map((project) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildPortfolioItem(project),
+                          );
+                        }).toList(),
+                      )
+                    : _buildEmptyState(
+                        icon: Icons.folder_outlined,
+                        message: 'No portfolio projects',
+                        subMessage: 'Showcase your work',
+                        buttonText: 'Add Project',
+                        onPressed: (){},
+                      ),
+              ),
+
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      }),
     );
   }
 
@@ -424,7 +232,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       padding: const EdgeInsets.only(top: 20, bottom: 20),
       child: Column(
         children: [
-          // Profile Image with Edit Button
           Stack(
             children: [
               Container(
@@ -447,44 +254,46 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(56),
-                  child: const CircleAvatar(
-                    radius: 56,
-                    backgroundImage: NetworkImage(
-                        'https://i.pravatar.cc/300?img=11'),
-                  ),
+                  child: controller.photoUrl.value.isNotEmpty
+                      ? Image.network(
+                          controller.photoUrl.value,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildDefaultAvatar();
+                          },
+                        )
+                      : _buildDefaultAvatar(),
                 ),
               ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: GestureDetector(
-                  onTap: () => _changeProfilePicture(),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
+              // Positioned(
+              //   bottom: 0,
+              //   right: 0,
+              //   child: GestureDetector(
+              //     onTap: _changeProfilePicture,
+              //     child: Container(
+              //       width: 36,
+              //       height: 36,
+              //       decoration: BoxDecoration(
+              //         color: primary,
+              //         shape: BoxShape.circle,
+              //         border: Border.all(color: Colors.white, width: 2),
+              //       ),
+              //       child: const Icon(
+              //         Icons.camera_alt,
+              //         size: 18,
+              //         color: Colors.white,
+              //       ),
+              //     ),
+              //   ),
+              // ),
             ],
           ),
           const SizedBox(height: 20),
-          
-          // Name and Verified Badge
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                userProfile['name'],
+                controller.fullName,
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -506,12 +315,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               ),
             ],
           ),
-          
           const SizedBox(height: 8),
-          
-          // Professional Title
           Text(
-            userProfile['title'],
+            controller.title.value.toUpperCase(),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -519,10 +325,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               letterSpacing: 0.5,
             ),
           ),
-          
           const SizedBox(height: 8),
-          
-          // Location
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -530,7 +333,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                   size: 16, color: Colors.grey[600]),
               const SizedBox(width: 4),
               Text(
-                userProfile['location'],
+                controller.country.value.isNotEmpty
+                    ? controller.country.value
+                    : 'Location not set',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[700],
@@ -538,10 +343,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               ),
             ],
           ),
-          
           const SizedBox(height: 20),
-          
-          // Stats Row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -565,10 +367,130 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     );
   }
 
+  Widget _buildDefaultAvatar() {
+    return Container(
+      color: Colors.grey.shade300,
+      child: Center(
+        child: Text(
+          controller.initials,
+          style: const TextStyle(
+            fontSize: 40,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHourlyRateCard() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "HOURLY RATE",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              controller.hourlyRate.value.isNotEmpty
+                  ? Text(
+                      "\$${controller.hourlyRate.value}/hr",
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    )
+                  : GestureDetector(
+                      onTap: () => Get.to(() => const EditProfileScreen()),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.add, size: 16, color: primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Set Rate',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: Colors.green.shade700,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Available',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSectionCard({
     required String title,
     required IconData icon,
     required Widget child,
+    bool showAddButton = false,
+    VoidCallback? onAddPressed,
   }) {
     return Container(
       width: double.infinity,
@@ -589,17 +511,50 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+              Row(
+                children: [
+                  Icon(icon, color: primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
               ),
+              if (showAddButton)
+                GestureDetector(
+                  onTap: onAddPressed,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.add, size: 16, color: primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Add',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -648,68 +603,59 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     );
   }
 
-  Widget _buildStatItem({
+  Widget _buildEmptyState({
     required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-    String suffix = '',
+    required String message,
+    required String subMessage,
+    required String buttonText,
+    required VoidCallback onPressed,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade300,
+          style: BorderStyle.solid,
+        ),
+      ),
       child: Column(
         children: [
-          // Icon with background
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 20,
-            ),
+          Icon(
+            icon,
+            size: 48,
+            color: Colors.grey.shade400,
           ),
-          const SizedBox(height: 10),
-          
-          // Value with optional suffix
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black87,
-                ),
-              ),
-              if (suffix.isNotEmpty)
-                Text(
-                  suffix,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-                ),
-            ],
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+            ),
           ),
           const SizedBox(height: 4),
-          
-          // Label
           Text(
-            label,
+            subMessage,
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
-              letterSpacing: 0.3,
+              color: Colors.grey.shade500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: onPressed,
+            icon: Icon(Icons.add, size: 18),
+            label: Text(buttonText),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
           ),
         ],
@@ -727,7 +673,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       ),
       child: Row(
         children: [
-          // PDF Icon
           Container(
             width: 48,
             height: 48,
@@ -742,8 +687,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             ),
           ),
           const SizedBox(width: 16),
-          
-          // File Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -790,70 +733,29 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               ],
             ),
           ),
-          
-          // Download Icon
-          IconButton(
-            onPressed: () {
-              _downloadResume();
-            },
-            icon: const Icon(
-              Icons.download_outlined,
-              color: primary,
-              size: 22,
-            ),
+          PopupMenuButton(
+            icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                child: const Text('View'),
+                onTap: () => _viewResume(),
+              ),
+              PopupMenuItem(
+                child: const Text('Download'),
+                onTap: () => _downloadResume(),
+              ),
+              PopupMenuItem(
+                child: const Text('Delete'),
+                onTap: () => _showDeleteDialog('resume'),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNoResumePlaceholder() {
-    return Container(
-      padding:  EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.grey.shade300,
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.description_outlined,
-            size: 48,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No resume uploaded',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Upload your resume to increase hire chances',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExperienceItem(
-    String title,
-    String company,
-    String type,
-    String duration,
-    String logoUrl,
-    Color accentColor,
-  ) {
+  Widget _buildExperienceItem(Map<String, dynamic> exp) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -878,12 +780,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 ),
               ],
             ),
-            child: Image.network(
-              logoUrl,
-              errorBuilder: (context, error, stackTrace) {
-                return Icon(Icons.business, color: accentColor);
-              },
-            ),
+            child: Icon(Icons.business, color: Colors.blue.shade700),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -891,7 +788,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  exp['title'] ?? 'No Title',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -900,7 +797,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$company • $type',
+                  '${exp['company'] ?? 'No Company'} • ${exp['currentlyWorking'] == true ? 'Present' : 'Past'}',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey.shade700,
@@ -908,7 +805,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  duration,
+                  _formatDuration(exp),
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.grey.shade600,
@@ -917,12 +814,92 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               ],
             ),
           ),
+          PopupMenuButton(
+            icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                child: const Text('Edit'),
+                onTap: () => _editExperience(exp),
+              ),
+              PopupMenuItem(
+                child: const Text('Delete'),
+                onTap: () => _showDeleteDialog('experience'),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildPortfolioItem(String title, String description, String imageUrl) {
+  Widget _buildEducationItem(Map<String, dynamic> edu) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.school, color: primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  edu['degree'] ?? 'Degree',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  edu['school'] ?? 'School',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${edu['startYear'] ?? ''} - ${edu['endYear'] ?? 'Present'}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton(
+            icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                child: const Text('Edit'),
+                onTap: () => _editEducation(edu),
+              ),
+              PopupMenuItem(
+                child: const Text('Delete'),
+                onTap: () => _showDeleteDialog('education'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPortfolioItem(Map<String, dynamic> project) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
@@ -934,42 +911,60 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         children: [
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Image.network(
-              imageUrl,
-              width: double.infinity,
-              height: 150,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  height: 150,
-                  color: Colors.grey.shade300,
-                  child: const Center(
-                    child: Icon(Icons.image, size: 50, color: Colors.grey),
-                  ),
-                );
-              },
-            ),
+            child: project['imageUrl'] != null && project['imageUrl'].isNotEmpty
+                ? Image.network(
+                    project['imageUrl'],
+                    width: double.infinity,
+                    height: 150,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildPlaceholderImage();
+                    },
+                  )
+                : _buildPlaceholderImage(),
           ),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Column(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        project['title'] ?? 'Untitled',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        project['description'] ?? 'No description',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
+                PopupMenuButton(
+                  icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      child: const Text('Edit'),
+                      onTap: () => _editPortfolio(project),
+                    ),
+                    PopupMenuItem(
+                      child: const Text('Delete'),
+                      onTap: () => _showDeleteDialog('portfolio'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -979,89 +974,24 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     );
   }
 
-  Widget _buildReviewItem(
-    String name,
-    String position,
-    String rating,
-    String review,
-    String avatarUrl,
-  ) {
+  Widget _buildPlaceholderImage() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundImage: NetworkImage(avatarUrl),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    Text(
-                      position,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 14),
-                    const SizedBox(width: 4),
-                    Text(
-                      rating,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            review,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.5,
-              color: Colors.grey.shade700,
-            ),
-          ),
-        ],
+      height: 150,
+      color: Colors.grey.shade300,
+      child: const Center(
+        child: Icon(Icons.image, size: 50, color: Colors.grey),
       ),
     );
   }
 
-  // Action Methods
+  String _formatDuration(Map<String, dynamic> exp) {
+    if (exp['currentlyWorking'] == true) {
+      return '${exp['startYear'] ?? ''} - Present';
+    } else {
+      return '${exp['startYear'] ?? ''} - ${exp['endYear'] ?? ''}';
+    }
+  }
+
   void _changeProfilePicture() {
     showModalBottomSheet(
       context: context,
@@ -1089,7 +1019,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 title: const Text('Take Photo'),
                 onTap: () {
                   Navigator.pop(context);
-                  // Implement camera functionality
+                  // Implement camera
                 },
               ),
               ListTile(
@@ -1105,7 +1035,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 title: const Text('Remove Photo'),
                 onTap: () {
                   Navigator.pop(context);
-                  // Implement remove photo
+                  // Implement remove
                 },
               ),
               const SizedBox(height: 20),
@@ -1116,8 +1046,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     );
   }
 
+  void _uploadResume() {
+    // Implement resume upload
+    Get.snackbar('Info', 'Resume upload coming soon');
+  }
+
   void _viewResume() {
-    // Implement PDF viewing logic
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1155,7 +1089,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // Open PDF viewer
               _showSnackbar('Opening resume...');
             },
             style: ElevatedButton.styleFrom(
@@ -1169,14 +1102,43 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   }
 
   void _downloadResume() {
-    // Implement download logic
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Downloading resume...'),
-        action: SnackBarAction(
-          label: 'OK',
-          onPressed: () {},
-        ),
+    _showSnackbar('Downloading resume...');
+  }
+
+  void _editExperience(Map<String, dynamic> exp) {
+    // Get.to(() => AddWorkExperienceScreen(experience: exp));
+  }
+
+  void _editEducation(Map<String, dynamic> edu) {
+    // Get.to(() => AddEducationScreen(education: edu));
+  }
+
+  void _editPortfolio(Map<String, dynamic> project) {
+    // Get.to(() => AddPortfolioScreen(project: project));
+  }
+
+  void _showDeleteDialog(String type) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete $type'),
+        content: Text('Are you sure you want to delete this $type?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showSnackbar('$type deleted');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
       ),
     );
   }
@@ -1186,15 +1148,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       SnackBar(
         content: Text(message),
         duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  void _shareProfile() {
-    // Implement share functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profile link copied to clipboard'),
       ),
     );
   }

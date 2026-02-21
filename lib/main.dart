@@ -1,56 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_downloader/flutter_downloader.dart';
-import 'package:get/get_navigation/src/root/get_material_app.dart';
-import 'package:get/get_utils/src/platform/platform.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:templink/Employee/Screens/Employee_Category_Screen.dart';
-import 'package:templink/Employee/Screens/Employee_Edit_Profile_Screen.dart';
-import 'package:templink/Employee/Screens/Employee_Profile_Screen.dart';
-import 'package:templink/Employeer/Screens/PostProjectScreen.dart';
-import 'package:templink/Employeer/Screens/Post_Job_screen.dart';
-import 'package:templink/Global_Screens/Register_screen.dart';
-import 'package:templink/Global_Screens/Spalsh_screen.dart';
-import 'package:templink/Employeer/Screens/homescreen.dart';
-import 'package:templink/Global_Screens/login_screen.dart';
-import 'package:templink/Employeer/Screens/post_selection.dart';
-import 'package:templink/Employeer/Screens/select_post_type_screen.dart';
-import 'package:templink/Global_Screens/usertype_screen.dart';
-void main() async{
+import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:get/get.dart';
+import 'package:templink/Employee/Screens/Employee_Active_Projects.dart';
+import 'package:templink/Employee/Screens/Employee_HomeScreen.dart';
+import 'package:templink/Employeer/Screens/Employeer_Dashboard_Screen.dart';
+import 'package:templink/Employeer/Screens/Employeer_homescreen.dart';
+import 'package:templink/Employeer/Screens/Employeer_profile_complete_screen.dart';
+import 'package:templink/Employeer/Screens/Employer_Active_Projects_Screen.dart';
+import 'package:templink/Employeer/Screens/project_management_screen.dart';
+import 'package:templink/Global_Screens/Chat_Users_List_Screen.dart';
+import 'package:templink/Global_Screens/Splash_screen.dart';
+import 'package:templink/Resume_Builder/Screens/Resume_Dashboard_Screen.dart';
+import 'package:templink/Services/Notificaton_Service.dart';
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize flutter_downloader
-  await FlutterDownloader.initialize(
-    debug: true, // Set to false in production
-  );
-  
-  // Request necessary permissions
-  await _requestPermissions();
+  Stripe.publishableKey =
+      "pk_test_51QY8GUFfoWN8tK9rycKFo91v04ba0VTvnmtz2t8QyyG6GCmFgkzNPduXu72mt3TFuoqyliOKgI6U9ve3PMBCXfTE0045P6hGKg";
+  await Stripe.instance.applySettings();
   runApp(const MyApp());
-}
-Future<void> _requestPermissions() async {
-  if (GetPlatform.isAndroid) {
-    await Permission.storage.request();
-    await Permission.camera.request();
-    await Permission.photos.request();
-    await Permission.notification.request();
-  } else if (GetPlatform.isIOS) {
-    await Permission.photos.request();
-    await Permission.camera.request();
-    await Permission.notification.request();
-  }
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    await NotificationService.instance.init();
+    await NotificationService.instance.debugPrintState(from: "main_postframe");
+  });
 }
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-    @override
+  @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
+      title: 'Templink',
       debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        primarySwatch: Colors.green,
+        useMaterial3: true,
       ),
-      home:  MyProfileScreen(),
+      home:  EmployeeHomeScreen(),
     );
-  } 
+  }
 }

@@ -7,8 +7,8 @@ plugins {
 
 android {
     namespace = "com.example.templink"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    compileSdk = 35
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -20,21 +20,34 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.templink"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 24
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 21
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // ⚠️ IMPORTANT: release build ke liye signingConfig apna lagana hota hai
+            // Abhi debug signing rakhi hui hai (testing ok)
             signingConfig = signingConfigs.getByName("debug")
+
+            // ✅ IMPORTANT: R8/Proguard enable
+            isMinifyEnabled = true
+            isShrinkResources = true
+
+            // ✅ IMPORTANT: proguard rules apply karna
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+
+        debug {
+            // optional - explicitly off
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

@@ -5,36 +5,55 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '^3.8.0'
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.13.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
+  # UI & Navigation
   cupertino_icons: ^1.0.8
   get: ^4.7.3
-  delightful_toast: ^1.1.0
-  http: ^0.13.6
   convex_bottom_bar: ^3.2.0
+  
+  # Toast & Feedback
+  delightful_toast: ^1.1.0
+  shimmer: ^3.0.0
+  
+  # HTTP & Networking
+  http: ^0.13.6
+  dio: ^5.9.1
+  mime: ^1.0.4
+  http_parser: ^4.0.2
+  
+  
+  # Files & PDF
   image_picker: ^1.2.1
-
-  # PDF Related
-  flutter_pdfview: ^1.4.4
-  flutter_downloader: ^1.12.0
-  path_provider: ^2.1.5
-  permission_handler: ^12.0.1
-
-  # File & Network
   file_picker: ^10.3.10
   open_file: ^3.5.11
-  dio: ^5.9.1
-
-  # Storage & UX
-  flutter_secure_storage: ^10.0.0
+  path_provider: ^2.1.5
+  permission_handler: ^12.0.1
+  flutter_pdfview: ^1.4.4
+  flutter_downloader: ^1.12.0
+  fl_chart: ^0.66.2
+  pin_code_fields: ^8.0.1
+  
+  # Device & Storage
+  device_info_plus: ^12.3.0
   shared_preferences: ^2.3.2
+  intl: ^0.20.2
+  flutter_stripe: ^11.3.0
+  webview_flutter: ^4.7.0
+  onesignal_flutter: ^5.4.1
+  socket_io_client: ^2.0.3+1
+  video_player: ^2.8.6
+  google_sign_in: ^6.2.1
+  uuid: ^4.5.2
   url_launcher: ^6.3.2
-  shimmer: ^3.0.0
-
+  app_links: ^3.5.0
+  path: ^1.9.0
+  signature: ^5.4.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -42,3 +61,23 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
+  # Add your assets here
+  assets:
+    - assets/
+
+    
+    # If you have specific image files, you can also list them individually
+    # - assets/images/logo.png
+    # - assets/images/profile_placeholder.png
+    
+    # If using SVG images, you'll need to add flutter_svg package
+    # - assets/svgs/
+  
+  # Fonts configuration (if you have custom fonts)
+  # fonts:
+  #   - family: OpenSans
+  #     fonts:
+  #       - asset: assets/fonts/OpenSans-Regular.ttf
+  #       - asset: assets/fonts/OpenSans-Bold.ttf
+  #         weight: 700
