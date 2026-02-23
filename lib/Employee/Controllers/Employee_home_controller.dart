@@ -53,12 +53,11 @@ class EmployeeHomeController extends GetxController {
     }
   }
 
-  // ==================== REFRESH DATA ====================
+ 
   Future<void> refreshData() async {
     await loadUserData();
   }
 
-  // ==================== GET INITIALS ====================
   String getInitials() {
     if (firstName.value.isNotEmpty && lastName.value.isNotEmpty) {
       return '${firstName.value[0]}${lastName.value[0]}'.toUpperCase();

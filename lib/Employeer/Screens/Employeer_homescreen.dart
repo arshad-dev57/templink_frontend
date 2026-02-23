@@ -60,7 +60,7 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
       case 0:
         return _buildHomeContent();
       case 1:
-        return const EmployerOwnProjectsScreen();
+        return const ChatUsersListScreen();
       case 2:
         return const Center(child: EmployerOwnProjectsScreen());
       case 3:
@@ -144,7 +144,6 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
                 Get.to(EmployerProjectManagementScreen());
               }),
 
-                _drawerItem(Icons.bar_chart_outlined, 'My stats', () {}),
 
                 _drawerItem(Icons.assignment_outlined, 'Reports', () {}),
                 _drawerItem(Icons.settings_outlined, 'Settings', () {

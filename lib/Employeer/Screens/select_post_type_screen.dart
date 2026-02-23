@@ -71,7 +71,7 @@ class SelectPostTypeScreen extends StatelessWidget {
                           if (controller.selectedType.value == PostType.project) {
                             Get.to(() => PostProjectScreen());
                           } else if (controller.selectedType.value == PostType.hiring) {
-                            // Get.to(() => JobPostScreen());
+                            Get.to(() => JobPostScreen());
                           }
                         }
                       : null, 

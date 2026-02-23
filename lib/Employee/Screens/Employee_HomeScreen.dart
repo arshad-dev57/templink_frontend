@@ -68,11 +68,11 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
       case 0:
         return _buildHomeContent();
       case 1:
-        return const MyProposalsScreen();
+        return const ChatUsersListScreen();
       case 2:
         return const MyProposalsScreen();
       case 3:
-        return const Center(child: MyProposalsScreen());
+        return const Center(child: SearchScreen());
       case 4:
         return const EmployeeProfileScreen();
       default:

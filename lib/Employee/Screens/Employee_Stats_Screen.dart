@@ -97,110 +97,127 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
       }),
     );
   }
-
-  Widget _buildEarningsCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Total Earnings",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+Widget _buildEarningsCard() {
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Total Earnings",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  controller.formatCurrency(controller.totalEarnings.value),
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: primary,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                "USD",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                controller.formatCurrency(controller.totalEarnings.value),
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: primary,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.trending_up,
+                    size: 16,
+                    color: Colors.green,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.trending_up,
-                      size: 16,
-                      color: Colors.green,
+                  const SizedBox(width: 4),
+                  Text(
+                    "${controller.successRate.value}%",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green.shade700,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      "${controller.successRate.value}%",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green.shade700,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Pending: ${controller.formatCurrency(controller.pendingEarnings.value)}",
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.orange.shade700,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Text(
-                "Avg/Project: ${controller.formatCurrency(controller.averagePerProject.value)}",
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            "Member since: ${controller.memberSince.value} (${controller.totalDays.value} days)",
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
             ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "Pending: ${controller.formatCurrency(controller.pendingEarnings.value)}",
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.orange.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(
+              "Avg/Project: ${controller.formatCurrency(controller.averagePerProject.value)}",
+                style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          "Member since: ${controller.memberSince.value} (${controller.totalDays.value} days)",
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPointsCard() {
+        ),
+      ],
+    ),
+  );
+}  Widget _buildPointsCard() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
