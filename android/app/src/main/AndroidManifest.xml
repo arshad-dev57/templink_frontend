@@ -29,6 +29,7 @@
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true"
+        android:requestLegacyExternalStorage="true"  <!-- YEH LINE ADD KAREIN -->
         tools:replace="android:label,android:usesCleartextTraffic">
 
         <activity

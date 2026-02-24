@@ -43,11 +43,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                     },
                     tooltip: 'Edit Profile',
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.settings_outlined, color: Colors.black87),
-                    onPressed: () {},
-                    tooltip: 'Settings',
-                  ),
+               
                 ],
               ),
               SliverToBoxAdapter(
@@ -57,7 +53,6 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
           },
           body: ListView(
             children: [
-              // Resume Section
               _buildSectionCard(
                 title: 'Resume',
                 icon: Icons.description_outlined,

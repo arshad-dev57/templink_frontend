@@ -11,10 +11,13 @@ class ChatSocketController extends GetxController {
   var activeConversationId = ''.obs;
   var errorMessage = ''.obs;
 
-  // Socket instance
-  late IO.Socket socket;
-  late String myUserId;
-
+  // Socket instance - SINGLETON
+  static IO.Socket? _socket;
+  static bool _isInitialized = false;
+  static String? _myUserId;
+  static String? _token;
+  static String? _baseUrl;
+  
   // Message status tracking
   final Map<String, Map<String, dynamic>> _pendingMessages = {};
 
@@ -26,33 +29,106 @@ class ChatSocketController extends GetxController {
   Function(Map<String, dynamic>)? onConversationUpdated;
   Function(String, bool)? onUserPresence;
 
+  // ==================== SINGLETON PATTERN ====================
+  
+  /// Get the singleton instance
+  static ChatSocketController get instance {
+    if (!Get.isRegistered<ChatSocketController>()) {
+      throw Exception('ChatSocketController not initialized. Call initialize() first.');
+    }
+    return Get.find<ChatSocketController>();
+  }
+
+  /// Initialize the socket controller once at app startup
+  static Future<void> initialize({
+    required String baseUrl,
+    required String token,
+    required String myUserId,
+  }) async {
+    if (_isInitialized) {
+      print('ℹ️ ChatSocketController already initialized');
+      return;
+    }
+    
+    print('🟡 Initializing ChatSocketController...');
+    _isInitialized = true;
+    _myUserId = myUserId;
+    _token = token;
+    _baseUrl = baseUrl;
+    
+    // Convert http to ws for socket connection
+    String socketBaseUrl = baseUrl.replaceFirst('http', 'ws');
+    
+    // Create and register the controller permanently
+    Get.put(
+      ChatSocketController._internal(socketBaseUrl, token, myUserId),
+      permanent: true,
+    );
+    
+    print('✅ ChatSocketController initialized successfully');
+  }
+
+  // Private constructor
+  ChatSocketController._internal(String socketBaseUrl, String token, String myUserId) {
+    this.myUserId = myUserId;
+    _initSocket(socketBaseUrl, token);
+  }
+
+  // Public constructor - prevent direct creation
+  ChatSocketController._();
+
+  // For backward compatibility (deprecated)
   ChatSocketController({
     required String socketBaseUrl,
     required String token,
     required String myUserId,
   }) {
+    print('⚠️ Direct ChatSocketController creation is deprecated. Use ChatSocketController.initialize() instead.');
     this.myUserId = myUserId;
     _initSocket(socketBaseUrl, token);
   }
 
+  late String myUserId;
+
   // ==================== INIT SOCKET ====================
   void _initSocket(String baseUrl, String token) {
     try {
-      socket = IO.io(
-        baseUrl,
+      print('🟡 Initializing socket connection to: $baseUrl');
+      
+      // Use existing socket if available
+      if (_socket != null && _socket!.connected) {
+        print('✅ Using existing socket connection');
+        isConnected.value = true;
+        return;
+      }
+
+      // Clean URL - remove trailing slash
+      String cleanUrl = baseUrl.replaceAll(RegExp(r'/+$'), '');
+      
+     final socket = IO.io(
+        cleanUrl,
         IO.OptionBuilder()
             .setTransports(['websocket'])
             .setExtraHeaders({'Authorization': 'Bearer $token'})
             .enableReconnection()
-            .setReconnectionAttempts(5)
+            .setReconnectionAttempts(10)
             .setReconnectionDelay(1000)
+            .setReconnectionDelayMax(5000)
             .build(),
       );
+
+      _socket = socket;
 
       // Connection events
       socket.on('connect', (_) {
         isConnected.value = true;
         print('✅ Socket connected: ${socket.id}');
+        errorMessage.value = '';
+        
+        // Rejoin active conversation if any
+        if (activeConversationId.value.isNotEmpty) {
+          _joinConversation(activeConversationId.value);
+        }
       });
 
       socket.on('disconnect', (_) {
@@ -64,6 +140,30 @@ class ChatSocketController extends GetxController {
         errorMessage.value = 'Connection error: $error';
         print('Socket error: $error');
       });
+
+      socket.on('reconnect', (attempt) {
+        print('✅ Socket reconnected after $attempt attempts');
+        isConnected.value = true;
+        errorMessage.value = '';
+        
+        // Rejoin active conversation
+        if (activeConversationId.value.isNotEmpty) {
+          _joinConversation(activeConversationId.value);
+        }
+      });
+
+      socket.on('reconnect_attempt', (attempt) {
+        print('🔄 Reconnection attempt #$attempt');
+      });
+
+      socket.on('reconnect_error', (error) {
+        print('❌ Reconnection error: $error');
+      });
+
+      // socket.on('reconnect_failed', () {
+      //   print('❌ Reconnection failed after all attempts');
+      //   errorMessage.value = 'Connection lost. Please restart app.';
+      // });
 
       socket.on('connected', (data) {
         print('✅ Server confirmed connection: $data');
@@ -110,7 +210,16 @@ class ChatSocketController extends GetxController {
 
     } catch (e) {
       errorMessage.value = 'Socket init error: $e';
+      print('❌ Socket init error: $e');
     }
+  }
+
+  // Get socket instance
+  IO.Socket get socket {
+    if (_socket == null) {
+      throw Exception('Socket not initialized');
+    }
+    return _socket!;
   }
 
   // ==================== MESSAGE HANDLERS ====================
@@ -197,25 +306,28 @@ class ChatSocketController extends GetxController {
     }
   }
 
-  // ==================== FIXED: SOCKET ACTIONS (NO CALLBACKS) ====================
-  
-  /// Join a conversation room
-  void joinConversation({required String conversationId}) {
+  // Private join method
+  void _joinConversation(String conversationId) {
     if (!isConnected.value) return;
     
-    // ✅ FIXED: Only 2 arguments - event name and data
     socket.emit('join_conversation', {
       'conversationId': conversationId,
     });
     
-    print('📤 Emitted join_conversation: $conversationId');
+    print('📤 Joined conversation: $conversationId');
+  }
+
+  // ==================== PUBLIC METHODS ====================
+  
+  /// Join a conversation room
+  void joinConversation({required String conversationId}) {
+    _joinConversation(conversationId);
   }
 
   /// Leave a conversation room
   void leaveConversation(String conversationId) {
     if (!isConnected.value) return;
     
-    // ✅ FIXED: Only 2 arguments
     socket.emit('leave_conversation', {
       'conversationId': conversationId,
     });
@@ -263,7 +375,6 @@ class ChatSocketController extends GetxController {
     messages.add(tempMessage);
     _pendingMessages[clientId] = tempMessage;
 
-    // ✅ FIXED: Send without callback
     socket.emit('send_message', {
       'conversationId': conversationId,
       'toUserId': toUserId,
@@ -299,7 +410,6 @@ class ChatSocketController extends GetxController {
   }) {
     if (!isConnected.value) return;
     
-    // ✅ FIXED: Only 2 arguments
     socket.emit('typing', {
       'conversationId': conversationId,
       'toUserId': toUserId,
@@ -311,7 +421,6 @@ class ChatSocketController extends GetxController {
   void markRead({required String conversationId}) {
     if (!isConnected.value) return;
 
-    // ✅ FIXED: Only 2 arguments
     socket.emit('mark_read', {
       'conversationId': conversationId,
     });
@@ -365,17 +474,22 @@ class ChatSocketController extends GetxController {
     if (activeConversationId.value.isNotEmpty) {
       leaveConversation(activeConversationId.value);
     }
-    socket.disconnect();
+    if (_socket != null) {
+      _socket!.disconnect();
+    }
     isConnected.value = false;
   }
 
   void reconnect() {
-    socket.connect();
+    if (_socket != null) {
+      _socket!.connect();
+    }
   }
 
   @override
   void onClose() {
-    disconnect();
+    // Don't disconnect on close - keep singleton alive
+    print('ℹ️ ChatSocketController onClose called - keeping socket alive');
     super.onClose();
   }
 }

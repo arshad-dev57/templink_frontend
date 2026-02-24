@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -233,7 +232,7 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
           ],
         ),
       ),
-      // Bottom Navigation Bar with Action Buttons - ✅ UPDATED
+      // Bottom Navigation Bar with Action Buttons - ✅ FIXED with working chat
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -299,8 +298,16 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
       ),
     );
   }
+
+  // ✅ FIXED: Working chat function
   void _openChat() async {
     try {
+      // Show loading indicator
+      Get.dialog(
+        const Center(child: CircularProgressIndicator()),
+        barrierDismissible: false,
+      );
+
       final prefs = await SharedPreferences.getInstance();
       final myUserId = prefs.getString('auth_user_id') ?? '';
       final myToken = prefs.getString('auth_token') ?? '';
@@ -308,18 +315,29 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
       
       String myName = 'You';
       if (userJson != null) {
-        final userData = jsonDecode(userJson);
-        myName = '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'.trim();
-        if (myName.isEmpty) myName = 'You';
+        try {
+          final userData = jsonDecode(userJson);
+          myName = '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'.trim();
+          if (myName.isEmpty) myName = 'You';
+        } catch (e) {
+          myName = 'You';
+        }
+      }
+
+      // Dismiss loading
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
       }
 
       // Validation
       if (myUserId.isEmpty) {
         Get.snackbar(
           'Error',
-          'User not logged in',
+          'You are not logged in. Please login first.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
         );
         return;
       }
@@ -327,29 +345,56 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
       if (myToken.isEmpty) {
         Get.snackbar(
           'Error',
-          'Authentication token missing',
+          'Authentication failed. Please login again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
         );
         return;
       }
 
-      // Get.to(() => ChatScreen(
-      //   userName: talent.fullName,        // Talent's name
-      //   userOnline: false,               // Will implement later
-      //   toUserId: talent.id,            // Talent's user ID
-      //   baseUrl: ApiConfig.baseUrl,     // From config
-      //   myToken: myToken,              // Employer's token
-      //   myUserId: myUserId,           // Employer's user ID
-      // ));
+      if (talent.id.isEmpty) {
+        Get.snackbar(
+          'Error',
+          'Talent information is incomplete.',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+
+      // Navigate to Chat Screen
+      print('✅ Opening chat with talent: ${talent.fullName} (ID: ${talent.id})');
+      
+      Get.to(() => ChatScreen(
+        userName: talent.fullName,
+        userOnline: false, // Will be updated by socket
+        toUserId: talent.id,
+        baseUrl: ApiConfig.baseUrl,
+        myToken: myToken,
+        myUserId: myUserId,
+      ))?.then((result) {
+        // Optional: Handle when returning from chat
+        print('📤 Returned from chat screen');
+      });
 
     } catch (e) {
+      // Dismiss loading if showing
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+      
       print('❌ Error opening chat: $e');
       Get.snackbar(
         'Error',
-        'Failed to open chat',
+        'Failed to open chat: ${e.toString()}',
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
       );
     }
   }

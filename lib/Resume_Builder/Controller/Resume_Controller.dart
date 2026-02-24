@@ -1,289 +1,398 @@
-import 'package:get/get.dart';
 import 'package:flutter/material.dart';
-import 'package:templink/Resume_Builder/Models/resume_model.dart';
+import 'package:get/get.dart';
 
-import 'package:templink/Resume_Builder/Models/templates_data.dart';
+// ─────────────────────────────────────────────
+//  DATA MODELS
+// ─────────────────────────────────────────────
+class ResumeData {
+  String fullName = '';
+  String professionalTitle = '';
+  String phone = '';
+  String email = '';
+  String location = '';
+  String linkedIn = '';
+  String github = '';
+  String portfolio = '';
+  String summary = '';
+  List<Experience> experiences = [];
+  List<Education> educationList = [];
+  List<String> skills = [];
+  Map<String, double> skillLevels = {};
+  List<Language> languages = [];
+  List<Certification> certifications = [];
+  List<Award> awards = [];
+  List<Project> projects = [];
+  List<String> boardMemberships = [];
+  List<String> designations = [];
+  List<String> tools = [];
+  List<String> keyMetrics = [];
+}
 
+class Experience {
+  String title = '';
+  String company = '';
+  String location = '';
+  String startDate = '';
+  String endDate = '';
+  bool isCurrent = false;
+  List<String> responsibilities = [''];
+}
+
+class Education {
+  String degree = '';
+  String institution = '';
+  String location = '';
+  String startYear = '';
+  String endYear = '';
+  String grade = '';
+  String honors = '';
+}
+
+class Language {
+  String name = '';
+  String proficiency = 'Fluent';
+}
+
+class Certification {
+  String name = '';
+  String organization = '';
+  String year = '';
+}
+
+class Award {
+  String name = '';
+  String organization = '';
+  String year = '';
+}
+
+class Project {
+  String name = '';
+  String description = '';
+  List<String> technologies = [];
+}
+
+// ─────────────────────────────────────────────
+//  CONTROLLER
+// ─────────────────────────────────────────────
 class ResumeController extends GetxController {
-  // Current step
+  var selectedTemplateId = ''.obs;
+  var selectedTemplateAccent = const Color(0xFFF0B429).obs;
+  var resumeData = ResumeData().obs;
   var currentStep = 0.obs;
-  
-  // Templates
-  var templates = TemplatesData.getTemplates().obs;
-  var selectedTemplateIndex = 0.obs;
-  var selectedTemplate = Rx<ResumeTemplate?>(null);
+  var refreshTrigger = 0.obs;
 
-  // Resume Data
-  var resumeData = Rx<ResumeModel?>(null);
-  
-  // Form Controllers
-  // Personal Info
-  var firstNameController = TextEditingController();
-  var lastNameController = TextEditingController();
-  var professionController = TextEditingController();
-  var cityController = TextEditingController();
-  var zipCodeController = TextEditingController();
-  var provinceController = TextEditingController();
-  var phoneController = TextEditingController();
-  var emailController = TextEditingController();
-  var profileImage = Rx<MemoryImage?>(null);
+  // Validation
+  var isPersonalInfoValid = false.obs;
+  var isSummaryValid = false.obs;
+  var isExperienceValid = false.obs;
+  var isEducationValid = false.obs;
+  var isSkillsValid = false.obs;
 
-  // Experience
-  var experiences = <Experience>[].obs;
-  var expTitleController = TextEditingController();
-  var expCompanyController = TextEditingController();
-  var expLocationController = TextEditingController();
-  var expIsRemote = false.obs;
-  var expStartDate = Rx<DateTime?>(null);
-  var expEndDate = Rx<DateTime?>(null);
-  var expIsCurrent = false.obs;
-  var expDescriptionController = TextEditingController();
-  var expAchievements = <String>[].obs;
-  var expAchievementController = TextEditingController();
+  // Template-specific flags
+  var showSkillLevels = false.obs;
+  var showCertifications = false.obs;
+  var showAwards = false.obs;
+  var showProjects = false.obs;
+  var showBoardMemberships = false.obs;
+  var showDesignations = false.obs;
+  var showGPA = false.obs;
+  var showKeyMetrics = false.obs;
+  var showTools = false.obs;
+  var showProfileImage = false.obs; // <-- FIXED: was missing
 
-  // Education
-  var educations = <Education>[].obs;
-  var eduInstitutionController = TextEditingController();
-  var eduDegreeController = TextEditingController();
-  var eduFieldController = TextEditingController();
-  var eduGraduationDate = Rx<DateTime?>(null);
-  var eduGpaController = TextEditingController();
-
-  // Skills
-  var skills = <String>[].obs;
-  var skillController = TextEditingController();
-
-  // Summary
-  var summaryController = TextEditingController();
-
-  // Languages
-  var languages = <Language>[].obs;
-  var langNameController = TextEditingController();
-  var selectedLangProficiency = 'Fluent'.obs;
-  var proficiencies = ['Basic', 'Conversational', 'Fluent', 'Native'].obs;
-
-  // Social Links
-  var socialLinks = <SocialLink>[].obs;
-  var linkTypeController = ''.obs;
-  var linkUrlController = TextEditingController();
-  var linkTypes = ['LinkedIn', 'Portfolio', 'GitHub', 'Behance', 'Dribbble', 'Website'].obs;
-
-  @override
-  void onInit() {
-    super.onInit();
-    selectedTemplate.value = templates[0];
+  void setSelectedTemplate(String id, Color accent) {
+    selectedTemplateId.value = id;
+    selectedTemplateAccent.value = accent;
+    _resetData();
+    _configureTemplate(id);
   }
 
-  @override
-  void onClose() {
-    firstNameController.dispose();
-    lastNameController.dispose();
-    professionController.dispose();
-    cityController.dispose();
-    zipCodeController.dispose();
-    provinceController.dispose();
-    phoneController.dispose();
-    emailController.dispose();
-    expTitleController.dispose();
-    expCompanyController.dispose();
-    expLocationController.dispose();
-    expDescriptionController.dispose();
-    expAchievementController.dispose();
-    eduInstitutionController.dispose();
-    eduDegreeController.dispose();
-    eduFieldController.dispose();
-    eduGpaController.dispose();
-    skillController.dispose();
-    summaryController.dispose();
-    langNameController.dispose();
-    linkUrlController.dispose();
-    super.onClose();
+  void _resetData() {
+    resumeData.value = ResumeData();
+    currentStep.value = 0;
+    isPersonalInfoValid.value = false;
+    isSummaryValid.value = false;
+    isExperienceValid.value = false;
+    isEducationValid.value = false;
+    isSkillsValid.value = false;
+    refreshTrigger.value = 0;
   }
 
-  void selectTemplate(int index) {
-    selectedTemplateIndex.value = index;
-    selectedTemplate.value = templates[index];
+  void _configureTemplate(String id) {
+    showSkillLevels.value = false;
+    showCertifications.value = false;
+    showAwards.value = false;
+    showProjects.value = false;
+    showBoardMemberships.value = false;
+    showDesignations.value = false;
+    showGPA.value = false;
+    showKeyMetrics.value = false;
+    showTools.value = false;
+    showProfileImage.value = false;
+
+    switch (id) {
+      case 'olivia':
+        showSkillLevels.value = true;
+        showAwards.value = true;
+        showProfileImage.value = false;
+        break;
+      case 'austin':
+        showSkillLevels.value = true;
+        showCertifications.value = true;
+        showProfileImage.value = true;
+        break;
+      case 'nova':
+        showProjects.value = true;
+        showTools.value = true;
+        showProfileImage.value = true;
+        break;
+      case 'ember':
+        showSkillLevels.value = true;
+        showAwards.value = true;
+        showProfileImage.value = true;
+        break;
+      case 'slate':
+        showSkillLevels.value = true;
+        showBoardMemberships.value = true;
+        showProfileImage.value = true;
+        break;
+      case 'rose':
+        showSkillLevels.value = true;
+        showProfileImage.value = true;
+        break;
+      case 'ats_classic':
+        showCertifications.value = true;
+        showAwards.value = true;
+        showGPA.value = true;
+        showProfileImage.value = false;
+        break;
+      case 'ats_modern':
+        showCertifications.value = true;
+        showKeyMetrics.value = true;
+        showProfileImage.value = false;
+        break;
+      case 'ats_executive':
+        showCertifications.value = true;
+        showBoardMemberships.value = true;
+        showDesignations.value = true;
+        showProfileImage.value = false;
+        break;
+    }
   }
 
   void nextStep() {
-    if (currentStep.value < 6) currentStep.value++;
+    if (currentStep.value < 5) currentStep.value++;
   }
 
   void previousStep() {
     if (currentStep.value > 0) currentStep.value--;
   }
 
-  // Experience Methods
-  void addExperience() {
-    if (expTitleController.text.isNotEmpty && 
-        expCompanyController.text.isNotEmpty &&
-        expStartDate.value != null) {
-      
-      experiences.add(Experience(
-        title: expTitleController.text,
-        company: expCompanyController.text,
-        location: expLocationController.text,
-        isRemote: expIsRemote.value,
-        startDate: expStartDate.value!,
-        endDate: expIsCurrent.value ? null : expEndDate.value,
-        isCurrent: expIsCurrent.value,
-        description: expDescriptionController.text,
-        achievements: expAchievements.toList(),
-      ));
+  void goToStep(int s) => currentStep.value = s;
 
-      // Clear form
-      expTitleController.clear();
-      expCompanyController.clear();
-      expLocationController.clear();
-      expIsRemote.value = false;
-      expStartDate.value = null;
-      expEndDate.value = null;
-      expIsCurrent.value = false;
-      expDescriptionController.clear();
-      expAchievements.clear();
-      expAchievementController.clear();
-    }
+  void _refresh() {
+    refreshTrigger.value++;
+    resumeData.refresh();
   }
 
-  void addAchievement() {
-    if (expAchievementController.text.isNotEmpty) {
-      expAchievements.add(expAchievementController.text);
-      expAchievementController.clear();
-    }
+  // ── Validation ──────────────────────────────
+  void validatePersonalInfo() {
+    final d = resumeData.value;
+    isPersonalInfoValid.value =
+        d.fullName.trim().isNotEmpty &&
+        d.professionalTitle.trim().isNotEmpty &&
+        d.phone.trim().isNotEmpty &&
+        d.email.trim().isNotEmpty &&
+        d.location.trim().isNotEmpty;
   }
 
-  void removeAchievement(int index) {
-    expAchievements.removeAt(index);
+  void validateSummary() {
+    isSummaryValid.value = resumeData.value.summary.trim().length >= 10;
   }
 
-  void removeExperience(int index) {
-    experiences.removeAt(index);
-  }
-
-  // Education Methods
-  void addEducation() {
-    if (eduInstitutionController.text.isNotEmpty &&
-        eduDegreeController.text.isNotEmpty &&
-        eduGraduationDate.value != null) {
-      
-      educations.add(Education(
-        institution: eduInstitutionController.text,
-        degree: eduDegreeController.text,
-        fieldOfStudy: eduFieldController.text,
-        graduationDate: eduGraduationDate.value!,
-        gpa: double.tryParse(eduGpaController.text),
-      ));
-
-      // Clear form
-      eduInstitutionController.clear();
-      eduDegreeController.clear();
-      eduFieldController.clear();
-      eduGraduationDate.value = null;
-      eduGpaController.clear();
-    }
-  }
-
-  void removeEducation(int index) {
-    educations.removeAt(index);
-  }
-
-  // Skills Methods
-  void addSkill() {
-    if (skillController.text.isNotEmpty) {
-      skills.add(skillController.text);
-      skillController.clear();
-    }
-  }
-
-  void removeSkill(int index) {
-    skills.removeAt(index);
-  }
-
-  // Languages Methods
-  void addLanguage() {
-    if (langNameController.text.isNotEmpty) {
-      languages.add(Language(
-        name: langNameController.text,
-        proficiency: selectedLangProficiency.value,
-      ));
-      langNameController.clear();
-      selectedLangProficiency.value = 'Fluent';
-    }
-  }
-
-  void removeLanguage(int index) {
-    languages.removeAt(index);
-  }
-
-  // Social Links Methods
-  void addSocialLink() {
-    if (linkTypeController.value.isNotEmpty && linkUrlController.text.isNotEmpty) {
-      socialLinks.add(SocialLink(
-        type: linkTypeController.value,
-        url: linkUrlController.text,
-      ));
-      linkTypeController.value = '';
-      linkUrlController.clear();
-    }
-  }
-
-  void removeSocialLink(int index) {
-    socialLinks.removeAt(index);
-  }
-
-  // Build Resume
-  void buildResume() {
-    // Validate required fields
-    if (firstNameController.text.isEmpty ||
-        lastNameController.text.isEmpty ||
-        emailController.text.isEmpty ||
-        experiences.isEmpty ||
-        educations.isEmpty ||
-        skills.isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Please fill all required fields',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+  void validateExperience() {
+    if (resumeData.value.experiences.isEmpty) {
+      isExperienceValid.value = false;
       return;
     }
-
-    // Create resume model
-    ResumeModel resume = ResumeModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      templateId: selectedTemplate.value!.id,
-      personalInfo: PersonalInfo(
-        firstName: firstNameController.text,
-        lastName: lastNameController.text,
-        profession: professionController.text,
-        city: cityController.text,
-        zipCode: zipCodeController.text,
-        province: provinceController.text,
-        phone: phoneController.text,
-        email: emailController.text,
-        profileImage: profileImage.value?.toString(),
-      ),
-      experiences: experiences.toList(),
-      educations: educations.toList(),
-      skills: skills.toList(),
-      summary: summaryController.text,
-      languages: languages.toList(),
-      socialLinks: socialLinks.toList(),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+    isExperienceValid.value = resumeData.value.experiences.every(
+      (e) => e.title.trim().isNotEmpty && e.company.trim().isNotEmpty && e.startDate.trim().isNotEmpty,
     );
+  }
 
-    resumeData.value = resume;
-    currentStep.value = 7; // Go to preview step
-    
-    Get.snackbar(
-      'Success',
-      'Your professional resume has been created!',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.green,
-      colorText: Colors.white,
+  void validateEducation() {
+    if (resumeData.value.educationList.isEmpty) {
+      isEducationValid.value = false;
+      return;
+    }
+    isEducationValid.value = resumeData.value.educationList.every(
+      (e) =>
+          e.degree.trim().isNotEmpty &&
+          e.institution.trim().isNotEmpty &&
+          e.startYear.trim().isNotEmpty &&
+          e.endYear.trim().isNotEmpty,
     );
+  }
+
+  void validateSkills() {
+    isSkillsValid.value = resumeData.value.skills.isNotEmpty;
+  }
+
+  bool isCurrentStepValid() {
+    switch (currentStep.value) {
+      case 0:
+        return isPersonalInfoValid.value;
+      case 1:
+        return isSummaryValid.value;
+      case 2:
+        return isExperienceValid.value;
+      case 3:
+        return isEducationValid.value;
+      case 4:
+        return isSkillsValid.value;
+      case 5:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  // ── Experience ──────────────────────────────
+  void addExperience() {
+    resumeData.value.experiences.add(Experience());
+    _refresh();
+    validateExperience();
+  }
+
+  void removeExperience(int i) {
+    resumeData.value.experiences.removeAt(i);
+    _refresh();
+    validateExperience();
+  }
+
+  // ── Education ───────────────────────────────
+  void addEducation() {
+    resumeData.value.educationList.add(Education());
+    _refresh();
+    validateEducation();
+  }
+
+  void removeEducation(int i) {
+    resumeData.value.educationList.removeAt(i);
+    _refresh();
+    validateEducation();
+  }
+
+  // ── Skills ──────────────────────────────────
+  void addSkill(String skill) {
+    final s = skill.trim();
+    if (s.isEmpty || resumeData.value.skills.contains(s)) return;
+    resumeData.value.skills.add(s);
+    resumeData.value.skillLevels[s] = 0.75;
+    _refresh();
+    validateSkills();
+  }
+
+  void removeSkill(int i) {
+    final s = resumeData.value.skills[i];
+    resumeData.value.skills.removeAt(i);
+    resumeData.value.skillLevels.remove(s);
+    _refresh();
+    validateSkills();
+  }
+
+  void setSkillLevel(String skill, double level) {
+    resumeData.value.skillLevels[skill] = level;
+    _refresh();
+  }
+
+  // ── Languages ───────────────────────────────
+  void addLanguage() {
+    resumeData.value.languages.add(Language());
+    _refresh();
+  }
+
+  void removeLanguage(int i) {
+    resumeData.value.languages.removeAt(i);
+    _refresh();
+  }
+
+  // ── Certifications ──────────────────────────
+  void addCertification() {
+    resumeData.value.certifications.add(Certification());
+    _refresh();
+  }
+
+  void removeCertification(int i) {
+    resumeData.value.certifications.removeAt(i);
+    _refresh();
+  }
+
+  // ── Awards ──────────────────────────────────
+  void addAward() {
+    resumeData.value.awards.add(Award());
+    _refresh();
+  }
+
+  void removeAward(int i) {
+    resumeData.value.awards.removeAt(i);
+    _refresh();
+  }
+
+  // ── Projects ────────────────────────────────
+  void addProject() {
+    resumeData.value.projects.add(Project());
+    _refresh();
+  }
+
+  void removeProject(int i) {
+    resumeData.value.projects.removeAt(i);
+    _refresh();
+  }
+
+  // ── Board ────────────────────────────────────
+  void addBoardMembership() {
+    resumeData.value.boardMemberships.add('');
+    _refresh();
+  }
+
+  void removeBoardMembership(int i) {
+    resumeData.value.boardMemberships.removeAt(i);
+    _refresh();
+  }
+
+  // ── Designations ─────────────────────────────
+  void addDesignation() {
+    resumeData.value.designations.add('');
+    _refresh();
+  }
+
+  void removeDesignation(int i) {
+    resumeData.value.designations.removeAt(i);
+    _refresh();
+  }
+
+  // ── Key Metrics ──────────────────────────────
+  void addKeyMetric() {
+    resumeData.value.keyMetrics.add('');
+    _refresh();
+  }
+
+  void removeKeyMetric(int i) {
+    resumeData.value.keyMetrics.removeAt(i);
+    _refresh();
+  }
+
+  // ── Tools ────────────────────────────────────
+  void addTool(String tool) {
+    final t = tool.trim();
+    if (t.isEmpty || resumeData.value.tools.contains(t)) return;
+    resumeData.value.tools.add(t);
+    _refresh();
+  }
+
+  void removeTool(int i) {
+    resumeData.value.tools.removeAt(i);
+    _refresh();
   }
 }

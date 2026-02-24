@@ -29,14 +29,27 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  
+  // ✅ FIXED: Proper Get.put with widget values
   late final ChatSocketController controller;
+  
   String? conversationId;
   bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    controller = Get.find<ChatSocketController>();
+    
+    // ✅ Initialize controller with widget values
+    controller = Get.put(
+      ChatSocketController(
+        socketBaseUrl: widget.baseUrl,
+        token: widget.myToken,
+        myUserId: widget.myUserId,
+      ),
+      tag: 'chat_${widget.toUserId}', // Unique tag for each chat
+    );
+    
     _initChat();
     
     // Scroll to bottom when new messages arrive
@@ -381,7 +394,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         child: Row(
           children: [
-            // ✅ Text Field - Uncommented and Fixed
+            // Text Field
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -529,11 +542,10 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    
-    // Leave conversation
     if (conversationId != null) {
       controller.leaveConversation(conversationId!);
     }
+    Get.delete<ChatSocketController>(tag: 'chat_${widget.toUserId}');
     
     super.dispose();
   }

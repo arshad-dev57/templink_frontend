@@ -37,16 +37,6 @@ print(response.statusCode);
         print("success");
         final jsonResponse = jsonDecode(response.body);
         proposalResponse.value = ProposalResponse.fromJson(jsonResponse);
-        
-        Get.snackbar(
-          'Success',
-          'Proposal submitted successfully!',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 3),
-        );
-        
         return true;
       } else {
         final error = jsonDecode(response.body);
