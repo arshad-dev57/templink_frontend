@@ -2512,45 +2512,33 @@ class _FinalResumeScreenState extends State<FinalResumeScreen> {
   // AUTO GENERATE AND SAVE TO BACKEND
   // ============================================
   Future<void> _autoGenerateAndSave() async {
-    try {
-      isGeneratingPDF.value = true;
-      
-      // Generate PDF
-      final pdfBytes = await _generatePDF();
-      
-      isGeneratingPDF.value = false;
-      isSavingToBackend.value = true;
-      
-      // Generate filename
-      final fileName = 'Resume_${controller.resumeData.value.fullName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-      
-      // Save to backend
-      await controller.uploadResume(
-        fileName: fileName,
-        pdfBytes: pdfBytes,
-        resumeData: controller.resumeData.value.toJson(),
-      );
-      
-      isSavingToBackend.value = false;
-      
-      // Show success message (optional)
-      Get.snackbar(
-        '✅ Success',
-        'Resume saved to your account',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 2),
-      );
-      
-    } catch (e) {
-      isGeneratingPDF.value = false;
-      isSavingToBackend.value = false;
-      print('Auto-save error: $e');
-    }
+  try {
+    isGeneratingPDF.value = true;
+    
+    // Generate PDF
+    final pdfBytes = await _generatePDF();
+    
+    isGeneratingPDF.value = false;
+    isSavingToBackend.value = true;
+    
+    // Generate filename
+    final fileName = 'Resume_${controller.resumeData.value.fullName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    
+    // ✅ FIXED: Remove resumeData parameter
+    await controller.uploadResume(
+      fileName: fileName,
+      pdfBytes: pdfBytes,
+      // ❌ Don't send resumeData
+    );
+    
+    isSavingToBackend.value = false;
+    
+  } catch (e) {
+    isGeneratingPDF.value = false;
+    isSavingToBackend.value = false;
+    print('Auto-save error: $e');
   }
-
+}
   // ============================================
   // PDF GENERATION METHODS
   // ============================================
@@ -2819,16 +2807,7 @@ class _FinalResumeScreenState extends State<FinalResumeScreen> {
         ),
         title: Obx(() => Row(
           children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: controller.selectedTemplateAccent.value.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.description_rounded,
-                  color: controller.selectedTemplateAccent.value, size: 16),
-            ),
+          
             const SizedBox(width: 10),
             Text('Your Resume',
                 style: TextStyle(
@@ -2838,64 +2817,7 @@ class _FinalResumeScreenState extends State<FinalResumeScreen> {
           ],
         )),
         actions: [
-          // Status indicators
-          Obx(() {
-            if (isGeneratingPDF.value) {
-              return Container(
-                margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: controller.selectedTemplateAccent.value.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          controller.selectedTemplateAccent.value,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Text('Generating...', style: TextStyle(fontSize: 10)),
-                  ],
-                ),
-              );
-            } else if (isSavingToBackend.value) {
-              return Container(
-                margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: controller.selectedTemplateAccent.value.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          controller.selectedTemplateAccent.value,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Text('Saving...', style: TextStyle(fontSize: 10)),
-                  ],
-                ),
-              );
-            } else {
-              return const SizedBox();
-            }
-          }),
           
-          // PDF Download Button (NO API CALL)
           Obx(() => Padding(
             padding: const EdgeInsets.only(right: 8),
             child: IconButton(

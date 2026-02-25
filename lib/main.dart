@@ -11,6 +11,7 @@ import 'package:templink/Employeer/Screens/Employer_Active_Projects_Screen.dart'
 import 'package:templink/Employeer/Screens/project_management_screen.dart';
 import 'package:templink/Global_Screens/Chat_Users_List_Screen.dart';
 import 'package:templink/Global_Screens/Splash_screen.dart';
+import 'package:templink/Resume_Builder/Screens/Resume_Dashboard_Screen.dart';
 import 'package:templink/Resume_Builder/Screens/Resume_Templetes_Screen.dart';
 import 'package:templink/Resume_Builder/Screens/resume_form_screen.dart';
 import 'package:templink/Services/Notificaton_Service.dart';
@@ -73,7 +74,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.green,
         useMaterial3: true,
       ),
-      home:  ResumeTemplate(),
+      home:  SplashScreen(),
     );
   }
 }

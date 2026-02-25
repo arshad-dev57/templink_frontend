@@ -14,6 +14,7 @@ import 'package:templink/Global_Screens/Chat_Users_List_Screen.dart';
 import 'package:templink/Global_Screens/Notification_Screen.dart';
 import 'package:templink/Global_Screens/Search_Screen.dart';
 import 'package:templink/Global_Screens/login_screen.dart';
+import 'package:templink/Resume_Builder/Screens/Resume_Dashboard_Screen.dart';
 import 'package:templink/Utils/colors.dart';
 
 class EmployeeHomeScreen extends StatefulWidget {
@@ -141,6 +142,12 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
                 }),
                 _drawerItem(Icons.bar_chart_outlined, 'My stats', () {
                   Get.to(MyStatsScreen());
+                }),
+                 _drawerItem(Icons.bar_chart_outlined, 'Resume Builder', () {
+                  Get.to(ResumeDashboardScreen());
+                }),
+                   _drawerItem(Icons.wordpress, 'Applied Jobs', () {
+                  Get.to(ResumeDashboardScreen());
                 }),
                 _drawerItem(Icons.assignment_outlined, 'Reports', () {}),
                 _drawerItem(Icons.dashboard, "Dashboard", (){
@@ -688,7 +695,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     }
   }
 
-  // ✅ UPDATED: Job Card with all fields
+
   Widget _buildJobCard(JobPostModel job) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),

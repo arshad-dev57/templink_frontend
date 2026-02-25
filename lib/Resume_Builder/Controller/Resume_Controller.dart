@@ -4,12 +4,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/config/api_config.dart';
 
-// ============================================
-// DATA MODELS
-// ============================================
 class ResumeData {
   String fullName = '';
   String professionalTitle = '';
@@ -245,7 +243,7 @@ class ResumeController extends GetxController {
   var savedResumes = <ResumesModel>[].obs;
   
   // ⚠️ IMPORTANT: Change this to your actual backend URL
-  final String baseUrl = ApiConfig.baseUrl; // Update with your IP/domain
+  final String baseUrl = ApiConfig.baseUrl;
 
   void setSelectedTemplate(String id, Color accent) {
     selectedTemplateId.value = id;
@@ -547,86 +545,132 @@ class ResumeController extends GetxController {
   // ============================================
 
   // Headers with auth token
-  Future<Map<String, String>> _getHeaders() async {
+ Future<Map<String, String>> _getHeaders() async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('auth_token');
+  
+  return {
+    'Accept': 'application/json',  // ✅ Add this
+    'Authorization': 'Bearer $token',
+  };
+}Future<bool> uploadResume({
+  required String fileName,
+  required Uint8List pdfBytes,
+}) async {
+  try {
+    isLoading.value = true;
+
+    print('📤 Starting upload to: $baseUrl/api/resume');
+    
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     
-    return {
-      'Content-Type': 'application/json',
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/api/resume'),
+    );
+    
+    // ✅ FIX 1: Add Accept header like working project code
+    request.headers.addAll({
+      'Accept': 'application/json',
       'Authorization': 'Bearer $token',
-    };
-  }
+    });
+    
+    // ✅ FIX 2: Add file with proper content type (like project code)
+    final file = http.MultipartFile.fromBytes(
+      'resume',  // Field name should match backend
+      pdfBytes,
+      filename: fileName,
+      contentType: MediaType('application', 'pdf'), // Explicit PDF content type
+    );
+    
+    request.files.add(file);
+    
+    print('📤 Headers: ${request.headers}');
+    print('📤 Files: ${request.files.length}');
+    
+    // ✅ FIX 3: Add timeout like project code
+    final streamedResponse = await request.send().timeout(
+      const Duration(seconds: 60),
+      onTimeout: () => throw Exception('Connection timeout'),
+    );
 
-  Future<bool> uploadResume({
-    required String fileName,
-    required Uint8List pdfBytes,
-    required Map<String, dynamic> resumeData,
-  }) async {
-    try {
-      isLoading.value = true;
+    final response = await http.Response.fromStream(streamedResponse);
 
-      final headers = await _getHeaders();
-      
-      // Create multipart request for file upload
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/api/resume'),
+    print('📥 Response status: ${response.statusCode}');
+    print('📥 Response body: ${response.body}');
+    
+    if (response.statusCode == 201) {
+      Get.snackbar(
+        '✅ Success',
+        'Resume saved to your account',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
       );
       
-      // Add headers
-      request.headers.addAll(headers);
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'resume',
-          pdfBytes,
-          filename: fileName,
-        ),
-      );
+      // Refresh the list
+      await fetchUserResumes();
       
-      // Add resume data as JSON field
-      request.fields['resumeData'] = jsonEncode(resumeData);
+      return true;
+    } else {
+      print('❌ Upload failed: ${response.statusCode}');
+      print('❌ Response body: ${response.body}');
       
-      // Send request
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-      
-      if (response.statusCode == 201) {
+      // Try to parse error message
+      try {
+        final errorData = jsonDecode(response.body);
         Get.snackbar(
-          '✅ Success',
-          'Resume saved to your account',
-          backgroundColor: Colors.green,
+          '❌ Error',
+          errorData['message'] ?? 'Failed to upload resume',
+          backgroundColor: Colors.red,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
-          margin: const EdgeInsets.all(16),
           duration: const Duration(seconds: 3),
         );
-        
-        // Refresh the list
-        await fetchUserResumes();
-        
-        return true;
-      } else {
-        throw Exception('Failed to upload: ${response.body}');
+      } catch (_) {
+        Get.snackbar(
+          '❌ Error',
+          'Server error (${response.statusCode})',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
+        );
       }
       
-    } catch (e) {
-      print('Upload error: $e');
+      return false;
+    }
+    
+  } catch (e) {
+    print('❌ Upload error: $e');
+    
+    if (e.toString().contains('timeout')) {
+      Get.snackbar(
+        '🔌 Connection Error',
+        'Request timeout. Please try again.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+      );
+    } else {
       Get.snackbar(
         '❌ Error',
-        'Failed to save resume: ${e.toString()}',
+        'Failed to upload: ${e.toString()}',
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
       );
-      return false;
-    } finally {
-      isLoading.value = false;
     }
+    
+    return false;
+  } finally {
+    isLoading.value = false;
   }
-
-  // ============================================
+} // ============================================
   // FETCH USER RESUMES
   // ============================================
   Future<void> fetchUserResumes() async {
@@ -635,7 +679,7 @@ class ResumeController extends GetxController {
       
       final headers = await _getHeaders();
       final response = await http.get(
-        Uri.parse('$baseUrl/api/resumes'),
+        Uri.parse('$baseUrl/api/resume'),
         headers: headers,
       );
       
@@ -731,9 +775,6 @@ class ResumeController extends GetxController {
     }
   }
 
-  // ============================================
-  // GET DOWNLOAD URL FOR RESUME
-  // ============================================
   String getResumeUrl(String fileUrl) {
     if (fileUrl.startsWith('http')) {
       return fileUrl;

@@ -69,6 +69,7 @@ flutter:
   
   # Assets - aapke fonts yahan hain
   assets:
+    - assets/
     - assets/Roboto-Regular.ttf
     - assets/Roboto-Bold.ttf
     # Agar aur assets hain to unhe bhi add karein

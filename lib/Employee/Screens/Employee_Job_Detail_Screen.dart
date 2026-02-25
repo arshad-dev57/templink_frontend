@@ -1,5 +1,7 @@
+// screens/job_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:templink/Employee/Controllers/job_apply_application_controller.dart';
 import 'package:templink/Employee/models/Employee_jobs_model.dart';
 import 'package:templink/Utils/colors.dart';
 
@@ -14,12 +16,19 @@ class JobDetailScreen extends StatefulWidget {
 
 class _JobDetailScreenState extends State<JobDetailScreen> {
   bool _isBookmarked = false;
-  bool _isApplying = false;
-  final TextEditingController _coverLetterController = TextEditingController();
-  List<String> _selectedDocuments = [];
+  
+  // GetX controller
+  final JobApplicationController appController = Get.put(JobApplicationController());
 
   // ✅ Helper getter for cleaner code
   JobPostModel get job => widget.job;
+
+  @override
+  void initState() {
+    super.initState();
+    // Clear controller when screen initializes
+    appController.clearForm();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,14 +50,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     _buildRequirementsSection(),
                     _buildQualificationsSection(),
                     _buildJobDetailsSection(),
-                    _buildEmployerInfoSection(), // ✅ NEW: Employer details
-                    _buildApplicationSection(),
+                    _buildEmployerInfoSection(),
+                    _buildApplicationSection(), // Updated with file upload
                     const SizedBox(height: 100),
                   ],
                 ),
               ),
             ),
-            _buildApplyButton(),
+            _buildApplyButton(), // Updated with loading state
           ],
         ),
       ),
@@ -198,7 +207,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           
           const SizedBox(height: 16),
           
-          // Match Score (Static for now)
+          // Match Score
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -227,9 +236,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                             Container(
                               width: 56, // 70% of 80
                               height: 10,
-                              decoration:  BoxDecoration(
+                              decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Colors.green, Colors.lightGreen],
+                                  colors: [Colors.green, Colors.lightGreen.shade400],
                                 ),
                                 borderRadius: BorderRadius.circular(5),
                               ),
@@ -743,7 +752,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
-  // ==================== APPLICATION SECTION ====================
+  // ==================== APPLICATION SECTION WITH FILE UPLOAD ====================
   Widget _buildApplicationSection() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -771,7 +780,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           ),
           const SizedBox(height: 16),
           
-          // Cover Letter
+          // Cover Letter Field
           const Text(
             'Cover Letter (Optional)',
             style: TextStyle(
@@ -788,7 +797,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: TextField(
-              controller: _coverLetterController,
+              controller: appController.coverLetterController,
               maxLines: null,
               expands: true,
               decoration: const InputDecoration(
@@ -802,29 +811,178 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           
           const SizedBox(height: 16),
           
-          // Documents
-          const Text(
-            'Attach Documents',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
+          // Resume Upload Section (REQUIRED)
+          Row(
+            children: [
+              const Text(
+                'Resume / CV',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '*',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.red.shade600,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           
-          // Document Selection
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildDocumentChip('Resume.pdf', true),
-              _buildDocumentChip('Cover_Letter.docx', false),
-              _buildDocumentChip('Portfolio.pdf', false),
-              _buildDocumentChip('Certificates.zip', false),
-              _buildAddDocumentButton(),
-            ],
-          ),
+          // File Upload Area
+          Obx(() {
+            if (appController.isFileSelected.value) {
+              // Show selected file with details
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: primary.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: primary.withOpacity(0.3)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.insert_drive_file,
+                            color: primary,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                appController.fileName.value,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                appController.fileSize.value,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                color: Colors.green.shade600,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Selected',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          onPressed: appController.clearFile,
+                          icon: const Icon(Icons.close, size: 16),
+                          label: const Text('Remove'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: appController.pickResumeFile,
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Change'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: primary,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            } else {
+              // Show upload button (empty state)
+              return GestureDetector(
+                onTap: appController.pickResumeFile,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300, width: 1.5),
+                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.grey.shade50,
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.cloud_upload_outlined,
+                        size: 40,
+                        color: primary.withOpacity(0.7),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Tap to upload your resume',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Supports: PDF, DOC, DOCX (Max 10MB)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+          }),
           
           const SizedBox(height: 16),
           
@@ -861,81 +1019,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
-  Widget _buildDocumentChip(String fileName, bool defaultSelected) {
-    final isSelected = _selectedDocuments.contains(fileName);
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          if (isSelected) {
-            _selectedDocuments.remove(fileName);
-          } else {
-            _selectedDocuments.add(fileName);
-          }
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? primary.withOpacity(0.1) : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? primary : Colors.grey.shade300,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.insert_drive_file,
-              size: 16,
-              color: isSelected ? Colors.blue : Colors.grey.shade600,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              fileName,
-              style: TextStyle(
-                fontSize: 12,
-                color: isSelected ? Colors.blue : Colors.grey.shade700,
-                fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddDocumentButton() {
-    return GestureDetector(
-      onTap: _uploadDocument,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: primary, width: 1.5),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.add, color: primary, size: 16),
-            SizedBox(width: 4),
-            Text(
-              'Add More',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: primary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==================== APPLY BUTTON ====================
+  // ==================== APPLY BUTTON WITH LOADING ====================
   Widget _buildApplyButton() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -953,34 +1037,54 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         child: Row(
           children: [
             Expanded(
-              child: ElevatedButton(
-                onPressed: _isApplying ? null : _handleApply,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              child: Obx(() {
+                // Check if file is selected
+                bool canApply = appController.isFileSelected.value && !appController.isApplying.value;
+                
+                return ElevatedButton(
+                  onPressed: canApply ? () => _handleApply() : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: canApply ? primary : Colors.grey.shade400,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    disabledForegroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isApplying
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
+                  child: appController.isApplying.value
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Submitting...',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Text(
+                          'Submit Application',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      )
-                    : const Text(
-                        'Submit Application',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-              ),
+                );
+              }),
             ),
           ],
         ),
@@ -990,87 +1094,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   // ==================== HELPER FUNCTIONS ====================
   Future<void> _handleApply() async {
-    if (_selectedDocuments.isEmpty) {
-      Get.snackbar(
-        'Document Required',
-        'Please select at least one document',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-        borderRadius: 12,
-      );
-      return;
+    // Call controller's apply function
+    await appController.applyForJob(job.id);
+    
+    // If successful, show dialog
+    if (appController.applicationSuccess.value) {
+      appController.showSuccessDialog(context, job);
     }
-
-    setState(() => _isApplying = true);
-
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (!mounted) return;
-    setState(() => _isApplying = false);
-
-    // Show success dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Icon(
-          Icons.check_circle,
-          color: Colors.green,
-          size: 60,
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Application Submitted!',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Your application has been successfully submitted.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                job.title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Get.back(); // Close dialog
-              Get.back(); // Go back
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: primary,
-            ),
-            child: const Text(
-              'Done',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _shareJob() {
@@ -1082,24 +1112,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       snackPosition: SnackPosition.BOTTOM,
       margin: const EdgeInsets.all(16),
       borderRadius: 12,
-    );
-  }
-
-  void _uploadDocument() {
-    Get.snackbar(
-      'Upload Document',
-      'Document upload functionality coming soon!',
-      backgroundColor: Colors.blue,
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
-      margin: const EdgeInsets.all(16),
-      borderRadius: 12,
+      duration: const Duration(seconds: 2),
     );
   }
 
   @override
   void dispose() {
-    _coverLetterController.dispose();
+    // Don't dispose controller here as it's GetX managed
     super.dispose();
   }
 }
