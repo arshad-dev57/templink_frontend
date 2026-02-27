@@ -22,23 +22,22 @@ Future<void> main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // // Initialize Stripe
-  // Stripe.publishableKey =
-  //     "pk_test_51QY8GUFfoWN8tK9rycKFo91v04ba0VTvnmtz2t8QyyG6GCmFgkzNPduXu72mt3TFuoqyliOKgI6U9ve3PMBCXfTE0045P6hGKg";
-  // await Stripe.instance.applySettings();
+  
+  // Initialize Stripe
+  Stripe.publishableKey =
+      "pk_test_51QY8GUFfoWN8tK9rycKFo91v04ba0VTvnmtz2t8QyyG6GCmFgkzNPduXu72mt3TFuoqyliOKgI6U9ve3PMBCXfTE0045P6hGKg";
+  await Stripe.instance.applySettings();
   
   // Initialize app services
   await _initializeApp();
   
   runApp(const MyApp());
   
-  // Initialize notifications after app starts
-  // WidgetsBinding.instance.addPostFrameCallback((_) async {
-  //   await NotificationService.instance.init();
-  //   await NotificationService.instance.debugPrintState(from: "main_postframe");
-  // });
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    await NotificationService.instance.init();
+    await NotificationService.instance.debugPrintState(from: "main_postframe");
+  });
 }
-// Initialize all app services
 Future<void> _initializeApp() async {
   try {
     print('🟡 Initializing app services...');

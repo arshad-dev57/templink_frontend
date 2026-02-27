@@ -5,6 +5,7 @@ import 'package:templink/Employee/Controllers/Employee_home_controller.dart';
 import 'package:templink/Employee/models/project_model.dart';
 import 'package:templink/Employeer/Screens/Employeer_Projects_Discovery_Screen.dart';
 import 'package:templink/Employeer/Screens/Employeer_Talent_Discovery_Screen.dart';
+import 'package:templink/Employeer/Screens/Employer_Job_Applications_Screen.dart';
 import 'package:templink/Employeer/Screens/Emplyeer_profile_screen.dart';
 import 'package:templink/Employeer/Screens/employer_own_projects_screen.dart';
 import 'package:templink/Employeer/Screens/project_detail_screen.dart';
@@ -143,6 +144,9 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
               _drawerItem(Icons.work_outline, 'My Projects', () {
                 Get.to(EmployerProjectManagementScreen());
               }),
+                _drawerItem(Icons.assignment_outlined, 'Job Applicatons', () {
+                  Get.to(EmployerJobApplicationsScreen());
+                }),
 
 
                 _drawerItem(Icons.assignment_outlined, 'Reports', () {}),
@@ -438,7 +442,7 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
       child: Row(
         children: [
           _tabButton("Top Talent", 0),
-          _tabButton("Projects", 1),
+          _tabButton("Temp Projects", 1),
         ],
       ),
     );

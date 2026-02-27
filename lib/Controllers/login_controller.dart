@@ -79,11 +79,10 @@ class LoginController extends GetxController {
       print("✅ Saved last name: $lastName");
       print("✅ Saved image URL: $finalImageUrl");
 
-      /// 🔔 NOTIFICATION LOGIN (commented as per your code)
-      // await NotificationService.instance.login(userId);
-      // await NotificationService.instance.debugPrintState(from: "after_login");
-      // await Future.delayed(const Duration(milliseconds: 700));
-      // await NotificationApi.sendLoginSuccessPush(userId: userId);
+      await NotificationService.instance.login(userId);
+      await NotificationService.instance.debugPrintState(from: "after_login");
+      await Future.delayed(const Duration(milliseconds: 700));
+      await NotificationApi.sendLoginSuccessPush(userId: userId);
 
      
       if (role == "employee") {

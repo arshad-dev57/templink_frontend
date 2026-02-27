@@ -7,6 +7,7 @@ import 'package:templink/Employee/Screens/Employee_Job_Detail_Screen.dart';
 import 'package:templink/Employee/Screens/Employee_Profile_Screen.dart';
 import 'package:templink/Employee/Screens/Employee_Stats_Screen.dart';
 import 'package:templink/Employee/Screens/Employee_proposals_Screen.dart';
+import 'package:templink/Employee/Screens/mployee_Applied_Jobs_Screen.dart';
 import 'package:templink/Employee/models/Employee_jobs_model.dart';
 import 'package:templink/Employee/models/project_model.dart';
 import 'package:templink/Employeer/Screens/project_detail_screen.dart';
@@ -147,7 +148,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
                   Get.to(ResumeDashboardScreen());
                 }),
                    _drawerItem(Icons.wordpress, 'Applied Jobs', () {
-                  Get.to(ResumeDashboardScreen());
+                  Get.to(EmployeeAppliedJobsScreen());
                 }),
                 _drawerItem(Icons.assignment_outlined, 'Reports', () {}),
                 _drawerItem(Icons.dashboard, "Dashboard", (){
@@ -410,7 +411,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
         child: Row(
           children: [
             _buildTabButton('Jobs', 0),
-            _buildTabButton('Projects', 1),
+            _buildTabButton('Temp Projects', 1),
           ],
         ),
       ),

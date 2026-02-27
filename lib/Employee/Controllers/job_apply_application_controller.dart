@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Employee/models/Employee_jobs_model.dart';
+import 'package:templink/Employee/models/job_application_model.dart';
 import 'package:templink/config/api_config.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
@@ -16,6 +17,14 @@ class JobApplicationController extends GetxController {
   var isApplying = false.obs;
   var applicationSuccess = false.obs;
   var errorMessage = ''.obs;
+
+  // 👇 New: For fetching applications
+  var isLoadingApplications = false.obs;
+  var myApplications = <EmployeeApplication>[].obs;
+  var applicationsSummary = Rxn<ApplicationSummary>();
+  
+  // Filter by status
+  var selectedStatus = 'all'.obs;
 
   // Form fields
   final coverLetterController = TextEditingController();
@@ -29,12 +38,186 @@ class JobApplicationController extends GetxController {
   final String baseUrl = ApiConfig.baseUrl;
   
   @override
+  void onInit() {
+    super.onInit();
+    // Auto-fetch applications when controller initializes
+    fetchMyApplications();
+  }
+  
+  @override
   void onClose() {
     coverLetterController.dispose();
     super.onClose();
   }
+  List<EmployeeApplication> get filteredApplications {
+    if (selectedStatus.value == 'all') {
+      return myApplications;
+    }
+    return myApplications.where((app) => app.status == selectedStatus.value).toList();
+  }
+  Future<void> fetchMyApplications() async {
+    try {
+      isLoadingApplications.value = true;
+      errorMessage.value = '';
+      String? token = await _getToken();
+      if (token == null) {
+        errorMessage.value = 'No authentication token found';
+        return;
+      }
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/jobapplication/my'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
 
-  // ============== FILE PICKER ==============
+      print('📥 Fetch Applications Response: ${response.statusCode}');
+      print('📥 Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        
+        if (jsonResponse['success'] == true) {
+          if (jsonResponse['summary'] != null) {
+            applicationsSummary.value = ApplicationSummary.fromJson(jsonResponse['summary']);
+          }
+                    final List<dynamic> appsData = jsonResponse['data'] ?? [];
+          myApplications.value = appsData
+              .map((app) => EmployeeApplication.fromJson(app))
+              .toList();
+          
+          print('✅ Loaded ${myApplications.length} applications');
+        } else {
+          errorMessage.value = jsonResponse['message'] ?? 'Failed to load applications';
+        }
+      } else {
+        errorMessage.value = 'Server error: ${response.statusCode}';
+      }
+    } catch (e) {
+      errorMessage.value = 'Error: ${e.toString()}';
+      print('❌ Fetch applications error: $e');
+    } finally {
+      isLoadingApplications.value = false;
+    }
+  }
+
+  Future<void> refreshApplications() async {
+    await fetchMyApplications();
+  }
+
+  void filterByStatus(String status) {
+    selectedStatus.value = status;
+  }
+
+  EmployeeApplication? getApplicationById(String applicationId) {
+    try {
+      return myApplications.firstWhere((app) => app.id == applicationId);
+    } catch (e) {
+      return null;
+    }
+  }
+  Color getStatusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return Colors.orange;
+      case 'reviewed':
+        return Colors.blue;
+      case 'shortlisted':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+     
+      default:
+        return Colors.grey;
+    }
+  }
+  IconData getStatusIcon(String status) {
+    switch (status) {
+      case 'pending':
+        return Icons.pending_actions;
+      case 'reviewed':
+        return Icons.visibility;
+      case 'shortlisted':
+        return Icons.star;
+      case 'rejected':
+        return Icons.cancel;
+     
+      default:
+        return Icons.help;
+    }
+  }
+  String getStatusText(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Pending Review';
+      case 'reviewed':
+        return 'Reviewed';
+      case 'shortlisted':
+        return 'Shortlisted';
+      case 'rejected':
+        return 'Not Selected';
+    
+      default:
+        return status;
+    }
+  }
+// ============== MARK JOB AS LEFT ==============
+Future<void> markJobAsLeft(String applicationId, String reason) async {
+  try {
+    isLoadingApplications.value = true;
+
+    String? token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final response = await http.patch(
+      Uri.parse('$baseUrl/api/applications/$applicationId/left'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'reason': reason,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      // ✅ Force refresh from backend
+      await fetchMyApplications();
+      
+      Get.snackbar(
+        'Success',
+        'Job marked as left',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+    } else {
+      throw Exception('Failed to update');
+    }
+  } catch (e) {
+    Get.snackbar(
+      'Error',
+      e.toString(),
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+    );
+  } finally {
+    isLoadingApplications.value = false;
+  }
+}  String formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date).inDays;
+    
+    if (difference == 0) return 'Today';
+    if (difference == 1) return 'Yesterday';
+    if (difference < 7) return '$difference days ago';
+    if (difference < 30) return '${(difference / 7).floor()} weeks ago';
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  String getFileExtension(String filename) {
+    return filename.split('.').last.toUpperCase();
+  }
   Future<void> pickResumeFile() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -46,9 +229,7 @@ class JobApplicationController extends GetxController {
       if (result != null) {
         selectedFile.value = result;
         fileName.value = result.files.single.name;
-        
-        // Format file size
-        int bytes = result.files.single.size;
+                int bytes = result.files.single.size;
         if (bytes < 1024) {
           fileSize.value = '$bytes B';
         } else if (bytes < 1024 * 1024) {
@@ -117,7 +298,6 @@ class JobApplicationController extends GetxController {
         throw Exception('No authentication token found');
       }
 
-      // Create multipart request
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/api/jobapplication/apply/$jobId'),
@@ -165,9 +345,10 @@ class JobApplicationController extends GetxController {
 
       if (response.statusCode == 201) {
         applicationSuccess.value = true;
-        
-        // Clear form after success
         clearForm();
+        
+        // Refresh applications list after successful application
+        fetchMyApplications();
 
         Get.snackbar(
           '✅ Success!',

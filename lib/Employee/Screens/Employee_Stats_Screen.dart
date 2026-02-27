@@ -2,7 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:templink/Employee/Controllers/employee_stats_controller.dart';
-import 'package:templink/Global_Screens/Billing_Payment_Screen.dart';
+import 'package:templink/Global_Screens/Coins_purchase_screen.dart';
 import 'package:templink/Utils/colors.dart';
 
 class MyStatsScreen extends StatefulWidget {
