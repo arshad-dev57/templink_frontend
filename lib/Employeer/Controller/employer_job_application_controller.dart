@@ -57,19 +57,14 @@ class EmployerApplicationController extends GetxController {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
         
         if (jsonResponse['success'] == true) {
-          // Parse summary
           if (jsonResponse['summary'] != null) {
             summary.value = ApplicationSummary.fromJson(jsonResponse['summary']);
           }
-          
-          // Parse applications
-          final List<dynamic> appsData = jsonResponse['data'] ?? [];
+                    final List<dynamic> appsData = jsonResponse['data'] ?? [];
           applications.value = appsData
               .map((app) => EmployerJobApplication.fromJson(app))
               .toList();
-          
-          // Extract unique jobs for filter
-          _extractJobsList();
+                    _extractJobsList();
           
           // Apply filters
           _applyFilters();

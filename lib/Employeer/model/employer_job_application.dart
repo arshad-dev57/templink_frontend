@@ -8,10 +8,14 @@ class EmployerJobApplication {
   final DateTime appliedAt;
   final DateTime updatedAt;
   
-  // 👇 YEH NAYA FIELD ADD KARO
+  // Employment status fields
   final String employmentStatus; // 'active', 'left', 'terminated'
   final DateTime? leftAt;
   final String? leftReason;
+  
+  // Hiring Commission fields
+  final HiringCommission? hiringCommission;
+  final DateTime? hiredAt;
   
   // Resume fields
   final String resumeFileName;
@@ -33,10 +37,11 @@ class EmployerJobApplication {
     required this.coverLetter,
     required this.appliedAt,
     required this.updatedAt,
-    // 👇 Constructor mein add karo
     this.employmentStatus = 'active',
     this.leftAt,
     this.leftReason,
+    this.hiringCommission,
+    this.hiredAt,
     required this.resumeFileName,
     required this.resumeFileUrl,
     this.resumeCloudinaryPublicId,
@@ -60,12 +65,17 @@ class EmployerJobApplication {
       updatedAt: json['updatedAt'] != null 
           ? DateTime.parse(json['updatedAt']) 
           : DateTime.now(),
-      // 👇 JSON se parse karo
       employmentStatus: json['employmentStatus'] ?? 'active',
       leftAt: json['leftAt'] != null 
           ? DateTime.parse(json['leftAt']) 
           : null,
       leftReason: json['leftReason'],
+      hiringCommission: json['hiringCommission'] != null
+          ? HiringCommission.fromJson(json['hiringCommission'])
+          : null,
+      hiredAt: json['hiredAt'] != null
+          ? DateTime.parse(json['hiredAt'])
+          : null,
       resumeFileName: json['resumeFileName'] ?? '',
       resumeFileUrl: json['resumeFileUrl'] ?? '',
       resumeCloudinaryPublicId: json['resumeCloudinaryPublicId'],
@@ -74,6 +84,53 @@ class EmployerJobApplication {
       employeeSnapshot: EmployeeSnapshot.fromJson(json['employeeSnapshot'] ?? {}),
       employerSnapshot: EmployerSnapshot.fromJson(json['employerSnapshot'] ?? {}),
     );
+  }
+}
+
+// ============== HIRING COMMISSION MODEL ==============
+class HiringCommission {
+  final int salaryAmount;
+  final int commissionAmount;
+  final int commissionRate;
+  final String paymentStatus; // 'pending', 'paid', 'free_hire_protection'
+  final DateTime? paidAt;
+  final String? paymentId;
+  final bool isFreeHire;
+
+  HiringCommission({
+    required this.salaryAmount,
+    required this.commissionAmount,
+    required this.commissionRate,
+    required this.paymentStatus,
+    this.paidAt,
+    this.paymentId,
+    required this.isFreeHire,
+  });
+
+  factory HiringCommission.fromJson(Map<String, dynamic> json) {
+    return HiringCommission(
+      salaryAmount: json['salaryAmount'] ?? 0,
+      commissionAmount: json['commissionAmount'] ?? 0,
+      commissionRate: json['commissionRate'] ?? 20,
+      paymentStatus: json['paymentStatus'] ?? 'pending',
+      paidAt: json['paidAt'] != null
+          ? DateTime.parse(json['paidAt'])
+          : null,
+      paymentId: json['paymentId'],
+      isFreeHire: json['isFreeHire'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'salaryAmount': salaryAmount,
+      'commissionAmount': commissionAmount,
+      'commissionRate': commissionRate,
+      'paymentStatus': paymentStatus,
+      'paidAt': paidAt?.toIso8601String(),
+      'paymentId': paymentId,
+      'isFreeHire': isFreeHire,
+    };
   }
 }
 
@@ -87,6 +144,11 @@ class JobSnapshot {
   final String requirements;
   final String qualifications;
   final DateTime? postedDate;
+  
+  // 👇 YAHAN SALARY AMOUNT ADD KIYA
+  final int salaryAmount;
+  final String salaryCurrency;
+  final String salaryPeriod; // 'hourly', 'monthly', 'yearly'
 
   JobSnapshot({
     required this.title,
@@ -98,6 +160,10 @@ class JobSnapshot {
     required this.requirements,
     required this.qualifications,
     this.postedDate,
+    // 👇 Salary fields with defaults
+    this.salaryAmount = 0,
+    this.salaryCurrency = 'USD',
+    this.salaryPeriod = 'monthly',
   });
 
   factory JobSnapshot.fromJson(Map<String, dynamic> json) {
@@ -113,7 +179,40 @@ class JobSnapshot {
       postedDate: json['postedDate'] != null 
           ? DateTime.parse(json['postedDate']) 
           : null,
+      // 👇 Salary fields parse karo
+      salaryAmount: json['salaryAmount'] ?? 0,
+      salaryCurrency: json['salaryCurrency'] ?? 'USD',
+      salaryPeriod: json['salaryPeriod'] ?? 'monthly',
     );
+  }
+
+  // Helper method to format salary
+  String get formattedSalary {
+    if (salaryAmount <= 0) return 'Not specified';
+    
+    String period = '';
+    switch (salaryPeriod) {
+      case 'hourly':
+        period = '/hr';
+        break;
+      case 'monthly':
+        period = '/mo';
+        break;
+      case 'yearly':
+        period = '/yr';
+        break;
+    }
+    
+    return '$salaryCurrency ${_formatNumber(salaryAmount)}$period';
+  }
+
+  String _formatNumber(int number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toString();
   }
 }
 

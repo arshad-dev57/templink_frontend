@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Employeer/model/talent_model.dart';
+import 'package:templink/Employeer/widgets/hire_request_form.dart';
 import 'package:templink/Global_Screens/Chat_Screen.dart';
 import 'package:templink/Utils/colors.dart';
 import 'package:templink/config/api_config.dart';
@@ -21,6 +23,7 @@ class TalentProfileScreen extends StatefulWidget {
 
 class _TalentProfileScreenState extends State<TalentProfileScreen> {
   bool _isBookmarked = false;
+  bool _isSendingRequest = false;
 
   TalentModel get talent => widget.talent;
 
@@ -49,15 +52,16 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
                     setState(() {
                       _isBookmarked = !_isBookmarked;
                     });
+                    _toggleBookmark();
                   },
                 ),
                 IconButton(
                   icon: const Icon(Icons.share_outlined, color: Colors.black87),
-                  onPressed: () {},
+                  onPressed: _shareProfile,
                 ),
                 IconButton(
                   icon: const Icon(Icons.more_vert, color: Colors.black87),
-                  onPressed: () {},
+                  onPressed: _showMoreOptions,
                 ),
               ],
             ),
@@ -232,7 +236,7 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
           ],
         ),
       ),
-      // Bottom Navigation Bar with Action Buttons - ✅ FIXED with working chat
+      // Bottom Navigation Bar with Action Buttons
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -250,9 +254,7 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Hire Now - Future implementation
-                  },
+                  onPressed: _isSendingRequest ? null : _showHireRequestForm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primary,
                     foregroundColor: Colors.white,
@@ -262,13 +264,22 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: const Text(
-                    'Hire Now',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: _isSendingRequest
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Hire Now',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -299,7 +310,176 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
     );
   }
 
-  // ✅ FIXED: Working chat function
+  // ============== HIRE REQUEST METHODS ==============
+
+  void _showHireRequestForm() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => HireRequestForm(
+        talent: talent,
+        onSubmit: _sendHireRequest,
+      ),
+    );
+  }
+
+  Future<void> _sendHireRequest(Map<String, dynamic> requestData) async {
+    setState(() {
+      _isSendingRequest = true;
+    });
+
+    try {
+      // Close the bottom sheet
+      Navigator.pop(context);
+      
+      // Show loading
+      Get.dialog(
+        const Center(child: CircularProgressIndicator()),
+        barrierDismissible: false,
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      print('📤 Sending hire request: $requestData');
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/interest/send'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestData),
+      );
+
+      // Close loading
+      if (Get.isDialogOpen ?? false) Get.back();
+
+      print('📡 Response status: ${response.statusCode}');
+      print('📦 Response body: ${response.body}');
+
+      if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        
+        Get.snackbar(
+          '✅ Success!',
+          'Interest request sent to ${talent.firstName}',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
+        );
+      } else {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to send request');
+      }
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      Get.snackbar(
+        '❌ Error',
+        e.toString(),
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      setState(() {
+        _isSendingRequest = false;
+      });
+    }
+  }
+
+  // ============== BOOKMARK / SHARE / MORE OPTIONS ==============
+
+  Future<void> _toggleBookmark() async {
+    // TODO: Implement bookmark functionality
+    print('Bookmark toggled: $_isBookmarked');
+  }
+
+  void _shareProfile() {
+    // TODO: Implement share functionality
+    print('Sharing profile');
+  }
+
+  void _showMoreOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('Report Talent'),
+              onTap: () {
+                Navigator.pop(context);
+                _showReportDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.block_outlined),
+              title: const Text('Block Talent'),
+              onTap: () {
+                Navigator.pop(context);
+                _showBlockConfirmation();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReportDialog() {
+    // TODO: Implement report functionality
+    Get.snackbar(
+      'Report',
+      'Report feature coming soon',
+      backgroundColor: Colors.orange,
+      colorText: Colors.white,
+    );
+  }
+
+  void _showBlockConfirmation() {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Block Talent'),
+        content: Text('Are you sure you want to block ${talent.fullName}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Get.snackbar(
+                'Blocked',
+                '${talent.fullName} has been blocked',
+                backgroundColor: Colors.red,
+                colorText: Colors.white,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============== CHAT FUNCTION ==============
+
   void _openChat() async {
     try {
       // Show loading indicator
@@ -371,18 +551,16 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
       
       Get.to(() => ChatScreen(
         userName: talent.fullName,
-        userOnline: false, // Will be updated by socket
+        userOnline: false,
         toUserId: talent.id,
         baseUrl: ApiConfig.baseUrl,
         myToken: myToken,
         myUserId: myUserId,
       ))?.then((result) {
-        // Optional: Handle when returning from chat
         print('📤 Returned from chat screen');
       });
 
     } catch (e) {
-      // Dismiss loading if showing
       if (Get.isDialogOpen ?? false) {
         Get.back();
       }
@@ -399,7 +577,8 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
     }
   }
 
-  // ✅ DYNAMIC: Profile Header
+  // ============== PROFILE HEADER ==============
+
   Widget _buildProfileHeader() {
     return Container(
       color: Colors.white,
@@ -536,7 +715,8 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
     );
   }
 
-  // ✅ Build Work Experiences
+  // ============== WORK EXPERIENCES ==============
+
   List<Widget> _buildWorkExperiences() {
     final experiences = talent.employeeProfile['workExperiences'] as List? ?? [];
     final List<Widget> items = [];
@@ -561,7 +741,8 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
     return items;
   }
 
-  // ✅ Build Education
+  // ============== EDUCATION ==============
+
   List<Widget> _buildEducations() {
     final educations = talent.employeeProfile['educations'] as List? ?? [];
     final List<Widget> items = [];
@@ -584,7 +765,8 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
     return items;
   }
 
-  // ✅ Format work experience duration
+  // ============== FORMAT DURATIONS ==============
+
   String _formatDuration(Map<String, dynamic> exp) {
     final startYear = exp['startYear'] ?? '';
     final endYear = exp['currentlyWorking'] == true 
@@ -596,7 +778,6 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
     return '$startYear - $endYear';
   }
 
-  // ✅ Format education duration
   String _formatEducationDuration(Map<String, dynamic> edu) {
     final startYear = edu['startYear'] ?? '';
     final endYear = edu['currentlyAttending'] == true 
@@ -608,7 +789,8 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
     return '$startYear - $endYear';
   }
 
-  // ✅ Build Portfolio Items (Static)
+  // ============== PORTFOLIO ITEMS ==============
+
   List<Widget> _buildPortfolioItems() {
     return [
       _buildPortfolioItem(
@@ -631,7 +813,7 @@ class _TalentProfileScreenState extends State<TalentProfileScreen> {
     ];
   }
 
-  // ============ STATIC/REUSABLE WIDGETS ============
+  // ============== REUSABLE WIDGETS ==============
 
   Widget _buildStatCard(String value, String label) {
     return Container(

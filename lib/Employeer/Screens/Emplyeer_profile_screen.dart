@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:templink/Employeer/Controller/employer_profile_controller.dart';
 import 'package:templink/Employeer/Screens/Edit_Employeer_Profile.dart';
-import 'package:templink/Employeer/widgets/bottom_sheet.dart';
 import 'package:templink/Utils/colors.dart';
 
 class EmployerProfileScreen extends StatefulWidget {
@@ -52,7 +51,6 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
               Get.to(() => const EditEmployerProfileScreen());
             },
           ),
-        
         ],
       ),
       body: Obx(() {
@@ -102,6 +100,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
     );
   }
 
+  // ============== PROFILE HEADER ==============
   Widget _buildProfileHeader() {
     return Container(
       color: Colors.white,
@@ -342,6 +341,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
     );
   }
 
+  // ============== ABOUT TAB ==============
   Widget _buildAboutTab() {
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -377,65 +377,411 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
           ),
         ),
         const SizedBox(height: 16),
+        
+        // ============== TEAM MEMBERS SECTION ==============
         _buildSectionCard(
           title: 'Team Members',
           hasEdit: true,
           onEdit: () {
-            // Edit team functionality
+            _showTeamManagementBottomSheet();
           },
-          child: Column(
-            children: [
-              // Show empty state if no team members
-              if (controller.teamMembers.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: const Center(
-                    child: Text(
+          child: Obx(() {
+            if (controller.teamMembers.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.people_outline,
+                      size: 40,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
                       'No team members yet',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey,
                       ),
                     ),
-                  ),
-                )
-              else
-                ...controller.teamMembers.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final member = entry.value;
-                  
-                  // Safe access with null checks
-                  final memberName = member['name']?.toString() ?? '';
-                  final memberRole = member['role']?.toString() ?? '';
-                  final memberColor = member['avatarColor']?.toString() ?? '#14A800';
-                  
-                  return Column(
-                    children: [
-                      _buildTeamMember(
-                        memberName,
-                        memberRole,
-                        _getColorFromString(memberColor),
-                        hasRemove: true,
-                        onRemove: () => controller.removeTeamMember(index),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Hire employees to build your team',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
                       ),
-                      if (index < controller.teamMembers.length - 1)
-                        const SizedBox(height: 12),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Separate active and past members
+            final activeMembers = controller.teamMembers
+                .where((m) => m['status'] == 'active')
+                .toList();
+            final pastMembers = controller.teamMembers
+                .where((m) => m['status'] == 'left' || m['status'] == 'terminated')
+                .toList();
+
+            return Column(
+              children: [
+                // Stats Row
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: primary.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildTeamStat(
+                          '${controller.teamMembers.length}',
+                          'Total',
+                          Icons.people,
+                          primary,
+                        ),
+                      ),
+                      Container(
+                        height: 30,
+                        width: 1,
+                        color: Colors.grey.shade300,
+                      ),
+                      Expanded(
+                        child: _buildTeamStat(
+                          '${activeMembers.length}',
+                          'Active',
+                          Icons.circle,
+                          Colors.green,
+                        ),
+                      ),
+                      Container(
+                        height: 30,
+                        width: 1,
+                        color: Colors.grey.shade300,
+                      ),
+                      Expanded(
+                        child: _buildTeamStat(
+                          '${pastMembers.length}',
+                          'Past',
+                          Icons.history,
+                          Colors.grey,
+                        ),
+                      ),
                     ],
-                  );
-                }).toList(),
-        
-            ],
+                  ),
+                ),
+                
+                // Active Members Section
+                if (activeMembers.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Active Members',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ...activeMembers.take(3).map((member) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _buildTeamMemberCard(member, isActive: true),
+                    );
+                  }).toList(),
+                  if (activeMembers.length > 3)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: TextButton(
+                        onPressed: _showAllTeamMembers,
+                        child: Text(
+                          '+ ${activeMembers.length - 3} more active members',
+                          style: TextStyle(
+                            color: primary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+                
+                // Past Members Section (show only first 2)
+                if (pastMembers.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: Colors.grey,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Past Members',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ...pastMembers.take(2).map((member) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _buildTeamMemberCard(member, isActive: false),
+                    );
+                  }).toList(),
+                  if (pastMembers.length > 2)
+                    TextButton(
+                      onPressed: _showPastMembers,
+                      child: Text(
+                        '+ ${pastMembers.length - 2} more past members',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ],
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  // ============== TEAM STAT CARD ==============
+  Widget _buildTeamStat(String value, String label, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 16),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey.shade600,
           ),
         ),
       ],
     );
   }
 
+  // ============== TEAM MEMBER CARD ==============
+  Widget _buildTeamMemberCard(Map<String, dynamic> member, {required bool isActive}) {
+    // Safely extract data
+    final employee = member['employee'] ?? {};
+    final job = member['job'] ?? {};
+    
+    final name = employee['name'] ?? 
+        (employee['firstName'] != null && employee['lastName'] != null
+            ? '${employee['firstName']} ${employee['lastName']}'
+            : 'Unknown Member');
+    final photoUrl = employee['photoUrl'] ?? '';
+    final title = employee['title'] ?? job['title'] ?? 'Team Member';
+    final rating = (employee['rating'] ?? 0.0).toDouble();
+    final hiredAt = member['hiredAt'] != null
+        ? DateTime.parse(member['hiredAt'].toString())
+        : null;
+    final leftAt = member['leftAt'] != null
+        ? DateTime.parse(member['leftAt'].toString())
+        : null;
+    final isFreeHire = member['isFreeHire'] == true;
+    
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isActive ? primary.withOpacity(0.2) : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Profile Image
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: primary.withOpacity(0.1),
+                backgroundImage: photoUrl.isNotEmpty
+                    ? NetworkImage(photoUrl)
+                    : null,
+                child: photoUrl.isEmpty
+                    ? Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : '?',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: primary,
+                        ),
+                      )
+                    : null,
+              ),
+              if (isActive)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          
+          // Member Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: isActive ? Colors.black87 : Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                    if (rating > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.star, size: 10, color: Colors.amber),
+                            const SizedBox(width: 2),
+                            Text(
+                              rating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isActive ? Colors.grey.shade700 : Colors.grey.shade500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    if (isFreeHire)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.shield, size: 8, color: Colors.green),
+                            SizedBox(width: 2),
+                            Text(
+                              'Free Hire',
+                              style: TextStyle(
+                                fontSize: 8,
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (isActive && hiredAt != null)
+                      Text(
+                        'Hired ${_formatDate(hiredAt)}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    if (!isActive && leftAt != null)
+                      Text(
+                        'Left ${_formatDate(leftAt)}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Action Button
+          if (isActive)
+            IconButton(
+              icon: Icon(Icons.more_vert, size: 18, color: Colors.grey.shade500),
+              onPressed: () => _showMemberDetails(member),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ============== JOB POSTS TAB ==============
   Widget _buildJobPostsTab() {
     return Obx(() {
       if (controller.isLoadingJobs.value) {
@@ -467,8 +813,6 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
                 ),
               ),
               const SizedBox(height: 8),
-            
-            
             ],
           ),
         );
@@ -596,7 +940,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
     );
   }
 
-  Widget  _buildDynamicJobCard(Map<String, dynamic> job) {
+  Widget _buildDynamicJobCard(Map<String, dynamic> job) {
     final company = job['company'] ?? controller.companyName.value;
     final type = job['type'] ?? 'Full-time';
     final workplace = job['workplace'] ?? 'Onsite';
@@ -622,37 +966,36 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-       Row(
-  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  children: [
-    Expanded(
-      child: Text(
-        job['title'] ?? 'Untitled Job',
-        style: const TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
-        ),
-      ),
-    ),
-    // ✅ FIXED: Dynamic status chip
-    Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: controller.getJobStatusColor(job['status'] ?? 'active').withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        controller.getJobStatusText(job['status'] ?? 'active'),
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          color: controller.getJobStatusColor(job['status'] ?? 'active'),
-        ),
-      ),
-    ),
-  ],
-),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  job['title'] ?? 'Untitled Job',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: controller.getJobStatusColor(job['status'] ?? 'active').withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  controller.getJobStatusText(job['status'] ?? 'active'),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: controller.getJobStatusColor(job['status'] ?? 'active'),
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           Text(
             '$company • $type • $workplace',
@@ -776,38 +1119,6 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
           
           const SizedBox(height: 16),
           
-          // Images/Gallery
-          if (job['images'] != null && (job['images'] as List).isNotEmpty)
-            Container(
-              height: 60,
-              margin: const EdgeInsets.only(bottom: 16),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: (job['images'] as List).length,
-                itemBuilder: (context, index) {
-                  final image = (job['images'] as List)[index];
-                  return Container(
-                    width: 60,
-                    height: 60,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
-                      image: image['url'] != null
-                          ? DecorationImage(
-                              image: NetworkImage(image['url']),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
-                    child: image['url'] == null
-                        ? const Icon(Icons.image, color: Colors.grey)
-                        : null,
-                  );
-                },
-              ),
-            ),
-          
           // Action Buttons
           Row(
             children: [
@@ -829,198 +1140,93 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
                 ),
               ),
               const SizedBox(width: 12),
-// Replace the existing IconButton with this:
-PopupMenuButton(
-  icon: const Icon(Icons.more_vert),
-  color: Colors.white,
-  itemBuilder: (context) {
-    final isPaused = job['status'] == 'paused';
-    final isActive = job['status'] == 'active' || job['status'] == null;
-    
-    return [
-      const PopupMenuItem(
-        value: 'edit',
-        child: Row(
-          children: [
-            Icon(Icons.edit, size: 18, color: Colors.blue),
-            SizedBox(width: 8),
-            Text('Edit Job'),
-          ],
-        ),
-      ),
-      const PopupMenuItem(
-        value: 'duplicate',
-        child: Row(
-          children: [
-            Icon(Icons.content_copy, size: 18, color: Colors.purple),
-            SizedBox(width: 8),
-            Text('Duplicate'),
-          ],
-        ),
-      ),
-      // Show Pause or Resume based on status
-      if (isActive)
-        const PopupMenuItem(
-          value: 'pause',
-          child: Row(
-            children: [
-              Icon(Icons.pause_circle_outline, size: 18, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('Pause Job'),
+              PopupMenuButton(
+                icon: const Icon(Icons.more_vert),
+                color: Colors.white,
+                itemBuilder: (context) {
+                  final isPaused = job['status'] == 'paused';
+                  final isActive = job['status'] == 'active' || job['status'] == null;
+                  
+                  return [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 18, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Text('Edit Job'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'duplicate',
+                      child: Row(
+                        children: [
+                          Icon(Icons.content_copy, size: 18, color: Colors.purple),
+                          SizedBox(width: 8),
+                          Text('Duplicate'),
+                        ],
+                      ),
+                    ),
+                    if (isActive)
+                      const PopupMenuItem(
+                        value: 'pause',
+                        child: Row(
+                          children: [
+                            Icon(Icons.pause_circle_outline, size: 18, color: Colors.orange),
+                            SizedBox(width: 8),
+                            Text('Pause Job'),
+                          ],
+                        ),
+                      ),
+                    if (isPaused)
+                      const PopupMenuItem(
+                        value: 'resume',
+                        child: Row(
+                          children: [
+                            Icon(Icons.play_circle_outline, size: 18, color: Colors.green),
+                            SizedBox(width: 8),
+                            Text('Resume Job'),
+                          ],
+                        ),
+                      ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Delete Job'),
+                        ],
+                      ),
+                    ),
+                  ];
+                },
+                onSelected: (value) async {
+                  final jobId = job['_id'];
+                  final jobTitle = job['title'] ?? 'this job';
+                  
+                  if (value == 'delete') {
+                    _showDeleteConfirmation(context, jobId, jobTitle);
+                  } else if (value == 'edit') {
+                    Get.snackbar('Info', 'Edit feature coming soon');
+                  } else if (value == 'duplicate') {
+                    Get.snackbar('Info', 'Duplicate feature coming soon');
+                  } else if (value == 'pause') {
+                    _showPauseConfirmation(context, jobId, jobTitle);
+                  } else if (value == 'resume') {
+                    _showResumeConfirmation(context, jobId, jobTitle);
+                  }
+                },
+              ),
             ],
-          ),
-        ),
-      if (isPaused)
-        const PopupMenuItem(
-          value: 'resume',
-          child: Row(
-            children: [
-              Icon(Icons.play_circle_outline, size: 18, color: Colors.green),
-              SizedBox(width: 8),
-              Text('Resume Job'),
-            ],
-          ),
-        ),
-      const PopupMenuItem(
-        value: 'delete',
-        child: Row(
-          children: [
-            Icon(Icons.delete_outline, size: 18, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Delete Job'),
-          ],
-        ),
-      ),
-    ];
-  },
-  onSelected: (value) async {
-    final jobId = job['_id'];
-    final jobTitle = job['title'] ?? 'this job';
-    
-    if (value == 'delete') {
-      _showDeleteConfirmation(context, jobId, jobTitle,);
-    } else if (value == 'edit') {
-      Get.snackbar('Info', 'Edit feature coming soon');
-    } else if (value == 'duplicate') {
-      Get.snackbar('Info', 'Duplicate feature coming soon');
-    } else if (value == 'pause') {
-      _showPauseConfirmation(context, jobId, jobTitle);
-    } else if (value == 'resume') {
-      _showResumeConfirmation(context, jobId, jobTitle);
-    }
-  },
-)            ],
           ),
         ],
       ),
     );
   }
 
-void _showPauseConfirmation(BuildContext context, String jobId, String jobTitle) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
-        'Pause Job Post',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Are you sure you want to pause "$jobTitle"?'),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.shade200),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Paused jobs will not be visible to applicants. You can resume them anytime.',
-                    style: TextStyle(fontSize: 12, color: Colors.orange),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            Navigator.pop(context);
-            
-            Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
-            
-            final success = await controller.pauseJobPost(jobId);
-            
-            if (Get.isDialogOpen ?? false) Get.back();
-            
-            if (success) {
-              controller.update();
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Pause'),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showResumeConfirmation(BuildContext context, String jobId, String jobTitle) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
-        'Resume Job Post',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-      content: Text('Are you sure you want to resume "$jobTitle"?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            Navigator.pop(context);
-            
-            Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
-            
-            final success = await controller.resumeJobPost(jobId);
-            
-            if (Get.isDialogOpen ?? false) Get.back();
-            
-            if (success) {
-              controller.update();
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Resume'),
-        ),
-      ],
-    ),
-  );
-}
+  // ============== PROJECTS TAB ==============
   Widget _buildProjectsTab() {
     return Obx(() {
       if (controller.isLoadingProjects.value) {
@@ -1052,8 +1258,6 @@ void _showResumeConfirmation(BuildContext context, String jobId, String jobTitle
                 ),
               ),
               const SizedBox(height: 8),
-            
-            
             ],
           ),
         );
@@ -1305,287 +1509,425 @@ void _showResumeConfirmation(BuildContext context, String jobId, String jobTitle
                 ),
               ),
               const SizedBox(width: 12),
-          // Inside _buildDynamicProjectCard, find the IconButton at the bottom
-// Replace the existing IconButton with this:
-
-PopupMenuButton(
-  icon: const Icon(Icons.more_vert),
-  color: Colors.white,
-  itemBuilder: (context) => [
-    const PopupMenuItem(
-      value: 'edit',
-      child: Row(
-        children: [
-          Icon(Icons.edit, size: 18, color: Colors.blue),
-          SizedBox(width: 8),
-          Text('Edit Project'),
-        ],
-      ),
-    ),
-    const PopupMenuItem(
-      value: 'view_proposals',
-      child: Row(
-        children: [
-          Icon(Icons.people, size: 18, color: Colors.purple),
-          SizedBox(width: 8),
-          Text('View Proposals'),
-        ],
-      ),
-    ),
-    if (status == 'OPEN')
-      const PopupMenuItem(
-        value: 'pause',
-        child: Row(
-          children: [
-            Icon(Icons.pause_circle_outline, size: 18, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Pause Project'),
-          ],
-        ),
-      ),
-    const PopupMenuItem(
-      value: 'delete',
-      child: Row(
-        children: [
-          Icon(Icons.delete_outline, size: 18, color: Colors.red),
-          SizedBox(width: 8),
-          Text('Delete Project'),
-        ],
-      ),
-    ),
-  ],
-  onSelected: (value) async {
-    if (value == 'delete') {
-      _showProjectDeleteConfirmation(context, project['_id'], project['title'] ?? 'this project');
-    } else if (value == 'edit') {
-      // Navigate to edit screen
-      Get.snackbar('Info', 'Edit feature coming soon');
-    } else if (value == 'view_proposals') {
-      // Navigate to proposals screen
-      Get.snackbar('Info', 'View proposals feature coming soon');
-    } else if (value == 'pause') {
-      // Pause project
-      Get.snackbar('Info', 'Pause feature coming soon');
-    }
-  },
-)
+              PopupMenuButton(
+                icon: const Icon(Icons.more_vert),
+                color: Colors.white,
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 18, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text('Edit Project'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'view_proposals',
+                    child: Row(
+                      children: [
+                        Icon(Icons.people, size: 18, color: Colors.purple),
+                        SizedBox(width: 8),
+                        Text('View Proposals'),
+                      ],
+                    ),
+                  ),
+                  if (status == 'OPEN')
+                    const PopupMenuItem(
+                      value: 'pause',
+                      child: Row(
+                        children: [
+                          Icon(Icons.pause_circle_outline, size: 18, color: Colors.orange),
+                          SizedBox(width: 8),
+                          Text('Pause Project'),
+                        ],
+                      ),
+                    ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Delete Project'),
+                      ],
+                    ),
+                  ),
+                ],
+                onSelected: (value) async {
+                  if (value == 'delete') {
+                    _showProjectDeleteConfirmation(context, project['_id'], project['title'] ?? 'this project');
+                  } else if (value == 'edit') {
+                    Get.snackbar('Info', 'Edit feature coming soon');
+                  } else if (value == 'view_proposals') {
+                    Get.snackbar('Info', 'View proposals feature coming soon');
+                  } else if (value == 'pause') {
+                    Get.snackbar('Info', 'Pause feature coming soon');
+                  }
+                },
+              ),
             ],
           ),
         ],
       ),
     );
   }
-  void _showProjectDeleteConfirmation(BuildContext context, String projectId, String projectTitle) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+
+  // ============== TEAM MANAGEMENT BOTTOM SHEET ==============
+  void _showTeamManagementBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      title: const Text(
-        'Delete Project',
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Are you sure you want to delete "$projectTitle"?',
-            style: const TextStyle(fontSize: 14),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.red.shade200),
-            ),
-            child: const Row(
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        height: MediaQuery.of(context).size.height * 0.7,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(Icons.warning_amber, color: Colors.red, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'This action cannot be undone. All proposals and data related to this project will be permanently removed.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.red,
-                    ),
+                const Text(
+                  'Team Members',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Stats
+            Obx(() {
+              final activeCount = controller.teamMembers
+                  .where((m) => m['status'] == 'active')
+                  .length;
+              final pastCount = controller.teamMembers.length - activeCount;
+              
+              return Row(
+                children: [
+                  Expanded(
+                    child: _buildStatChip(
+                      'Active: $activeCount',
+                      Icons.circle,
+                      Colors.green,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatChip(
+                      'Past: $pastCount',
+                      Icons.history,
+                      Colors.grey,
+                    ),
+                  ),
+                ],
+              );
+            }),
+            const SizedBox(height: 16),
+            
+            // Tab Bar
+            DefaultTabController(
+              length: 2,
+              child: Column(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: TabBar(
+                      tabs: const [
+                        Tab(text: 'Active Members'),
+                        Tab(text: 'Past Members'),
+                      ],
+                      labelColor: primary,
+                      unselectedLabelColor: Colors.grey,
+                      indicator: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Tab Views
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.45,
+                    child: Obx(() {
+                      final activeMembers = controller.teamMembers
+                          .where((m) => m['status'] == 'active')
+                          .toList();
+                      final pastMembers = controller.teamMembers
+                          .where((m) => m['status'] == 'left' || m['status'] == 'terminated')
+                          .toList();
+                      
+                      return TabBarView(
+                        children: [
+                          _buildMembersListView(activeMembers, isActive: true),
+                          _buildMembersListView(pastMembers, isActive: false),
+                        ],
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatChip(String label, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: color,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.grey.shade700,
-          ),
-          child: const Text('Cancel'),
-        ),
-        Obx(() {
-          final isLoading = controller.isLoadingProjects.value;
-          return ElevatedButton(
-            onPressed: isLoading
-                ? null
-                : () async {
-                    Navigator.pop(context); // Close dialog
-                    
-                    // Show loading
-                    Get.dialog(
-                      const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      barrierDismissible: false,
-                    );
-                    
-                    // Delete project
-                    final success = await controller.deleteProject(projectId);
-                    
-                    // Close loading
-                    if (Get.isDialogOpen ?? false) Get.back();
-                    
-                    if (success) {
-                      // Success message already shown in controller
-                    }
-                  },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+    );
+  }
+
+  Widget _buildMembersListView(List<Map<String, dynamic>> members, {required bool isActive}) {
+    if (members.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isActive ? Icons.people_outline : Icons.history,
+              size: 50,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              isActive ? 'No active members' : 'No past members',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
               ),
             ),
-            child: isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text('Delete'),
-          );
-        }),
-      ],
-    ),
-  );
-}
-// Around line 1360 - Delete confirmation
-void _showDeleteConfirmation(BuildContext context, String jobId, String jobTitle) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      title: const Text(
-        'Delete Job Post',
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
+          ],
         ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Are you sure you want to delete "$jobTitle"?',
-            style: const TextStyle(fontSize: 14),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: members.length,
+      itemBuilder: (context, index) {
+        final member = members[index];
+        final employee = member['employee'] ?? {};
+        final job = member['job'] ?? {};
+        
+        final name = employee['name'] ?? 
+            (employee['firstName'] != null && employee['lastName'] != null
+                ? '${employee['firstName']} ${employee['lastName']}'
+                : 'Unknown');
+        final photoUrl = employee['photoUrl'] ?? '';
+        final role = employee['title'] ?? job['title'] ?? 'Team Member';
+        final hiredAt = member['hiredAt'] != null
+            ? DateTime.parse(member['hiredAt'].toString())
+            : null;
+        final leftAt = member['leftAt'] != null
+            ? DateTime.parse(member['leftAt'].toString())
+            : null;
+        final leftReason = member['leftReason'] ?? '';
+        
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.red.shade200),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.warning_amber, color: Colors.red, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'This action cannot be undone. All applications and data related to this job will be permanently removed.',
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: primary.withOpacity(0.1),
+                backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                child: photoUrl.isEmpty
+                    ? Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : '?',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: primary,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      role,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (hiredAt != null)
+                          Text(
+                            'Hired ${_formatDate(hiredAt)}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        if (leftAt != null) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            'Left ${_formatDate(leftAt)}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (leftReason.isNotEmpty && !isActive)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Reason: $leftReason',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.red.shade300,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (isActive)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Active',
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.red,
+                      fontSize: 10,
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  void _showAllTeamMembers() {
+    _showTeamManagementBottomSheet();
+  }
+
+  void _showPastMembers() {
+    _showTeamManagementBottomSheet();
+  }
+
+  void _showMemberDetails(Map<String, dynamic> member) {
+    final employee = member['employee'] ?? {};
+    final job = member['job'] ?? {};
+    
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.grey.shade700,
-          ),
-          child: const Text('Cancel'),
-        ),
-        Obx(() {
-          final isLoading = controller.isLoadingJobs.value;
-          return ElevatedButton(
-            onPressed: isLoading
-                ? null
-                : () async {
-                    Navigator.pop(context); // Close dialog
-                    
-                    // Show loading
-                    Get.dialog(
-                      const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      barrierDismissible: false,
-                    );
-                    
-                    // Delete job
-                    final success = await controller.deleteJobPost(jobId);
-                    
-                    // Close loading
-                    if (Get.isDialogOpen ?? false) Get.back();
-                    
-                    if (success) {
-                      // Success message already shown in controller
-                    }
-                  },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Member Details',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            child: isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text('Delete'),
-          );
-        }),
-      ],
-    ),
-  );
-}
+            const SizedBox(height: 20),
+            ListTile(
+              leading: CircleAvatar(
+                radius: 30,
+                backgroundColor: primary.withOpacity(0.1),
+                backgroundImage: employee['photoUrl'] != null && 
+                    employee['photoUrl'].toString().isNotEmpty
+                    ? NetworkImage(employee['photoUrl'].toString())
+                    : null,
+                child: employee['photoUrl'] == null || 
+                    employee['photoUrl'].toString().isEmpty
+                    ? Text(
+                        employee['name']?[0] ?? '?',
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: primary,
+                        ),
+                      )
+                    : null,
+              ),
+              title: Text(
+                employee['name'] ?? 'Unknown',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(employee['title'] ?? job['title'] ?? 'Team Member'),
+            ),
+            const SizedBox(height: 16),
+            // Add more details as needed
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============== UTILITY FUNCTIONS ==============
   Widget _buildSectionCard({
     required String title,
     required Widget child,
@@ -1620,7 +1962,6 @@ void _showDeleteConfirmation(BuildContext context, String jobId, String jobTitle
                   color: Colors.black87,
                 ),
               ),
-           
             ],
           ),
           const SizedBox(height: 16),
@@ -1655,77 +1996,335 @@ void _showDeleteConfirmation(BuildContext context, String jobId, String jobTitle
     );
   }
 
-  Widget _buildTeamMember(
-    String name,
-    String role,
-    Color color, {
-    bool hasRemove = false,
-    VoidCallback? onRemove,
-  }) {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 30,
-          backgroundColor: color.withOpacity(0.2),
-          child: Text(
-            name.isNotEmpty ? name[0] : '?',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date).inDays;
+    
+    if (difference == 0) return 'Today';
+    if (difference == 1) return 'Yesterday';
+    if (difference < 7) return '$difference days ago';
+    if (difference < 30) return '${(difference / 7).round()} weeks ago';
+    if (difference < 365) return '${(difference / 30).round()} months ago';
+    return '${(difference / 365).round()} years ago';
+  }
+
+  // ============== DIALOGS ==============
+  void _showDeleteConfirmation(BuildContext context, String jobId, String jobTitle) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          'Delete Job Post',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete "$jobTitle"?',
+              style: const TextStyle(fontSize: 14),
             ),
-          ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber, color: Colors.red, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This action cannot be undone. All applications and data related to this job will be permanently removed.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey.shade700,
+            ),
+            child: const Text('Cancel'),
+          ),
+          Obx(() {
+            final isLoading = controller.isLoadingJobs.value;
+            return ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      Navigator.pop(context); // Close dialog
+                      
+                      // Show loading
+                      Get.dialog(
+                        const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                        barrierDismissible: false,
+                      );
+                      
+                      // Delete job
+                      final success = await controller.deleteJobPost(jobId);
+                      
+                      // Close loading
+                      if (Get.isDialogOpen ?? false) Get.back();
+                      
+                      if (success) {
+                        // Success message already shown in controller
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                role,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (hasRemove)
-          IconButton(
-            onPressed: onRemove,
-            icon: Icon(Icons.close, color: Colors.grey.shade400, size: 20),
-          ),
-      ],
+              child: isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Delete'),
+            );
+          }),
+        ],
+      ),
     );
   }
 
-
-  Color _getColorFromString(String colorString) {
-    switch (colorString) {
-      case '#1E88E5': return Colors.blue.shade700;
-      case '#8E44AD': return Colors.purple.shade400;
-      case '#00897B': return Colors.teal.shade600;
-      case '#14A800': return primary;
-      default: return primary;
-    }
+  void _showProjectDeleteConfirmation(BuildContext context, String projectId, String projectTitle) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          'Delete Project',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete "$projectTitle"?',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber, color: Colors.red, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This action cannot be undone. All proposals and data related to this project will be permanently removed.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey.shade700,
+            ),
+            child: const Text('Cancel'),
+          ),
+          Obx(() {
+            final isLoading = controller.isLoadingProjects.value;
+            return ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      Navigator.pop(context); // Close dialog
+                      
+                      // Show loading
+                      Get.dialog(
+                        const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                        barrierDismissible: false,
+                      );
+                      
+                      // Delete project
+                      final success = await controller.deleteProject(projectId);
+                      
+                      // Close loading
+                      if (Get.isDialogOpen ?? false) Get.back();
+                      
+                      if (success) {
+                        // Success message already shown in controller
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Delete'),
+            );
+          }),
+        ],
+      ),
+    );
   }
 
-  void _showJobOptionsBottomSheet(String jobTitle, String status) {
-    // Implement bottom sheet
+  void _showPauseConfirmation(BuildContext context, String jobId, String jobTitle) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Pause Job Post',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Are you sure you want to pause "$jobTitle"?'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Paused jobs will not be visible to applicants. You can resume them anytime.',
+                      style: TextStyle(fontSize: 12, color: Colors.orange),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+              
+              final success = await controller.pauseJobPost(jobId);
+              
+              if (Get.isDialogOpen ?? false) Get.back();
+              
+              if (success) {
+                controller.update();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Pause'),
+          ),
+        ],
+      ),
+    );
   }
 
-  void _showProjectOptionsBottomSheet(String projectTitle, String status) {
-    // Implement bottom sheet
+  void _showResumeConfirmation(BuildContext context, String jobId, String jobTitle) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Resume Job Post',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        content: Text('Are you sure you want to resume "$jobTitle"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+              
+              final success = await controller.resumeJobPost(jobId);
+              
+              if (Get.isDialogOpen ?? false) Get.back();
+              
+              if (success) {
+                controller.update();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Resume'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1735,8 +2334,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   _SliverAppBarDelegate(this.tabBar);
 
   @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
       color: Colors.white,
       child: tabBar,

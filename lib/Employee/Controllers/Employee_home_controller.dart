@@ -11,14 +11,13 @@ import 'package:templink/config/api_config.dart';
 
 class EmployeeHomeController extends GetxController {
   final String baseUrl = ApiConfig.baseUrl;
- var firstName = ''.obs;
+  
+  var firstName = ''.obs;
   var lastName = ''.obs;
   var fullName = ''.obs;
   var imageUrl = ''.obs;
   var userRole = ''.obs;
   var isLoading = false.obs;
-
-
 
   // ==================== LOAD USER DATA ====================
   Future<void> loadUserData() async {
@@ -53,7 +52,6 @@ class EmployeeHomeController extends GetxController {
     }
   }
 
- 
   Future<void> refreshData() async {
     await loadUserData();
   }
@@ -88,12 +86,14 @@ class EmployeeHomeController extends GetxController {
   final projects = <ProjectFeedModel>[].obs;
   final projectsError = RxnString();
   final String projectsPath = '/api/projects/all';
+  
+  // Talents
   final isLoadingTalents = false.obs;
   final talents = <TalentModel>[].obs;
   final recommendedTalents = <TalentModel>[].obs;
   final talentsError = RxnString();
   final String talentsPath = '/api/toptalent/all';
-final firstname = ''.obs;
+  
   @override
   void onInit() {
     super.onInit();
@@ -109,7 +109,6 @@ final firstname = ''.obs;
     ]);
   }
 
-
   Future<Map<String, String>> _buildHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
@@ -124,7 +123,7 @@ final firstname = ''.obs;
     return headers;
   }
 
-  // ✅ Jobs fetch
+  // ✅ JOBS FETCH - FIXED
   Future<void> fetchJobs() async {
     try {
       isLoadingJobs.value = true;
@@ -134,27 +133,53 @@ final firstname = ''.obs;
       final uri = Uri.parse('$baseUrl$jobsPath');
       
       final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 25));
+      
+      print("📡 Jobs response status: ${res.statusCode}");
+      print("📦 Jobs response body: ${res.body.substring(0, res.body.length > 200 ? 200 : res.body.length)}...");
 
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
-        final List list = decoded is List ? decoded : <dynamic>[];
+        
+        // ✅ FIX: Handle new response format {success: true, count: X, jobs: [...]}
+        List<dynamic> jobsList = [];
+        
+        if (decoded is Map<String, dynamic>) {
+          if (decoded['success'] == true && decoded['jobs'] != null) {
+            jobsList = decoded['jobs'] as List;
+            print("✅ Found ${jobsList.length} jobs from response");
+          } else if (decoded['data'] != null) {
+            jobsList = decoded['data'] as List;
+          }
+        } else if (decoded is List) {
+          jobsList = decoded;
+        }
 
-        jobs.assignAll(
-          list.map((e) => JobPostModel.fromJson(Map<String, dynamic>.from(e))).toList()
-        );
+        // Clear and assign new jobs
+        jobs.clear();
+        
+        if (jobsList.isNotEmpty) {
+          jobs.assignAll(
+            jobsList.map((e) => JobPostModel.fromJson(Map<String, dynamic>.from(e))).toList()
+          );
+          print("✅ Loaded ${jobs.length} jobs successfully");
+        } else {
+          print("ℹ️ No jobs found in response");
+        }
       } else {
         jobsError.value = 'Failed to load jobs (${res.statusCode})';
+        print("❌ Jobs error: ${res.statusCode}");
       }
     } catch (e) {
       jobsError.value = e.toString();
+      print("❌ Jobs exception: $e");
     } finally {
       isLoadingJobs.value = false;
     }
   }
 
+  // ✅ PROJECTS FETCH
   Future<void> fetchProjects() async {
     try {
-  
       isLoadingProjects.value = true;
       projectsError.value = null;
 
@@ -183,7 +208,7 @@ final firstname = ''.obs;
     }
   }
 
-  // ✅ NEW: Talents fetch - EMPLOYER HOME SCREEN KE LIYE
+  // ✅ TALENTS FETCH
   Future<void> fetchTalents() async {
     try {
       isLoadingTalents.value = true;
@@ -199,7 +224,6 @@ final firstname = ''.obs;
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
         
-        // ✅ Response: {success: true, count: X, talents: [...]}
         final List list = (decoded is Map && decoded['talents'] is List)
             ? decoded['talents']
             : (decoded is List ? decoded : <dynamic>[]);
@@ -209,11 +233,7 @@ final firstname = ''.obs;
             .toList();
 
         talents.assignAll(allTalents);
-        
-        // ✅ Top 2 recommended talents for home screen
-        recommendedTalents.assignAll(
-          allTalents.take(2).toList()
-        );
+        recommendedTalents.assignAll(allTalents.take(2).toList());
 
         print('✅ Loaded ${talents.length} talents');
       } else {

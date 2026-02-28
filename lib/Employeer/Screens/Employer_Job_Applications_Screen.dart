@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:path/path.dart';
 import 'package:templink/Employeer/Controller/employer_job_application_controller.dart';
 import 'package:templink/Employeer/Screens/Employer_Application_detail.dart';
 import 'package:templink/Employeer/model/employer_job_application.dart';
-
 import 'package:templink/Utils/colors.dart';
 
 class EmployerJobApplicationsScreen extends StatelessWidget {
@@ -501,7 +499,16 @@ class EmployerJobApplicationsScreen extends StatelessWidget {
     );
   }
 
+  // ============== APPLICATION CARD ==============
   Widget _buildApplicationCard(EmployerJobApplication app) {
+    // ✅ Check if employee has left (hired but employmentStatus is 'left')
+    final bool hasLeft = app.status == 'hired' && app.employmentStatus == 'left';
+    
+    // ✅ Agar left hai to show nahi karna
+    if (hasLeft) {
+      return const SizedBox.shrink(); // Empty widget
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -519,7 +526,7 @@ class EmployerJobApplicationsScreen extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            Get.to(ApplicationDetailScreen(application: app,));
+            Get.to(() => ApplicationDetailScreen(application: app));
           },
           borderRadius: BorderRadius.circular(20),
           child: Padding(
@@ -585,31 +592,31 @@ class EmployerJobApplicationsScreen extends StatelessWidget {
                       ),
                     ),
 
-                    // Status Badge (Read-only, no dropdown)
+                    // Status Badge
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: controller.getStatusColor(app.status).withOpacity(0.1),
+                        color: _getStatusColor(app.status).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: controller.getStatusColor(app.status).withOpacity(0.3),
+                          color: _getStatusColor(app.status).withOpacity(0.3),
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            controller.getStatusIcon(app.status),
+                            _getStatusIcon(app.status),
                             size: 12,
-                            color: controller.getStatusColor(app.status),
+                            color: _getStatusColor(app.status),
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            controller.getStatusText(app.status),
+                            _getStatusText(app.status),
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: controller.getStatusColor(app.status),
+                              color: _getStatusColor(app.status),
                             ),
                           ),
                         ],
@@ -724,7 +731,7 @@ class EmployerJobApplicationsScreen extends StatelessWidget {
                           Icon(Icons.watch, size: 12, color: primary),
                           const SizedBox(width: 4),
                           Text(
-                            '${controller.calculateMatchPercentage(app).toInt()}% Match',
+                            '${_calculateMatchPercentage(app).toInt()}% Match',
                             style: TextStyle(fontSize: 10, color: primary),
                           ),
                         ],
@@ -767,7 +774,7 @@ class EmployerJobApplicationsScreen extends StatelessWidget {
                         Icon(Icons.access_time, size: 14, color: Colors.grey[500]),
                         const SizedBox(width: 4),
                         Text(
-                          'Applied ${controller.formatDate(app.appliedAt)}',
+                          'Applied ${_formatDate(app.appliedAt)}',
                           style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                         ),
                       ],
@@ -783,7 +790,7 @@ class EmployerJobApplicationsScreen extends StatelessWidget {
                           Icon(Icons.description, size: 12, color: primary),
                           const SizedBox(width: 4),
                           Text(
-                            controller.getFileExtension(app.resumeFileName),
+                            _getFileExtension(app.resumeFileName),
                             style: TextStyle(fontSize: 10, color: primary),
                           ),
                         ],
@@ -799,409 +806,102 @@ class EmployerJobApplicationsScreen extends StatelessWidget {
     );
   }
 
-  // ============== APPLICATION DETAILS BOTTOM SHEET ==============
-  void _showApplicationDetails(BuildContext context, EmployerJobApplication app) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _ApplicationDetailsSheet(application: app),
-    );
-  }
-}
+  // ============== HELPER FUNCTIONS ==============
 
-// ============== APPLICATION DETAILS SHEET ==============
-class _ApplicationDetailsSheet extends StatelessWidget {
-  final EmployerJobApplication application;
-  final EmployerApplicationController controller = Get.find();
-
-  _ApplicationDetailsSheet({required this.application});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          // Handle
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                const Text(
-                  'Application Details',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Get.back(),
-                ),
-              ],
-            ),
-          ),
-
-          // Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Employee Profile
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor: primary.withOpacity(0.1),
-                        backgroundImage: application.employeeSnapshot.photoUrl.isNotEmpty
-                            ? NetworkImage(application.employeeSnapshot.photoUrl)
-                            : null,
-                        child: application.employeeSnapshot.photoUrl.isEmpty
-                            ? Text(
-                                '${application.employeeSnapshot.firstName[0]}${application.employeeSnapshot.lastName[0]}',
-                                style: TextStyle(fontSize: 24, color: primary),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${application.employeeSnapshot.firstName} ${application.employeeSnapshot.lastName}',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              application.employeeSnapshot.title,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(Icons.star, size: 16, color: Colors.amber),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${application.employeeSnapshot.rating} (${application.employeeSnapshot.totalReviews} reviews)',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Status Update
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Update Status',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildStatusButton('pending', Icons.pending, Colors.orange),
-                            _buildStatusButton('reviewed', Icons.visibility, Colors.blue),
-                            _buildStatusButton('shortlisted', Icons.star, Colors.green),
-                            _buildStatusButton('rejected', Icons.cancel, Colors.red),
-                            _buildStatusButton('hired', Icons.work, Colors.purple),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Resume
-                  const Text(
-                    'Resume',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.description, color: primary),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                application.resumeFileName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                '${(application.resumeFileSize! / 1024).toStringAsFixed(1)} KB',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.download),
-                          onPressed: () {
-                            // Download resume
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Cover Letter
-                  if (application.coverLetter.isNotEmpty) ...[
-                    const Text(
-                      'Cover Letter',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        application.coverLetter,
-                        style: const TextStyle(height: 1.5),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Skills
-                  const Text(
-                    'Skills',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: application.employeeSnapshot.skills.map((skill) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          skill,
-                          style: TextStyle(color: primary),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Experience
-                  const Text(
-                    'Experience',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...application.employeeSnapshot.recentExperiences.map((exp) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            exp.title,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${exp.company} • ${exp.startYear} - ${exp.endYear}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-
-                  const SizedBox(height: 24),
-
-                  // Education
-                  if (application.employeeSnapshot.recentEducation != null) ...[
-                    const Text(
-                      'Education',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            application.employeeSnapshot.recentEducation!.degree,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${application.employeeSnapshot.recentEducation!.school} • ${application.employeeSnapshot.recentEducation!.field}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 24),
-
-                  // Add Note
-                  const Text(
-                    'Add Note',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      hintText: 'Add a private note about this candidate...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[50],
-                    ),
-                    onSubmitted: (note) {
-                      controller.addEmployerNote(application.id, note);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return Colors.orange;
+      case 'reviewed':
+        return Colors.blue;
+      case 'shortlisted':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+      case 'hired':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
   }
 
-  Widget _buildStatusButton(String status, IconData icon, Color color) {
-    final isSelected = application.status == status;
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case 'pending':
+        return Icons.pending;
+      case 'reviewed':
+        return Icons.visibility;
+      case 'shortlisted':
+        return Icons.star;
+      case 'rejected':
+        return Icons.cancel;
+      case 'hired':
+        return Icons.work;
+      default:
+        return Icons.help;
+    }
+  }
+
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'reviewed':
+        return 'Reviewed';
+      case 'shortlisted':
+        return 'Shortlisted';
+      case 'rejected':
+        return 'Rejected';
+      case 'hired':
+        return 'Hired';
+      default:
+        return status;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      return 'Today';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  String _getFileExtension(String fileName) {
+    final extension = fileName.split('.').last;
+    return extension.toUpperCase();
+  }
+
+  double _calculateMatchPercentage(EmployerJobApplication app) {
+    // Simple match calculation based on skills
+    final jobSkills = app.jobSnapshot.requirements
+        .toLowerCase()
+        .split(' ')
+        .where((word) => word.length > 3)
+        .toList();
     
-    return Obx(
-      () => GestureDetector(
-        onTap: () {
-          if (!controller.isUpdatingStatus.value) {
-            controller.updateApplicationStatus(application.id, status);
-          }
-        },
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: isSelected ? color : color.withOpacity(0.1),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isSelected ? color : color.withOpacity(0.3),
-              width: 2,
-            ),
-          ),
-          child: Icon(
-            icon,
-            color: isSelected ? Colors.white : color,
-            size: 20,
-          ),
-        ),
-      ),
-    );
+    final employeeSkills = app.employeeSnapshot.skills
+        .map((s) => s.toLowerCase())
+        .toList();
+
+    if (jobSkills.isEmpty || employeeSkills.isEmpty) {
+      return 75.0; // Default match
+    }
+
+    int matches = 0;
+    for (var skill in employeeSkills) {
+      if (jobSkills.any((word) => word.contains(skill))) {
+        matches++;
+      }
+    }
+
+    return (matches / jobSkills.length * 100).clamp(0, 100);
   }
 }

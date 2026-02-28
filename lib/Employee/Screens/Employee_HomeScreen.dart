@@ -7,6 +7,7 @@ import 'package:templink/Employee/Screens/Employee_Job_Detail_Screen.dart';
 import 'package:templink/Employee/Screens/Employee_Profile_Screen.dart';
 import 'package:templink/Employee/Screens/Employee_Stats_Screen.dart';
 import 'package:templink/Employee/Screens/Employee_proposals_Screen.dart';
+import 'package:templink/Employee/Screens/employee_requests_screen.dart';
 import 'package:templink/Employee/Screens/mployee_Applied_Jobs_Screen.dart';
 import 'package:templink/Employee/models/Employee_jobs_model.dart';
 import 'package:templink/Employee/models/project_model.dart';
@@ -146,6 +147,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
                 }),
                  _drawerItem(Icons.bar_chart_outlined, 'Resume Builder', () {
                   Get.to(ResumeDashboardScreen());
+                }),
+                  _drawerItem(Icons.person_add, 'Hire Requests', () {
+                  Get.to(EmployeeRequestsScreen());
                 }),
                    _drawerItem(Icons.wordpress, 'Applied Jobs', () {
                   Get.to(EmployeeAppliedJobsScreen());

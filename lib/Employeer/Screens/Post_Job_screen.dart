@@ -71,18 +71,9 @@ class JobPostScreen extends StatelessWidget {
                 ),
                 
                 const SizedBox(height: 20),
-                
-                // Company
-                _buildLabel("COMPANY"),
-                const SizedBox(height: 8),
-                _buildTextField(
-                  controller: _companyController,
-                  hintText: "Enter company name",
-                  icon: Icons.business_outlined,
-                  onChanged: (value) => controller.company.value = value,
-                ),
-                
-                const SizedBox(height: 20),
+          
+                // _buildLabel("COMPANY"),
+                // const SizedBox(height: 8),
                 
                 // Workplace Type
                 _buildLabel("WORKPLACE TYPE"),

@@ -65,7 +65,7 @@ class JobPostController extends GetxController {
       // Prepare job data according to backend schema
       final jobData = {
         'title': jobTitle.value,
-        'company': company.value,
+        'company': '',
         'workplace': selectedWorkplace.value,
         'location': jobLocation.value,
         'type': selectedJobType.value,

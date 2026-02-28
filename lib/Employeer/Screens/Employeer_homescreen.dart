@@ -7,6 +7,7 @@ import 'package:templink/Employeer/Screens/Employeer_Projects_Discovery_Screen.d
 import 'package:templink/Employeer/Screens/Employeer_Talent_Discovery_Screen.dart';
 import 'package:templink/Employeer/Screens/Employer_Job_Applications_Screen.dart';
 import 'package:templink/Employeer/Screens/Emplyeer_profile_screen.dart';
+import 'package:templink/Employeer/Screens/employer_interested_screen.dart';
 import 'package:templink/Employeer/Screens/employer_own_projects_screen.dart';
 import 'package:templink/Employeer/Screens/project_detail_screen.dart';
 import 'package:templink/Employeer/Screens/project_management_screen.dart';
@@ -144,11 +145,12 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
               _drawerItem(Icons.work_outline, 'My Projects', () {
                 Get.to(EmployerProjectManagementScreen());
               }),
+                _drawerItem(Icons.person_outline, 'Hired Candidates', () {
+                Get.to(EmployerInterestedScreen());
+              }),
                 _drawerItem(Icons.assignment_outlined, 'Job Applicatons', () {
                   Get.to(EmployerJobApplicationsScreen());
                 }),
-
-
                 _drawerItem(Icons.assignment_outlined, 'Reports', () {}),
                 _drawerItem(Icons.settings_outlined, 'Settings', () {
                   Get.to(() => const SettingsScreen());
