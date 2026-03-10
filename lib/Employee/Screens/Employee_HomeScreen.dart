@@ -17,6 +17,7 @@ import 'package:templink/Global_Screens/Notification_Screen.dart';
 import 'package:templink/Global_Screens/Search_Screen.dart';
 import 'package:templink/Global_Screens/login_screen.dart';
 import 'package:templink/Resume_Builder/Screens/Resume_Dashboard_Screen.dart';
+import 'package:templink/Services/Notificaton_Service.dart';
 import 'package:templink/Utils/colors.dart';
 
 class EmployeeHomeScreen extends StatefulWidget {
@@ -36,6 +37,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
 
   final EmployeeHomeController homeController = Get.put(EmployeeHomeController());
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  
   final List<Map<String, dynamic>> jobFilters = [
     {'label': 'All', 'icon': Icons.all_inclusive},
     {'label': 'Remote Only', 'icon': Icons.home_work},
@@ -44,7 +46,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     {'label': 'Urgent', 'icon': Icons.priority_high},
   ];
 
-  // ✅ Project Filters - Using available fields from ProjectFeedModel
+  // ✅ Project Filters
   final List<Map<String, dynamic>> projectFilters = [
     {'label': 'All', 'icon': Icons.all_inclusive},
     {'label': 'Featured', 'icon': Icons.star},
@@ -52,6 +54,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     {'label': 'Hourly', 'icon': Icons.timer},
     {'label': 'New', 'icon': Icons.fiber_new},
   ];
+
+  // Scroll controller for horizontal category scrolling
+  final ScrollController _categoryScrollController = ScrollController();
 
   @override
   Widget build(BuildContext context) {
@@ -155,11 +160,11 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
                   Get.to(EmployeeAppliedJobsScreen());
                 }),
                 _drawerItem(Icons.assignment_outlined, 'Reports', () {}),
-                _drawerItem(Icons.dashboard, "Dashboard", (){
+                _drawerItem(Icons.dashboard, "Active Projects", (){
                   Get.to(EmployeeActiveProjectsScreen());
                 }),
                 
-                _drawerItem(Icons.request_page_outlined, 'My Requests', () {}),
+                // _drawerItem(Icons.request_page_outlined, 'My Requests', () {}),
                 _drawerItem(Icons.settings_outlined, 'Settings', () {}),
                 _drawerItem(Icons.help_outline, 'Help & Support', () {}),
                 _buildThemeItem(),
@@ -213,37 +218,38 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     );
   }
 
-  Widget _buildLogoutItem() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-      child: GestureDetector(
-        onTap: () async {
-          SharedPreferences.getInstance().then((prefs) {
-            prefs.remove('auth_token');
-            prefs.remove('auth_user');
-            prefs.remove('auth_role');
-            print("User logged out. Token, user data, and role cleared from SharedPreferences.");
-            Get.offAll(() => const LoginScreen());
-          });
-        },
-        child: Row(
-          children: [
-            Icon(Icons.logout_outlined, color: Colors.red.shade400, size: 22),
-            const SizedBox(width: 12),
-            Text(
-              'Log Out',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.red.shade400,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+ Widget _buildLogoutItem() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+    child: GestureDetector(
+      onTap: () async {
+        await NotificationService.instance.logout();
 
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('auth_token');
+        await prefs.remove('auth_user');
+        await prefs.remove('auth_role');
+        await prefs.remove('auth_user_id');
+
+        Get.offAll(() => const LoginScreen());
+      },
+      child: Row(
+        children: [
+          Icon(Icons.logout_outlined, color: Colors.red, size: 22),
+          const SizedBox(width: 12),
+          Text(
+            'Log Out',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.red,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
   Widget _buildFooter() {
     return Column(
       children: [
@@ -324,6 +330,11 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
             _buildFeedTabs(),
             const SizedBox(height: 20),
             
+            // ✅ Categories Section - Sirf Jobs Tab ke liye visible hoga
+            if (selectedFeedTab == 0) _buildCategoriesSection(),
+            
+            const SizedBox(height: 20),
+            
             // ✅ Dynamic filter chips based on selected tab
             if (selectedFeedTab == 0) _buildJobFilterChips(),
             if (selectedFeedTab == 1) _buildProjectFilterChips(),
@@ -337,6 +348,101 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
         ),
       ),
     );
+  }
+
+  // ✅ NEW: Categories Section with Horizontal Scrollable Buttons - Sirf Jobs ke liye
+  Widget _buildCategoriesSection() {
+    return Obx(() {
+      if (homeController.isLoadingCategories.value) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
+
+      if (homeController.categoriesError.value != null) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            children: [
+              Text(
+                'Error loading categories',
+                style: TextStyle(color: Colors.red.shade400),
+              ),
+              const SizedBox(width: 10),
+              TextButton(
+                onPressed: () => homeController.fetchCategories(),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      if (homeController.categories.length <= 1) {
+        return const SizedBox.shrink(); // Agar sirf "All" hai to hide karo
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Browse Jobs by Category',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 45,
+            child: ListView.builder(
+              controller: _categoryScrollController,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: homeController.categories.length,
+              itemBuilder: (context, index) {
+                final category = homeController.categories[index];
+                final isSelected = homeController.selectedCategory.value == category;
+                
+                return Container(
+                  margin: const EdgeInsets.only(right: 10),
+                  child: FilterChip(
+                    label: Text(
+                      category,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black87,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      if (selected) {
+                        homeController.setSelectedCategory(category);
+                      }
+                    },
+                    backgroundColor: Colors.white,
+                    selectedColor: primary,
+                    checkmarkColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: isSelected ? primary : Colors.grey.shade300,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildAppBar() {
@@ -427,9 +533,12 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
       child: GestureDetector(
         onTap: () => setState(() {
           selectedFeedTab = index;
-          // Reset filters when switching tabs
           if (index == 0) selectedJobFilterIndex = 0;
-          if (index == 1) selectedProjectFilterIndex = 0;
+          if (index == 1) {
+            selectedProjectFilterIndex = 0;
+            // Projects tab pe jaate waqt category filter reset karo
+            homeController.setSelectedCategory('All');
+          }
         }),
         child: Container(
           decoration: BoxDecoration(
@@ -454,7 +563,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     );
   }
 
-  // ✅ JOB FILTER CHIPS - Using available JobPostModel fields
   Widget _buildJobFilterChips() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -509,7 +617,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     );
   }
 
-  // ✅ PROJECT FILTER CHIPS - Using available ProjectFeedModel fields
   Widget _buildProjectFilterChips() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -568,7 +675,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     return selectedFeedTab == 0 ? _buildJobsSection() : _buildProjectsSection();
   }
 
-  // ==================== JOBS SECTION WITH FILTERS ====================
+  // ==================== JOBS SECTION WITH CATEGORY FILTER ====================
   Widget _buildJobsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -578,19 +685,28 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                _getJobSectionTitle(),
+              Obx(() => Text(
+                homeController.selectedCategory.value == 'All' 
+                    ? _getJobSectionTitle()
+                    : '${homeController.selectedCategory.value} Jobs',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
-              ),
-              // TextButton(
-              //   onPressed: () {},
-              //   style: TextButton.styleFrom(foregroundColor: primary),
-              //   child: const Text('See All', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              // ),
+              )),
+              Obx(() {
+                if (homeController.selectedCategory.value != 'All') {
+                  return TextButton(
+                    onPressed: () {
+                      homeController.setSelectedCategory('All');
+                    },
+                    style: TextButton.styleFrom(foregroundColor: primary),
+                    child: const Text('Clear Filter', style: TextStyle(fontSize: 12)),
+                  );
+                }
+                return const SizedBox.shrink();
+              }),
             ],
           ),
         ),
@@ -624,20 +740,31 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
               );
             }
 
-            if (homeController.jobs.isEmpty) {
+            // Use filtered jobs from controller
+            final displayJobs = homeController.filteredJobsByCategory;
+
+            if (displayJobs.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Center(
-                  child: Text(
-                    'No jobs found',
-                    style: TextStyle(color: Colors.grey.shade600),
+                  child: Column(
+                    children: [
+                      Icon(Icons.work_off, size: 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 8),
+                      Text(
+                        homeController.selectedCategory.value == 'All'
+                            ? 'No jobs found'
+                            : 'No jobs found in ${homeController.selectedCategory.value} category',
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    ],
                   ),
                 ),
               );
             }
 
-            // ✅ Apply job filters
-            List<JobPostModel> filteredJobs = homeController.jobs;
+            // Apply additional job filters
+            List<JobPostModel> filteredJobs = displayJobs;
             
             switch (selectedJobFilterIndex) {
               case 1: // Remote Only
@@ -668,7 +795,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
                 child: Center(
                   child: Column(
                     children: [
-                      Icon(Icons.work_off, size: 48, color: Colors.grey.shade400),
+                      Icon(Icons.filter_alt_off, size: 48, color: Colors.grey.shade400),
                       const SizedBox(height: 8),
                       Text(
                         'No jobs match this filter',
@@ -699,7 +826,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
       default: return 'Featured Jobs';
     }
   }
-
 
   Widget _buildJobCard(JobPostModel job) {
     return Container(
@@ -953,7 +1079,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     );
   }
 
-  // ==================== PROJECTS SECTION WITH FILTERS ====================
+  // ==================== PROJECTS SECTION - ALWAYS SHOW ALL PROJECTS ====================
   Widget _buildProjectsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -971,11 +1097,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
                   color: Colors.black87,
                 ),
               ),
-              // TextButton(
-              //   onPressed: () {},
-              //   style: TextButton.styleFrom(foregroundColor: primary),
-              //   child: const Text('See All', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              // ),
             ],
           ),
         ),
@@ -1021,7 +1142,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
               );
             }
 
-            // ✅ Apply project filters
+            // ✅ Apply project filters - but category filter nahi lagega, sirf project filters
             List<ProjectFeedModel> filteredProjects = homeController.projects;
             
             switch (selectedProjectFilterIndex) {
@@ -1085,7 +1206,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     }
   }
 
-  // ✅ UPDATED: Project Card with all fields
   Widget _buildProjectCard(ProjectFeedModel project) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),

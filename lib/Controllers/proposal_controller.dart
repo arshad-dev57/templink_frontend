@@ -11,6 +11,7 @@ class ProposalController extends GetxController {
   var isLoading = false.obs;
   var proposalResponse = Rx<ProposalResponse?>(null);
   final baseurl = ApiConfig.baseUrl;
+  
   Future<bool> submitProposal(ProposalRequest proposal) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -56,6 +57,7 @@ print(response.statusCode);
       isLoading.value = false;
     }
   }
+  
   Future<List<PortfolioProject>> getPortfolioProjects() async {
     // Simulate API call
     await Future.delayed(const Duration(seconds: 1));
@@ -101,6 +103,8 @@ print(response.statusCode);
   var searchQuery = ''.obs;
   var selectedStatus = 'All'.obs;
 
+  // ✅ Status types to exclude
+  final List<String> excludedStatuses = ['completed', 'Completed', 'COMPLETED'];
 
   @override
   void onInit() {
@@ -110,17 +114,24 @@ print(response.statusCode);
 
   List<String> get statusTabs {
     final statuses = ['All'];
-    final uniqueStatuses = proposals.map((p) => p.displayStatus).toSet().toList();
+    
+    // ✅ Filter out excluded statuses
+    final uniqueStatuses = proposals
+        .map((p) => p.displayStatus)
+        .where((status) => !excludedStatuses.contains(status))
+        .toSet()
+        .toList();
+    
     statuses.addAll(uniqueStatuses);
     return statuses;
   }
 
   Future<void> fetchMyProposals() async {
     try {
-
       isLoading.value = true;
       SharedPreferences prefs = await SharedPreferences.getInstance();
       var token = prefs.getString("auth_token");
+      
       final response = await http.get(
         Uri.parse('$baseurl/api/proposals/my'),
         headers: {
@@ -133,12 +144,19 @@ print(response.statusCode);
           throw 'Connection timeout. Please try again.';
         },
       );
-print(response.statusCode);
-print(response.body);
+      
+      print(response.statusCode);
+      print(response.body);
+      
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         final proposalsResponse = ProposalsResponse.fromJson(jsonResponse);
-        proposals.value = proposalsResponse.proposals;
+        
+        // ✅ Filter out completed proposals
+        proposals.value = proposalsResponse.proposals
+            .where((p) => !excludedStatuses.contains(p.displayStatus))
+            .toList();
+            
         filterProposals();
       } else {
         throw 'Failed to load proposals: ${response.statusCode}';
@@ -159,7 +177,10 @@ print(response.body);
 
   // Filter proposals based on search and status
   void filterProposals() {
-    var filtered = List<ProposalModel>.from(proposals);
+    // ✅ First filter out completed proposals
+    var filtered = proposals
+        .where((p) => !excludedStatuses.contains(p.displayStatus))
+        .toList();
 
     // Filter by status
     if (selectedStatus.value != 'All') {
@@ -193,16 +214,22 @@ print(response.body);
     filterProposals();
   }
 
-  // Get count for a specific status
+  // Get count for a specific status (excluding completed)
   int getCountByStatus(String status) {
-    if (status == 'All') return proposals.length;
-    return proposals.where((p) => p.displayStatus == status).length;
+    if (status == 'All') {
+      return proposals.length;
+    }
+    return proposals
+        .where((p) => p.displayStatus == status)
+        .where((p) => !excludedStatuses.contains(p.displayStatus))
+        .length;
   }
 
-  // Get proposals by status type for sections
+  // Get proposals by status type for sections (excluding completed)
   List<ProposalModel> getProposalsByStatusType(String statusType) {
     return proposals
         .where((p) => p.statusType == statusType)
+        .where((p) => !excludedStatuses.contains(p.displayStatus))
         .where((p) {
           if (searchQuery.value.isEmpty) return true;
           final query = searchQuery.value.toLowerCase();
@@ -212,11 +239,22 @@ print(response.body);
         .toList();
   }
 
-  // Stats
+  // Stats (excluding completed)
   int get totalProposals => proposals.length;
-  int get submittedCount => proposals.where((p) => p.statusType == 'submitted').length;
-  int get acceptedCount => proposals.where((p) => p.statusType == 'accepted').length;
-  int get rejectedCount => proposals.where((p) => p.statusType == 'rejected').length;
+  int get submittedCount => proposals
+      .where((p) => p.statusType == 'submitted')
+      .where((p) => !excludedStatuses.contains(p.displayStatus))
+      .length;
+      
+  int get acceptedCount => proposals
+      .where((p) => p.statusType == 'accepted')
+      .where((p) => !excludedStatuses.contains(p.displayStatus))
+      .length;
+      
+  int get rejectedCount => proposals
+      .where((p) => p.statusType == 'rejected')
+      .where((p) => !excludedStatuses.contains(p.displayStatus))
+      .length;
 
   // Withdraw proposal
   Future<void> withdrawProposal(String proposalId) async {

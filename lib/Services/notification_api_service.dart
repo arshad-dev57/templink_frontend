@@ -3,39 +3,109 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 
 class NotificationApi {
-  static Future<void> sendLoginSuccessPush({
+  static Future<Map<String, dynamic>> sendLoginSuccessPush({
     required String userId,
+    String? subscriptionId,
     String title = "Login Successful",
     String message = "Welcome back to Templink ✅",
   }) async {
     final uri = Uri.parse("${ApiConfig.baseUrl}/api/notifications/send");
 
-    final res = await http.post(
-      uri,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "userId": userId,
-        "title": title,
-        "message": message,
-        "data": {
-          "type": "auth",
-          "screen": "home",
-        }
-      }),
-    );
+    print("🔔 ---------------- PUSH DEBUG ----------------");
+    print("🔔 Sending Login Push");
+    print("🔔 URL: $uri");
+    print("🔔 UserId: $userId");
+    print("🔔 SubscriptionId: $subscriptionId");
 
-    // backend ok false ho to throw
-    Map<String, dynamic> data = {};
+    final body = {
+      "userId": userId,
+      "subscriptionId": subscriptionId,
+      "title": title,
+      "message": message,
+      "data": {
+        "type": "auth",
+        "screen": "home",
+      }
+    };
+
+    print("🔔 Request Body: ${jsonEncode(body)}");
+
     try {
-      final decoded = jsonDecode(res.body);
-      if (decoded is Map<String, dynamic>) data = decoded;
-    } catch (_) {}
+      final res = await http.post(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode(body),
+      );
 
-    if (res.statusCode >= 200 && res.statusCode < 300 && data["ok"] != false) {
-      return;
+      print("🔔 Response Status: ${res.statusCode}");
+      print("🔔 Response Body: ${res.body}");
+
+      Map<String, dynamic> responseData = {};
+      try {
+        if (res.body.isNotEmpty) {
+          responseData = jsonDecode(res.body);
+        }
+      } catch (e) {
+        print("❌ Response parsing error: $e");
+        return {
+          'success': false,
+          'error': 'Failed to parse response',
+          'status': 'error'
+        };
+      }
+
+      if (responseData['result'] != null &&
+          responseData['result']['errors'] != null &&
+          responseData['result']['errors'].toString().contains("not subscribed")) {
+        print("⚠️ User not subscribed yet");
+        return {
+          'success': true,
+          'status': 'subscription_pending',
+          'message': 'Notification queued, subscription activating'
+        };
+      } else if (res.statusCode >= 200 && res.statusCode < 300) {
+        if (responseData['success'] == true || responseData['ok'] == true) {
+          print("✅ Push notification sent successfully");
+          return {'success': true, 'status': 'sent'};
+        }
+      }
+
+      print("⚠️ Push notification response: $responseData");
+      return {
+        'success': false,
+        'error': responseData,
+        'status': 'failed'
+      };
+
+    } catch (e) {
+      print("❌ Exception sending push: $e");
+      return {
+        'success': false,
+        'error': e.toString(),
+        'status': 'error'
+      };
+    } finally {
+      print("🔔 --------------------------------------------");
     }
+  }
 
-    final msg = data["msg"]?.toString() ?? "Push failed (${res.statusCode})";
-    throw Exception(msg);
+  static Future<void> sendDelayedNotification({
+    required String userId,
+    String? subscriptionId,
+    int delaySeconds = 10,
+  }) async {
+    await Future.delayed(Duration(seconds: delaySeconds));
+
+    print("🟡 Sending delayed notification after $delaySeconds seconds");
+    await sendLoginSuccessPush(
+      userId: userId,
+      subscriptionId: subscriptionId,
+      title: "Welcome to Templink",
+      message: "Your device is now ready to receive notifications",
+    );
   }
 }
+

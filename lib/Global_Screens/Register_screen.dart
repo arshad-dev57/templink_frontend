@@ -28,9 +28,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  String _selectedCountry = 'Pakistan';
+  String _selectedCountry = 'United States';
   final List<String> _countries = const [
-    'Pakistan',
     'United States',
     'United Kingdom',
     'Canada',

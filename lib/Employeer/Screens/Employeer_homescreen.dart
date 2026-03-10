@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Employee/Controllers/Employee_home_controller.dart';
+import 'package:templink/Employee/Screens/Employee_proposals_Screen.dart';
 import 'package:templink/Employee/models/project_model.dart';
 import 'package:templink/Employeer/Screens/Employeer_Projects_Discovery_Screen.dart';
 import 'package:templink/Employeer/Screens/Employeer_Talent_Discovery_Screen.dart';
@@ -18,6 +19,7 @@ import 'package:templink/Global_Screens/Chat_Users_List_Screen.dart';
 import 'package:templink/Global_Screens/Notification_Screen.dart';
 import 'package:templink/Global_Screens/Settings_Screen.dart';
 import 'package:templink/Global_Screens/login_screen.dart';
+import 'package:templink/Services/Notificaton_Service.dart';
 import 'package:templink/Utils/colors.dart';
 
 class EmployeerHomeScreen extends StatefulWidget {
@@ -41,8 +43,22 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
   var selectedTalentFilter = 'All'.obs;
   var selectedProjectFilter = 'All'.obs;
   
+  // ✅ Time-based filter states
+  var selectedTalentTimeFilter = 'All Time'.obs;
+  var selectedProjectTimeFilter = 'All Time'.obs;
+  
   final List<String> talentFilters = ['All', 'Top Rated', 'Available'];
   final List<String> projectFilters = ['All', 'Featured'];
+  
+  // ✅ Time filter options
+  final List<String> timeFilters = [
+    'All Time',
+    'Today',
+    'Yesterday',
+    'This Week',
+    'This Month',
+    'Last Month',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +164,12 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
                 _drawerItem(Icons.person_outline, 'Hired Candidates', () {
                 Get.to(EmployerInterestedScreen());
               }),
+
+              
+                 _drawerItem(Icons.assignment, 'Proposals Sent', () {
+                  Get.to(MyProposalsScreen());
+                }),
+
                 _drawerItem(Icons.assignment_outlined, 'Job Applicatons', () {
                   Get.to(EmployerJobApplicationsScreen());
                 }),
@@ -205,36 +227,39 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
     );
   }
 
-  Widget _buildLogoutItem() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-      child: GestureDetector(
-        onTap: () {
-          SharedPreferences.getInstance().then((prefs) {
-            prefs.remove('auth_token');
-            prefs.remove('auth_user');
-            prefs.remove('auth_role');
-            Get.offAll(() => const LoginScreen());
-          });
-        },
-        child: Row(
-          children: [
-            Icon(Icons.logout_outlined, color: Colors.red.shade400, size: 22),
-            const SizedBox(width: 12),
-            Text(
-              'Log Out',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.red.shade400,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+ Widget _buildLogoutItem() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+    child: GestureDetector(
+      onTap: () async {
 
+        await NotificationService.instance.logout();
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('auth_token');
+        await prefs.remove('auth_user');
+        await prefs.remove('auth_role');
+        await prefs.remove('auth_user_id');
+
+        Get.offAll(() => const LoginScreen());
+      },
+      child: Row(
+        children: [
+          Icon(Icons.logout_outlined, color: Colors.red, size: 22),
+          const SizedBox(width: 12),
+          Text(
+            'Log Out',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.red,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
   Widget _buildFooter() {
     return Column(
       children: [
@@ -337,6 +362,16 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
             const SizedBox(height: 20),
             _projectsTabBar(),
             const SizedBox(height: 20),
+            
+            // ✅ Time Filter Dropdown based on selected tab
+            if (selectedProjectTab == 0) ...[
+              _buildTalentTimeFilter(),
+            ] else ...[
+              _buildProjectTimeFilter(),
+            ],
+            
+            const SizedBox(height: 16),
+            
             if (selectedProjectTab == 0) ...[
               _recommendedSection(),
             ] else ...[
@@ -346,6 +381,107 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
         ),
       ),
     );
+  }
+
+  // ✅ Time Filter for Talent Tab
+  Widget _buildTalentTimeFilter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Obx(() => DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedTalentTimeFilter.value,
+          icon: Icon(Icons.arrow_drop_down, color: primary),
+          iconSize: 24,
+          elevation: 16,
+          style: TextStyle(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w500),
+          onChanged: (String? newValue) {
+            if (newValue != null) {
+              selectedTalentTimeFilter.value = newValue;
+            }
+          },
+          items: timeFilters.map<DropdownMenuItem<String>>((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Row(
+                children: [
+                  Icon(
+                    _getTimeFilterIcon(value),
+                    size: 18,
+                    color: selectedTalentTimeFilter.value == value ? primary : Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(value),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      )),
+    );
+  }
+
+  // ✅ Time Filter for Projects Tab
+  Widget _buildProjectTimeFilter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Obx(() => DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedProjectTimeFilter.value,
+          icon: Icon(Icons.arrow_drop_down, color: primary),
+          iconSize: 24,
+          elevation: 16,
+          style: TextStyle(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w500),
+          onChanged: (String? newValue) {
+            if (newValue != null) {
+              selectedProjectTimeFilter.value = newValue;
+            }
+          },
+          items: timeFilters.map<DropdownMenuItem<String>>((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Row(
+                children: [
+                  Icon(
+                    _getTimeFilterIcon(value),
+                    size: 18,
+                    color: selectedProjectTimeFilter.value == value ? primary : Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(value),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      )),
+    );
+  }
+
+  IconData _getTimeFilterIcon(String filter) {
+    switch (filter) {
+      case 'Today':
+        return Icons.today;
+      case 'Yesterday':
+        return Icons.history;
+      case 'This Week':
+        return Icons.date_range;
+      case 'This Month':
+        return Icons.calendar_month;
+      case 'Last Month':
+        return Icons.calendar_view_month;
+      default:
+        return Icons.access_time;
+    }
   }
 
   Widget _topBar(EmployeeHomeController controller) {
@@ -516,7 +652,7 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
         ),
         const SizedBox(height: 12),
         
-        // ✅ Talent Filter Chips - Using only available fields
+        // ✅ Talent Filter Chips
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -545,7 +681,43 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
         
         const SizedBox(height: 16),
         
-        // ✅ Dynamic Talents with Filtering using available fields
+        // ✅ Active time filter indicator
+        Obx(() {
+          if (selectedTalentTimeFilter.value != 'All Time') {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _getTimeFilterIcon(selectedTalentTimeFilter.value),
+                      size: 16,
+                      color: primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Showing: ${selectedTalentTimeFilter.value}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        }),
+        
+        // ✅ Dynamic Talents with Time Filtering
         Obx(() {
           if (homeController.isLoadingTalents.value) {
             return const Center(
@@ -575,20 +747,50 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
             );
           }
 
-          // ✅ Apply filters using available fields
+          // ✅ Apply talent filters
           List<TalentModel> filteredTalents = homeController.recommendedTalents;
           
+          // Apply category filter
           if (selectedTalentFilter.value != 'All') {
             filteredTalents = filteredTalents.where((t) {
               switch (selectedTalentFilter.value) {
                 case 'Top Rated':
-                  // Check rating from employeeProfile
                   final rating = t.employeeProfile['rating'];
                   return rating != null && rating >= 4.5;
                 case 'Available':
-                  // Check availability from employeeProfile
                   final availability = t.employeeProfile['availability'];
                   return availability == 'AVAILABLE_NOW';
+                default:
+                  return true;
+              }
+            }).toList();
+          }
+          
+          // ✅ Apply time filter
+          if (selectedTalentTimeFilter.value != 'All Time') {
+            filteredTalents = filteredTalents.where((t) {
+              final createdAt = t.createdAt;
+              if (createdAt == null) return false;
+              
+              final now = DateTime.now();
+              final today = DateTime(now.year, now.month, now.day);
+              final yesterday = today.subtract(const Duration(days: 1));
+              final weekAgo = today.subtract(const Duration(days: 7));
+              final monthAgo = DateTime(now.year, now.month - 1, now.day);
+              final lastMonthStart = DateTime(now.year, now.month - 1, 1);
+              final lastMonthEnd = DateTime(now.year, now.month, 0);
+              
+              switch (selectedTalentTimeFilter.value) {
+                case 'Today':
+                  return createdAt.isAfter(today);
+                case 'Yesterday':
+                  return createdAt.isAfter(yesterday) && createdAt.isBefore(today);
+                case 'This Week':
+                  return createdAt.isAfter(weekAgo);
+                case 'This Month':
+                  return createdAt.month == now.month && createdAt.year == now.year;
+                case 'Last Month':
+                  return createdAt.isAfter(lastMonthStart) && createdAt.isBefore(lastMonthEnd);
                 default:
                   return true;
               }
@@ -634,7 +836,7 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
     );
   }
 
-  // ✅ Talent Card (using your existing model)
+  // ✅ Talent Card
   Widget _talentCard(TalentModel talent) {
     final displaySkills = talent.skills.length > 3 
         ? talent.skills.sublist(0, 3) 
@@ -911,11 +1113,11 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
         ),
         const SizedBox(height: 16),
         
-        // ✅ Category Tabs (Static)
+        // ✅ Category Tabs
         _categoryTabs(),
         const SizedBox(height: 16),
         
-        // ✅ Project Filter Chips - Using only available fields
+        // ✅ Project Filter Chips
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -943,6 +1145,42 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
         ),
         
         const SizedBox(height: 16),
+        
+        // ✅ Active time filter indicator
+        Obx(() {
+          if (selectedProjectTimeFilter.value != 'All Time') {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _getTimeFilterIcon(selectedProjectTimeFilter.value),
+                      size: 16,
+                      color: primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Showing: ${selectedProjectTimeFilter.value}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        }),
         
         // Featured & Urgent Section
         Obx(() {
@@ -972,7 +1210,7 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
             );
           }
 
-          // ✅ Apply filters using available fields
+          // ✅ Apply project filters
           List<ProjectFeedModel> filteredProjects = homeController.projects;
           
           // Apply featured filter
@@ -980,8 +1218,36 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
             filteredProjects = filteredProjects.where((p) => p.featured).toList();
           }
           
-          // Note: 'Urgent' and 'New' filters require fields that might not exist in your model
-          // So we'll only use 'Featured' filter
+          // ✅ Apply time filter
+          if (selectedProjectTimeFilter.value != 'All Time') {
+            filteredProjects = filteredProjects.where((p) {
+              final createdAt = p.createdAt;
+              if (createdAt == null) return false;
+              
+              final now = DateTime.now();
+              final today = DateTime(now.year, now.month, now.day);
+              final yesterday = today.subtract(const Duration(days: 1));
+              final weekAgo = today.subtract(const Duration(days: 7));
+              final monthAgo = DateTime(now.year, now.month - 1, now.day);
+              final lastMonthStart = DateTime(now.year, now.month - 1, 1);
+              final lastMonthEnd = DateTime(now.year, now.month, 0);
+              
+              switch (selectedProjectTimeFilter.value) {
+                case 'Today':
+                  return createdAt.isAfter(today);
+                case 'Yesterday':
+                  return createdAt.isAfter(yesterday) && createdAt.isBefore(today);
+                case 'This Week':
+                  return createdAt.isAfter(weekAgo);
+                case 'This Month':
+                  return createdAt.month == now.month && createdAt.year == now.year;
+                case 'Last Month':
+                  return createdAt.isAfter(lastMonthStart) && createdAt.isBefore(lastMonthEnd);
+                default:
+                  return true;
+              }
+            }).toList();
+          }
 
           return Column(
             children: [
@@ -1052,7 +1318,6 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
   }
 
   String _getIndustryText() {
-    // This would come from user's employer profile
     return "Technology & Design";
   }
 
@@ -1099,7 +1364,7 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
     );
   }
 
-  // ✅ Project Card (using your existing model)
+  // ✅ Project Card
   Widget _projectCard(ProjectFeedModel project) {
     // Get badges based on available fields
     List<String> badges = [];

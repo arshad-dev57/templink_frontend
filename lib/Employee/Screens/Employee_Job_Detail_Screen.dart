@@ -26,7 +26,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // Clear controller when screen initializes
     appController.clearForm();
   }
 

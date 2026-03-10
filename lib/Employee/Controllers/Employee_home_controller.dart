@@ -1,5 +1,3 @@
-// 📁 lib/Employee/Controllers/Employee_home_controller.dart
-
 import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
@@ -19,7 +17,44 @@ class EmployeeHomeController extends GetxController {
   var userRole = ''.obs;
   var isLoading = false.obs;
 
-  // ==================== LOAD USER DATA ====================
+  // ==================== CATEGORIES ====================
+  final isLoadingCategories = false.obs;
+  final categories = <String>[].obs;
+  final categoriesError = RxnString();
+  final String categoriesPath = '/api/jobposts/job-categories';
+  
+  // Selected category
+  var selectedCategory = 'All'.obs;
+  
+  // Jobs filtered by category
+  final filteredJobsByCategory = <JobPostModel>[].obs;
+
+  // Jobs
+  final isLoadingJobs = false.obs;
+  final jobs = <JobPostModel>[].obs;
+  final jobsError = RxnString();
+  final String jobsPath = '/api/jobposts/jobs';
+
+  // Projects
+  final isLoadingProjects = false.obs;
+  final projects = <ProjectFeedModel>[].obs;
+  final projectsError = RxnString();
+  final String projectsPath = '/api/projects/all';
+  
+  // Talents
+  final isLoadingTalents = false.obs;
+  final talents = <TalentModel>[].obs;
+  final recommendedTalents = <TalentModel>[].obs;
+  final talentsError = RxnString();
+  final String talentsPath = '/api/toptalent/all';
+  
+  @override
+  void onInit() {
+    super.onInit();
+    loadUserData();
+    fetchAll();
+  }
+
   Future<void> loadUserData() async {
     try {
       isLoading.value = true;
@@ -66,7 +101,6 @@ class EmployeeHomeController extends GetxController {
     }
   }
 
-  // ==================== CLEAR DATA ====================
   void clearData() {
     firstName.value = '';
     lastName.value = '';
@@ -75,34 +109,9 @@ class EmployeeHomeController extends GetxController {
     userRole.value = '';
   }
 
-  // Jobs
-  final isLoadingJobs = false.obs;
-  final jobs = <JobPostModel>[].obs;
-  final jobsError = RxnString();
-  final String jobsPath = '/api/jobposts/jobs';
-
-  // Projects
-  final isLoadingProjects = false.obs;
-  final projects = <ProjectFeedModel>[].obs;
-  final projectsError = RxnString();
-  final String projectsPath = '/api/projects/all';
-  
-  // Talents
-  final isLoadingTalents = false.obs;
-  final talents = <TalentModel>[].obs;
-  final recommendedTalents = <TalentModel>[].obs;
-  final talentsError = RxnString();
-  final String talentsPath = '/api/toptalent/all';
-  
-  @override
-  void onInit() {
-    super.onInit();
-    loadUserData();
-    fetchAll();
-  }
-
   Future<void> fetchAll() async {
     await Future.wait([
+      fetchCategories(),
       fetchJobs(), 
       fetchProjects(),
       fetchTalents() 
@@ -123,7 +132,85 @@ class EmployeeHomeController extends GetxController {
     return headers;
   }
 
-  // ✅ JOBS FETCH - FIXED
+  // ✅ FETCH CATEGORIES FROM API
+  Future<void> fetchCategories() async {
+    try {
+      isLoadingCategories.value = true;
+      categoriesError.value = null;
+
+      final headers = await _buildHeaders();
+      final uri = Uri.parse('$baseUrl$categoriesPath');
+      
+      print("📡 Fetching categories from: $uri");
+      
+      final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 25));
+      
+      print("📡 Categories response status: ${res.statusCode}");
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        
+        // Clear existing categories
+        categories.clear();
+        
+        // Add "All" option first
+        categories.add('All');
+        
+        // Add categories from API
+        if (decoded is Map<String, dynamic> && decoded['success'] == true) {
+          final List<dynamic> categoryList = decoded['categories'] ?? [];
+          categories.addAll(categoryList.map((e) => e.toString()));
+          print("✅ Loaded ${categories.length - 1} categories from API");
+        } else if (decoded is List) {
+          categories.addAll(decoded.map((e) => e.toString()));
+          print("✅ Loaded ${categories.length - 1} categories from API");
+        }
+        
+        print("📊 Categories: ${categories}");
+        
+        // Default selected category
+        selectedCategory.value = 'All';
+        
+      } else {
+        categoriesError.value = 'Failed to load categories (${res.statusCode})';
+        print("❌ Categories error: ${res.statusCode}");
+      }
+    } catch (e) {
+      categoriesError.value = e.toString();
+      print("❌ Categories exception: $e");
+    } finally {
+      isLoadingCategories.value = false;
+    }
+  }
+
+  // ✅ FILTER JOBS BY SELECTED CATEGORY
+  void filterJobsByCategory() {
+    if (selectedCategory.value == 'All') {
+      filteredJobsByCategory.assignAll(jobs);
+    } else {
+      // Filter jobs based on category - assuming jobs mein category field hai
+      // Agar jobs mein category field nahi hai to ye filter kuch aur logic use karega
+      filteredJobsByCategory.assignAll(
+        jobs.where((job) {
+          // Check if job's category matches selected category
+          // Aap job model mein category field add kar sakte hain ya kisi aur field se match kar sakte hain
+          // For now, we'll use job title or type to match category
+          return job.title.toLowerCase().contains(selectedCategory.value.toLowerCase()) ||
+                 job.type.toLowerCase().contains(selectedCategory.value.toLowerCase()) ||
+                 (job.requirements?.toLowerCase().contains(selectedCategory.value.toLowerCase()) ?? false);
+        }).toList()
+      );
+    }
+    print("✅ Filtered jobs for category '${selectedCategory.value}': ${filteredJobsByCategory.length}");
+  }
+
+  // ✅ SET SELECTED CATEGORY AND FILTER JOBS
+  void setSelectedCategory(String category) {
+    selectedCategory.value = category;
+    filterJobsByCategory();
+  }
+
+  // ✅ JOBS FETCH
   Future<void> fetchJobs() async {
     try {
       isLoadingJobs.value = true;
@@ -135,12 +222,10 @@ class EmployeeHomeController extends GetxController {
       final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 25));
       
       print("📡 Jobs response status: ${res.statusCode}");
-      print("📦 Jobs response body: ${res.body.substring(0, res.body.length > 200 ? 200 : res.body.length)}...");
 
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
         
-        // ✅ FIX: Handle new response format {success: true, count: X, jobs: [...]}
         List<dynamic> jobsList = [];
         
         if (decoded is Map<String, dynamic>) {
@@ -154,7 +239,6 @@ class EmployeeHomeController extends GetxController {
           jobsList = decoded;
         }
 
-        // Clear and assign new jobs
         jobs.clear();
         
         if (jobsList.isNotEmpty) {
@@ -162,6 +246,9 @@ class EmployeeHomeController extends GetxController {
             jobsList.map((e) => JobPostModel.fromJson(Map<String, dynamic>.from(e))).toList()
           );
           print("✅ Loaded ${jobs.length} jobs successfully");
+          
+          // Filter jobs based on selected category
+          filterJobsByCategory();
         } else {
           print("ℹ️ No jobs found in response");
         }

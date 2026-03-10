@@ -1,7 +1,5 @@
 import 'package:get/get.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import 'dart:convert';
-import 'package:flutter/material.dart';
 
 class ChatSocketController extends GetxController {
   // ==================== OBSERVABLES ====================
@@ -11,341 +9,298 @@ class ChatSocketController extends GetxController {
   var activeConversationId = ''.obs;
   var errorMessage = ''.obs;
 
-  // Socket instance - SINGLETON
+  // ✅ Static socket - poori app mein ek hi socket rahega
   static IO.Socket? _socket;
-  static bool _isInitialized = false;
-  static String? _myUserId;
-  static String? _token;
-  static String? _baseUrl;
-  
-  // Message status tracking
+
+  // Pending messages: clientId -> tempMessage
   final Map<String, Map<String, dynamic>> _pendingMessages = {};
 
-  // Callbacks
-  Function(Map<String, dynamic>)? onNewMessage;
-  Function(Map<String, dynamic>)? onMessageStatus;
-  Function(Map<String, dynamic>)? onTyping;
-  Function(Map<String, dynamic>)? onReadReceipt;
+  // Callbacks for ChatListScreen
   Function(Map<String, dynamic>)? onConversationUpdated;
   Function(String, bool)? onUserPresence;
 
-  // ==================== SINGLETON PATTERN ====================
-  
-  /// Get the singleton instance
-  static ChatSocketController get instance {
-    if (!Get.isRegistered<ChatSocketController>()) {
-      throw Exception('ChatSocketController not initialized. Call initialize() first.');
-    }
-    return Get.find<ChatSocketController>();
-  }
+  late String myUserId;
+  late String _baseUrl;
+  late String _token;
 
-  /// Initialize the socket controller once at app startup
-  static Future<void> initialize({
-    required String baseUrl,
-    required String token,
-    required String myUserId,
-  }) async {
-    if (_isInitialized) {
-      print('ℹ️ ChatSocketController already initialized');
-      return;
-    }
-    
-    print('🟡 Initializing ChatSocketController...');
-    _isInitialized = true;
-    _myUserId = myUserId;
-    _token = token;
-    _baseUrl = baseUrl;
-    
-    // Convert http to ws for socket connection
-    String socketBaseUrl = baseUrl.replaceFirst('http', 'ws');
-    
-    // Create and register the controller permanently
-    Get.put(
-      ChatSocketController._internal(socketBaseUrl, token, myUserId),
-      permanent: true,
-    );
-    
-    print('✅ ChatSocketController initialized successfully');
-  }
-
-  // Private constructor
-  ChatSocketController._internal(String socketBaseUrl, String token, String myUserId) {
-    this.myUserId = myUserId;
-    _initSocket(socketBaseUrl, token);
-  }
-
-  // Public constructor - prevent direct creation
-  ChatSocketController._();
-
-  // For backward compatibility (deprecated)
+  // ==================== CONSTRUCTOR ====================
   ChatSocketController({
     required String socketBaseUrl,
     required String token,
     required String myUserId,
   }) {
-    print('⚠️ Direct ChatSocketController creation is deprecated. Use ChatSocketController.initialize() instead.');
     this.myUserId = myUserId;
+    _baseUrl = socketBaseUrl;
+    _token = token;
     _initSocket(socketBaseUrl, token);
   }
 
-  late String myUserId;
-
-  // ==================== INIT SOCKET ====================
+  // ==================== SOCKET INIT ====================
   void _initSocket(String baseUrl, String token) {
-    try {
-      print('🟡 Initializing socket connection to: $baseUrl');
-      
-      // Use existing socket if available
-      if (_socket != null && _socket!.connected) {
-        print('✅ Using existing socket connection');
-        isConnected.value = true;
-        return;
-      }
+    // ✅ Socket already connected hai to reuse karo
+    if (_socket != null && _socket!.connected) {
+      print('✅ Reusing existing socket connection');
+      isConnected.value = true;
+      _registerEvents(_socket!);
+      return;
+    }
 
-      // Clean URL - remove trailing slash
-      String cleanUrl = baseUrl.replaceAll(RegExp(r'/+$'), '');
-      
-     final socket = IO.io(
-        cleanUrl,
+    // ✅ Clean URL - remove trailing slashes
+    String socketUrl = baseUrl
+        .replaceFirst('https://', 'wss://')
+        .replaceFirst('http://', 'ws://')
+        .replaceAll(RegExp(r'/+$'), '');
+
+    print('🔌 Connecting socket to: $socketUrl');
+
+    try {
+      final socket = IO.io(
+        socketUrl,
         IO.OptionBuilder()
             .setTransports(['websocket'])
-            .setExtraHeaders({'Authorization': 'Bearer $token'})
+            .setAuth({'token': token})
             .enableReconnection()
-            .setReconnectionAttempts(10)
-            .setReconnectionDelay(1000)
-            .setReconnectionDelayMax(5000)
+            .setReconnectionAttempts(999)
+            .setReconnectionDelay(2000)
+            .setReconnectionDelayMax(10000)
             .build(),
       );
 
       _socket = socket;
-
-      // Connection events
-      socket.on('connect', (_) {
-        isConnected.value = true;
-        print('✅ Socket connected: ${socket.id}');
-        errorMessage.value = '';
-        
-        // Rejoin active conversation if any
-        if (activeConversationId.value.isNotEmpty) {
-          _joinConversation(activeConversationId.value);
-        }
-      });
-
-      socket.on('disconnect', (_) {
-        isConnected.value = false;
-        print('❌ Socket disconnected');
-      });
-
-      socket.on('connect_error', (error) {
-        errorMessage.value = 'Connection error: $error';
-        print('Socket error: $error');
-      });
-
-      socket.on('reconnect', (attempt) {
-        print('✅ Socket reconnected after $attempt attempts');
-        isConnected.value = true;
-        errorMessage.value = '';
-        
-        // Rejoin active conversation
-        if (activeConversationId.value.isNotEmpty) {
-          _joinConversation(activeConversationId.value);
-        }
-      });
-
-      socket.on('reconnect_attempt', (attempt) {
-        print('🔄 Reconnection attempt #$attempt');
-      });
-
-      socket.on('reconnect_error', (error) {
-        print('❌ Reconnection error: $error');
-      });
-
-      // socket.on('reconnect_failed', () {
-      //   print('❌ Reconnection failed after all attempts');
-      //   errorMessage.value = 'Connection lost. Please restart app.';
-      // });
-
-      socket.on('connected', (data) {
-        print('✅ Server confirmed connection: $data');
-      });
-
-      // =============== MESSAGE EVENTS ===============
-      socket.on('new_message', (data) {
-        _handleNewMessage(data);
-      });
-
-      socket.on('message_status', (data) {
-        _handleMessageStatus(data);
-        onMessageStatus?.call(data);
-      });
-
-      socket.on('read_receipt', (data) {
-        _handleReadReceipt(data);
-        onReadReceipt?.call(data);
-      });
-
-      // =============== TYPING EVENTS ===============
-      socket.on('typing', (data) {
-        _handleTyping(data);
-        onTyping?.call(data);
-      });
-
-      // =============== CONVERSATION UPDATES ===============
-      socket.on('conversation_updated', (data) {
-        onConversationUpdated?.call(data);
-      });
-
-      socket.on('unread_reset', (data) {
-        _handleUnreadReset(data);
-      });
-
-      // =============== PRESENCE ===============
-      socket.on('presence', (data) {
-        final userId = data['userId']?.toString();
-        final online = data['online'] == true;
-        if (userId != null && userId != myUserId) {
-          onUserPresence?.call(userId, online);
-        }
-      });
-
+      _registerEvents(socket);
     } catch (e) {
-      errorMessage.value = 'Socket init error: $e';
       print('❌ Socket init error: $e');
+      errorMessage.value = 'Socket initialization failed';
     }
   }
 
-  // Get socket instance
-  IO.Socket get socket {
-    if (_socket == null) {
-      throw Exception('Socket not initialized');
-    }
-    return _socket!;
+  // ==================== REGISTER EVENTS ====================
+  void _registerEvents(IO.Socket socket) {
+    // ✅ Pehle off karo - double registration prevent
+    _offAllEvents(socket);
+    
+    socket.on('connect', (_) {
+      isConnected.value = true;
+      errorMessage.value = '';
+      print('✅ Socket connected: ${socket.id}');
+      if (activeConversationId.value.isNotEmpty) {
+        _emitJoin(activeConversationId.value);
+      }
+    });
+
+    socket.on('disconnect', (reason) {
+      isConnected.value = false;
+      print('❌ Socket disconnected: $reason');
+    });
+
+    socket.on('connect_error', (error) {
+      errorMessage.value = 'Connection failed';
+      print('❌ Socket connect_error: $error');
+    });
+
+    socket.on('new_message', (data) {
+      _handleNewMessage(Map<String, dynamic>.from(data));
+    });
+
+    socket.on('message_status', (data) {
+      _handleMessageStatus(Map<String, dynamic>.from(data));
+    });
+
+    socket.on('read_receipt', (data) {
+      _handleReadReceipt(Map<String, dynamic>.from(data));
+    });
+
+    socket.on('typing', (data) {
+      _handleTyping(Map<String, dynamic>.from(data));
+    });
+
+    socket.on('conversation_updated', (data) {
+      if (onConversationUpdated != null) {
+        onConversationUpdated!(Map<String, dynamic>.from(data));
+      }
+    });
+
+    socket.on('presence', (data) {
+      _handlePresence(Map<String, dynamic>.from(data));
+    });
+  }
+
+  void _offAllEvents(IO.Socket socket) {
+    socket.off('connect');
+    socket.off('disconnect');
+    socket.off('connect_error');
+    socket.off('new_message');
+    socket.off('message_status');
+    socket.off('read_receipt');
+    socket.off('typing');
+    socket.off('conversation_updated');
+    socket.off('presence');
   }
 
   // ==================== MESSAGE HANDLERS ====================
   void _handleNewMessage(Map<String, dynamic> message) {
-    final fromUserId = message['from']?.toString();
     final conversationId = message['conversationId']?.toString();
+    final fromUserId = message['from']?.toString();
+    final clientId = message['clientId']?.toString();
 
-    // Add to messages list if it's for active conversation
-    if (conversationId == activeConversationId.value) {
-      messages.add(message);
+    // ✅ Temp message replace karo
+    if (clientId != null && _pendingMessages.containsKey(clientId)) {
+      final index = messages.indexWhere((m) => m['clientId'] == clientId);
+      if (index != -1) {
+        messages[index] = message;
+        messages.refresh();
+        print('✅ Temp replaced with server message: $clientId');
+      }
+      _pendingMessages.remove(clientId);
+    } 
+    // ✅ Incoming message - active conversation mein add karo
+    else if (conversationId == activeConversationId.value) {
+      final msgId = message['_id']?.toString();
+      final alreadyExists = msgId != null &&
+          messages.any((m) => m['_id']?.toString() == msgId);
       
-      // Mark as read if it's from someone else
-      if (fromUserId != myUserId) {
-        markRead(conversationId: conversationId!);
+      if (!alreadyExists) {
+        messages.add(message);
+        print('📩 Incoming message added');
       }
     }
 
-    // Update pending message status
-    final clientId = message['clientId']?.toString();
-    if (clientId != null && _pendingMessages.containsKey(clientId)) {
-      _pendingMessages[clientId] = message;
-      _updateMessageStatus(clientId, 'sent');
+    // Active conversation mein dusre ka message - auto read
+    if (conversationId == activeConversationId.value &&
+        fromUserId != myUserId) {
+      markRead(conversationId: conversationId!);
     }
-
-    onNewMessage?.call(message);
   }
 
   void _handleMessageStatus(Map<String, dynamic> data) {
-    final conversationId = data['conversationId']?.toString();
+    final convId = data['conversationId']?.toString();
+    if (convId != activeConversationId.value) return;
+    
+    final messageId = data['messageId']?.toString();
     final status = data['status']?.toString();
-    final at = data['at'];
-
-    if (conversationId == activeConversationId.value) {
-      // Update last message status
-      if (messages.isNotEmpty) {
-        final lastMsg = messages.last;
-        if (lastMsg['from'] == myUserId) {
-          lastMsg['status'] = status;
-          lastMsg['deliveredAt'] = at;
-          messages.refresh();
-        }
-      }
-    }
-  }
-
-  void _handleReadReceipt(Map<String, dynamic> data) {
-    final conversationId = data['conversationId']?.toString();
-    final readerId = data['readerId']?.toString();
-    final readAt = data['readAt'];
-
-    if (conversationId == activeConversationId.value && readerId != myUserId) {
-      // Mark all my messages as read
+    
+    if (messageId != null && status != null) {
       for (var msg in messages) {
-        if (msg['from'] == myUserId && msg['status'] != 'read') {
-          msg['status'] = 'read';
-          msg['readAt'] = readAt;
+        if (msg['_id']?.toString() == messageId) {
+          msg['status'] = status;
+          msg['deliveredAt'] = data['at'];
+          break;
         }
       }
       messages.refresh();
     }
+  }
+
+  void _handleReadReceipt(Map<String, dynamic> data) {
+    final convId = data['conversationId']?.toString();
+    if (convId != activeConversationId.value) return;
+    
+    final readerId = data['readerId']?.toString();
+    if (readerId == myUserId) return;
+    
+    bool changed = false;
+    for (var msg in messages) {
+      if (msg['from']?.toString() == myUserId && msg['status'] != 'read') {
+        msg['status'] = 'read';
+        msg['readAt'] = data['readAt'];
+        changed = true;
+      }
+    }
+    if (changed) messages.refresh();
   }
 
   void _handleTyping(Map<String, dynamic> data) {
     final fromUserId = data['fromUserId']?.toString();
     final isTyping = data['isTyping'] == true;
-
-    if (fromUserId != myUserId) {
+    
+    if (fromUserId != null && fromUserId != myUserId) {
       isOtherTyping.value = isTyping;
+      print('✏️ Other user typing: $isTyping');
     }
   }
 
-  void _handleUnreadReset(Map<String, dynamic> data) {
-    final conversationId = data['conversationId']?.toString();
-    if (conversationId == activeConversationId.value) {
-      // Reset unread count logic handled by list controller
-    }
-  }
-
-  void _updateMessageStatus(String clientId, String status) {
-    final index = messages.indexWhere((m) => m['clientId'] == clientId);
-    if (index != -1) {
-      messages[index]['status'] = status;
-      messages.refresh();
-    }
-  }
-
-  // Private join method
-  void _joinConversation(String conversationId) {
-    if (!isConnected.value) return;
+  void _handlePresence(Map<String, dynamic> data) {
+    final userId = data['userId']?.toString();
+    final online = data['online'] == true;
     
-    socket.emit('join_conversation', {
-      'conversationId': conversationId,
-    });
-    
-    print('📤 Joined conversation: $conversationId');
+    if (userId != null && userId != myUserId && onUserPresence != null) {
+      onUserPresence!(userId, online);
+    }
   }
 
   // ==================== PUBLIC METHODS ====================
   
-  /// Join a conversation room
-  void joinConversation({required String conversationId}) {
-    _joinConversation(conversationId);
-  }
-
-  /// Leave a conversation room
-  void leaveConversation(String conversationId) {
-    if (!isConnected.value) return;
-    
-    socket.emit('leave_conversation', {
-      'conversationId': conversationId,
-    });
-  }
-
-  /// Set active conversation (leaves previous, joins new)
+  /// ✅ Active conversation set karo
   void setActiveConversation(String conversationId) {
-    if (activeConversationId.value.isNotEmpty) {
-      leaveConversation(activeConversationId.value);
-    }
-    activeConversationId.value = conversationId;
-    joinConversation(conversationId: conversationId);
+    print('🔵 Setting active conversation: $conversationId');
     
-    // Clear messages when switching conversations
+    if (activeConversationId.value.isNotEmpty &&
+        activeConversationId.value != conversationId) {
+      _emitLeave(activeConversationId.value);
+    }
+    
+    activeConversationId.value = conversationId;
     messages.clear();
+    isOtherTyping.value = false;
+    _emitJoin(conversationId);
   }
 
-  /// Send a message
+  /// ✅ Chat screen se bahar jaate waqt call karo
+  void clearActiveConversation() {
+    print('🧹 Clearing active conversation');
+    
+    if (activeConversationId.value.isNotEmpty) {
+      _emitLeave(activeConversationId.value);
+    }
+    
+    activeConversationId.value = '';
+    messages.clear();
+    isOtherTyping.value = false;
+  }
+
+  /// ✅ Typing indicator bhejo
+  void sendTyping({
+    required String conversationId,
+    required String toUserId,
+    required bool isTyping,
+  }) {
+    print('📝 sendTyping called: isTyping=$isTyping');
+    
+    if (!isConnected.value) {
+      print('❌ Cannot send typing - not connected');
+      return;
+    }
+    
+    if (conversationId.isEmpty || toUserId.isEmpty) {
+      print('❌ Invalid parameters for sendTyping');
+      return;
+    }
+    
+    try {
+      _socket?.emit('typing', {
+        'conversationId': conversationId,
+        'toUserId': toUserId,
+        'isTyping': isTyping,
+      });
+    } catch (e) {
+      print('❌ Error sending typing: $e');
+    }
+  }
+
+  /// ✅ Backward compatibility method
+  void onTextChanged({
+    required String conversationId,
+    required String toUserId,
+    required String text,
+  }) {
+    sendTyping(
+      conversationId: conversationId,
+      toUserId: toUserId,
+      isTyping: text.isNotEmpty,
+    );
+  }
+
+  /// ✅ Message bhejo
   void sendMessage({
     required String conversationId,
     required String toUserId,
@@ -353,143 +308,145 @@ class ChatSocketController extends GetxController {
     String type = 'text',
     String mediaUrl = '',
   }) {
-    if (!isConnected.value || text.trim().isEmpty) return;
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    
+    if (!isConnected.value) {
+      errorMessage.value = 'Not connected. Please wait...';
+      return;
+    }
 
-    final clientId = '${DateTime.now().millisecondsSinceEpoch}_${myUserId}_$toUserId';
+    final clientId = '${DateTime.now().millisecondsSinceEpoch}_${myUserId.hashCode.abs()}';
 
-    // Create temporary message
     final tempMessage = {
       '_id': 'temp_$clientId',
       'conversationId': conversationId,
       'from': myUserId,
       'to': toUserId,
       'type': type,
-      'text': text,
+      'text': trimmed,
       'mediaUrl': mediaUrl,
       'status': 'sending',
       'clientId': clientId,
       'createdAt': DateTime.now().toIso8601String(),
     };
 
-    // Add to UI immediately
     messages.add(tempMessage);
     _pendingMessages[clientId] = tempMessage;
 
-    socket.emit('send_message', {
+    _socket?.emit('send_message', {
       'conversationId': conversationId,
       'toUserId': toUserId,
-      'text': text,
+      'text': trimmed,
       'type': type,
       'mediaUrl': mediaUrl,
       'clientId': clientId,
     });
 
-    // Optimistically update status after delay
-    Future.delayed(const Duration(seconds: 1), () {
-      if (_pendingMessages.containsKey(clientId)) {
-        _updateMessageStatus(clientId, 'sent');
-        _pendingMessages.remove(clientId);
-      }
-    });
+    print('📤 Message sent: $trimmed');
 
-    // Mark as failed after timeout
-    Future.delayed(const Duration(seconds: 5), () {
+    // 8 seconds timeout - failed mark karo
+    Future.delayed(const Duration(seconds: 8), () {
       if (_pendingMessages.containsKey(clientId)) {
-        _updateMessageStatus(clientId, 'failed');
+        _updateMsgStatus(clientId, 'failed');
         _pendingMessages.remove(clientId);
         errorMessage.value = 'Message failed to send';
       }
     });
   }
 
-  /// Send typing indicator
-  void onTextChanged({
-    required String conversationId,
-    required String toUserId,
-    required String text,
-  }) {
-    if (!isConnected.value) return;
-    
-    socket.emit('typing', {
-      'conversationId': conversationId,
-      'toUserId': toUserId,
-      'isTyping': text.isNotEmpty,
-    });
+  /// ✅ Conversation join karo
+  void joinConversation({required String conversationId}) {
+    _emitJoin(conversationId);
   }
 
-  /// Mark conversation as read
+  /// ✅ Conversation leave karo
+  void leaveConversation(String conversationId) {
+    _emitLeave(conversationId);
+  }
+
+  /// ✅ Messages ko read mark karo
   void markRead({required String conversationId}) {
     if (!isConnected.value) return;
-
-    socket.emit('mark_read', {
-      'conversationId': conversationId,
-    });
+    _socket?.emit('mark_read', {'conversationId': conversationId});
   }
 
-  // ==================== CALL FUNCTIONS ====================
+  /// ✅ Messages replace karo (history load karne ke baad)
+  void replaceMessages(String conversationId, List<Map<String, dynamic>> newMessages) {
+    if (activeConversationId.value == conversationId) {
+      messages.value = List<Map<String, dynamic>>.from(newMessages);
+    }
+  }
+
+  // ==================== CALL METHODS ====================
   void sendCallInvite(String toUserId, String callType) {
-    if (!isConnected.value) return;
-    socket.emit('call_invite', {'toUserId': toUserId, 'callType': callType});
+    _socket?.emit('call_invite', {'toUserId': toUserId, 'callType': callType});
   }
 
   void acceptCall(String toUserId, String callType) {
-    if (!isConnected.value) return;
-    socket.emit('call_accept', {'toUserId': toUserId, 'callType': callType});
+    _socket?.emit('call_accept', {'toUserId': toUserId, 'callType': callType});
   }
 
   void rejectCall(String toUserId) {
-    if (!isConnected.value) return;
-    socket.emit('call_reject', {'toUserId': toUserId});
+    _socket?.emit('call_reject', {'toUserId': toUserId});
   }
 
   void endCall(String toUserId) {
-    if (!isConnected.value) return;
-    socket.emit('call_end', {'toUserId': toUserId});
+    _socket?.emit('call_end', {'toUserId': toUserId});
   }
 
-  // ==================== WEBRTC ====================
+  // ==================== WEBRTC METHODS ====================
   void sendWebRtcOffer(String toUserId, dynamic sdp) {
-    if (!isConnected.value) return;
-    socket.emit('webrtc_offer', {'toUserId': toUserId, 'sdp': sdp});
+    _socket?.emit('webrtc_offer', {'toUserId': toUserId, 'sdp': sdp});
   }
 
   void sendWebRtcAnswer(String toUserId, dynamic sdp) {
-    if (!isConnected.value) return;
-    socket.emit('webrtc_answer', {'toUserId': toUserId, 'sdp': sdp});
+    _socket?.emit('webrtc_answer', {'toUserId': toUserId, 'sdp': sdp});
   }
 
   void sendIceCandidate(String toUserId, dynamic candidate) {
-    if (!isConnected.value) return;
-    socket.emit('webrtc_ice_candidate', {'toUserId': toUserId, 'candidate': candidate});
+    _socket?.emit('webrtc_ice_candidate', {
+      'toUserId': toUserId, 
+      'candidate': candidate
+    });
   }
 
-  // ==================== UTILITY ====================
-  void replaceMessages(String conversationId, List<Map<String, dynamic>> newMessages) {
-    if (activeConversationId.value == conversationId) {
-      messages.value = newMessages;
+  // ==================== HELPERS ====================
+  void _emitJoin(String conversationId) {
+    if (conversationId.isEmpty) return;
+    _socket?.emit('join_conversation', {'conversationId': conversationId});
+    print('🏠 Joined room: $conversationId');
+  }
+
+  void _emitLeave(String conversationId) {
+    if (conversationId.isEmpty) return;
+    _socket?.emit('leave_conversation', {'conversationId': conversationId});
+    print('🚪 Left room: $conversationId');
+  }
+
+  void _updateMsgStatus(String clientId, String status) {
+    final idx = messages.indexWhere((m) => m['clientId'] == clientId);
+    if (idx != -1) {
+      messages[idx]['status'] = status;
+      messages.refresh();
     }
   }
 
-  void disconnect() {
-    if (activeConversationId.value.isNotEmpty) {
-      leaveConversation(activeConversationId.value);
-    }
-    if (_socket != null) {
+  /// ✅ Socket disconnect manually (app band karte waqt)
+  static void disconnectSocket() {
+    if (_socket != null && _socket!.connected) {
       _socket!.disconnect();
-    }
-    isConnected.value = false;
-  }
-
-  void reconnect() {
-    if (_socket != null) {
-      _socket!.connect();
+      _socket!.close();
+      _socket = null;
+      print('🔌 Socket manually disconnected');
     }
   }
 
+  // ==================== LIFECYCLE ====================
   @override
   void onClose() {
-    // Don't disconnect on close - keep singleton alive
-    print('ℹ️ ChatSocketController onClose called - keeping socket alive');
+    print('ℹ️ ChatSocketController onClose - keeping socket alive');
+    // Socket ko close mat karo - reuse karna hai
     super.onClose();
   }
 }

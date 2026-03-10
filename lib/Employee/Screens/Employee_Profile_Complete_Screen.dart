@@ -62,33 +62,64 @@ class _EmployeeProfileCompleteScreenState extends State<EmployeeProfileCompleteS
   };
   
   // Categories data
-  final List<Map<String, dynamic>> categories = [
-    {
-      'name': 'IT & Networking',
-      'subcategories': ['Database Management', 'ERP/CRM', 'Network Security', 'Cloud Computing', 'System Admin']
-    },
-    {
-      'name': 'Design & Creative',
-      'subcategories': ['UI/UX Design', 'Graphic Design', 'Web Design', 'Logo Design', 'Animation']
-    },
-    {
-      'name': 'Writing & Translation',
-      'subcategories': ['Content Writing', 'Technical Writing', 'Copywriting', 'Translation', 'Proofreading']
-    },
-    {
-      'name': 'Digital Marketing',
-      'subcategories': ['SEO', 'Social Media', 'Email Marketing', 'PPC Ads', 'Content Marketing']
-    },
-    {
-      'name': 'Business & Finance',
-      'subcategories': ['Accounting', 'Financial Analysis', 'Business Planning', 'Market Research', 'Consulting']
-    },
-    {
-      'name': 'Engineering & Architecture',
-      'subcategories': ['Civil Engineering', 'Mechanical Eng', 'Electrical Eng', 'Architecture', 'CAD Design']
-    },
-  ];
-
+final List<Map<String, dynamic>> categories = [
+  {
+    'name': 'IT & Networking',
+    'subcategories': ['Database Management', 'ERP/CRM', 'Network Security', 'Cloud Computing', 'System Admin', 'DevOps', 'AI/ML Engineering']
+  },
+  {
+    'name': 'Design & Creative',
+    'subcategories': ['UI/UX Design', 'Graphic Design', 'Web Design', 'Logo Design', 'Animation', 'Product Design', 'Industrial Design']
+  },
+  {
+    'name': 'Writing & Translation',
+    'subcategories': ['Content Writing', 'Technical Writing', 'Copywriting', 'Translation', 'Proofreading', 'Grant Writing', 'Editing']
+  },
+  {
+    'name': 'Digital Marketing',
+    'subcategories': ['SEO', 'Social Media', 'Email Marketing', 'PPC Ads', 'Content Marketing', 'Affiliate Marketing', 'Marketing Analytics']
+  },
+  {
+    'name': 'Business & Finance',
+    'subcategories': ['Accounting', 'Financial Analysis', 'Business Planning', 'Market Research', 'Consulting', 'Investment Banking', 'Auditing', 'Risk Management']
+  },
+  {
+    'name': 'Engineering & Architecture',
+    'subcategories': ['Civil Engineering', 'Mechanical Eng', 'Electrical Eng', 'Architecture', 'CAD Design', 'Structural Engineering', 'Project Management']
+  },
+  {
+    'name': 'Healthcare & Medical',
+    'subcategories': ['Nursing', 'Physician', 'Pharmacy', 'Medical Lab Technology', 'Public Health', 'Medical Research', 'Physiotherapy']
+  },
+  {
+    'name': 'Education & Training',
+    'subcategories': ['Teaching', 'Corporate Training', 'Curriculum Development', 'E-learning', 'Tutoring', 'Instructional Design']
+  },
+  {
+    'name': 'Legal & Compliance',
+    'subcategories': ['Corporate Law', 'Legal Research', 'Contract Management', 'Intellectual Property', 'Compliance Officer', 'Paralegal']
+  },
+  {
+    'name': 'Human Resources',
+    'subcategories': ['Recruitment', 'Employee Relations', 'HR Analytics', 'Payroll Management', 'Training & Development']
+  },
+  {
+    'name': 'Project Management',
+    'subcategories': ['Agile Project Management', 'Scrum Master', 'PMO Management', 'Risk Management', 'Operations Management']
+  },
+  {
+    'name': 'Sales & Business Development',
+    'subcategories': ['B2B Sales', 'Account Management', 'Lead Generation', 'CRM Management', 'Retail Sales', 'Strategic Partnerships']
+  },
+  {
+    'name': 'Science & Research',
+    'subcategories': ['Data Analysis', 'Laboratory Research', 'Scientific Writing', 'Biotech', 'Chemistry', 'Physics Research']
+  },
+  {
+    'name': 'Finance & Investment',
+    'subcategories': ['Portfolio Management', 'Financial Planning', 'Equity Research', 'Accounting', 'Investment Analysis', 'Tax Consulting']
+  },
+];
   String? _selectedCategory;
   String? _selectedSubcategory;
   

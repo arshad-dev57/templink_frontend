@@ -10,6 +10,12 @@ class ChatListController extends GetxController {
   var errorMessage = ''.obs;
   var lastRefresh = DateTime.now().obs;
 
+  // ✅ CACHE for messages - conversationId -> messages
+  final Map<String, List<Map<String, dynamic>>> _messagesCache = {};
+  
+  // ✅ CACHE for conversation IDs - userId -> conversationId
+  final Map<String, String> _conversationIdCache = {};
+
   final String baseUrl;
   final String token;
 
@@ -49,9 +55,17 @@ class ChatListController extends GetxController {
         final List<dynamic> rawConversations = data['conversations'] ?? [];
         
         conversations.value = rawConversations.map((c) {
+          final convId = c['conversationId']?.toString() ?? '';
+          final userId = c['userId']?.toString() ?? '';
+          
+          // ✅ Cache conversation ID
+          if (userId.isNotEmpty && convId.isNotEmpty) {
+            _conversationIdCache[userId] = convId;
+          }
+          
           return {
-            'conversationId': c['conversationId']?.toString() ?? '',
-            'userId': c['userId']?.toString() ?? '',
+            'conversationId': convId,
+            'userId': userId,
             'name': c['name']?.toString() ?? 'Unknown User',
             'image': c['image']?.toString() ?? '',
             'lastMessage': c['lastMessage']?.toString() ?? 'No messages yet',
@@ -60,6 +74,9 @@ class ChatListController extends GetxController {
             'online': c['online'] ?? false,
           };
         }).toList();
+
+        // ✅ BACKGROUND MEIN SABKI MESSAGES FETCH KARO
+        _prefetchAllMessages();
 
         lastRefresh.value = DateTime.now();
       } else {
@@ -70,6 +87,60 @@ class ChatListController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  // ==================== PREFETCH MESSAGES ====================
+  Future<void> _prefetchAllMessages() async {
+    for (var conv in conversations) {
+      final convId = conv['conversationId']?.toString();
+      if (convId != null && convId.isNotEmpty) {
+        _prefetchMessages(convId);
+      }
+    }
+  }
+
+  Future<void> _prefetchMessages(String conversationId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/chat/conversations/$conversationId/messages?limit=20'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> rawMessages = data['messages'] ?? [];
+        
+        _messagesCache[conversationId] = rawMessages.map((m) {
+          return {
+            '_id': m['_id']?.toString() ?? '',
+            'conversationId': m['conversationId']?.toString() ?? '',
+            'from': m['from']?.toString() ?? '',
+            'to': m['to']?.toString() ?? '',
+            'text': m['text']?.toString() ?? '',
+            'type': m['type']?.toString() ?? 'text',
+            'status': m['status']?.toString() ?? 'delivered',
+            'createdAt': m['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
+          };
+        }).toList();
+        
+        print('✅ Prefetched ${_messagesCache[conversationId]?.length} messages for $conversationId');
+      }
+    } catch (e) {
+      print('❌ Prefetch error for $conversationId: $e');
+    }
+  }
+
+  // ==================== GET CACHED MESSAGES ====================
+  List<Map<String, dynamic>> getCachedMessages(String conversationId) {
+    return _messagesCache[conversationId] ?? [];
+  }
+
+  // ==================== GET CACHED CONVERSATION ID ====================
+  String? getCachedConversationId(String userId) {
+    return _conversationIdCache[userId];
   }
 
   // ==================== UPDATE CONVERSATION (from socket) ====================
@@ -170,6 +241,7 @@ class ChatListController extends GetxController {
 
       if (response.statusCode == 200) {
         conversations.removeWhere((c) => c['conversationId'] == conversationId);
+        _messagesCache.remove(conversationId);
         return true;
       }
       return false;

@@ -126,7 +126,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primary,
+                    backgroundColor: _getNextButtonColor(),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -173,16 +173,134 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
     );
   }
 
+  Color _getNextButtonColor() {
+    if (controller.currentStep.value == 1) {
+      // Step 2 mein check karo ke milestones total max budget ke barabar hai ya nahi
+      final maxBudget = double.tryParse(controller.maxBudgetController.text) ?? 0;
+      final totalMilestones = controller.milestonesList.fold<double>(
+        0, (sum, m) => sum + (m['amount'] as double)
+      );
+      
+      const double tolerance = 0.5;
+      
+      // Agar milestones hain aur total max budget ke barabar nahi hai to button grey karo
+      if (controller.milestonesList.isNotEmpty && 
+          (totalMilestones - maxBudget).abs() > tolerance) {
+        return Colors.grey;
+      }
+    }
+    return primary;
+  }
+
   void _handleNext() {
     if (controller.currentStep.value == 0) {
       if (controller.validateStep1()) {
         controller.nextStep();
       }
     } else if (controller.currentStep.value == 1) {
+      // Step 2 ke liye extra validation
       if (controller.validateStep2()) {
         controller.nextStep();
+      } else {
+        // Agar validation fail ho to user ko dikhao
+        _showBudgetMismatchDialog();
       }
     }
+  }
+
+  void _showBudgetMismatchDialog() {
+    final maxBudget = double.tryParse(controller.maxBudgetController.text) ?? 0;
+    final totalMilestones = controller.milestonesList.fold<double>(
+      0, (sum, m) => sum + (m['amount'] as double)
+    );
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          '⚠️ Budget Mismatch',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Milestones total must equal max budget:',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  _buildBudgetRow('Max Budget:', '\$${maxBudget.toStringAsFixed(0)}', Colors.blue),
+                  const SizedBox(height: 8),
+                  _buildBudgetRow('Milestones Total:', '\$${totalMilestones.toStringAsFixed(0)}', 
+                    totalMilestones > maxBudget ? Colors.red : Colors.orange),
+                  const Divider(height: 16),
+                  _buildBudgetRow(
+                    'Difference:', 
+                    '\$${(maxBudget - totalMilestones).abs().toStringAsFixed(0)}',
+                    totalMilestones > maxBudget ? Colors.red : Colors.orange,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              totalMilestones > maxBudget
+                  ? '❌ Reduce milestone amounts by \$${(totalMilestones - maxBudget).toStringAsFixed(0)}'
+                  : '⚠️ Add \$${(maxBudget - totalMilestones).toStringAsFixed(0)} more in milestones',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: totalMilestones > maxBudget ? Colors.red : Colors.orange,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBudgetRow(String label, String value, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
   }
 
   void _handlePublish() {
@@ -605,6 +723,10 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                               borderSide: BorderSide(color: Colors.grey[300]!),
                             ),
                           ),
+                          onChanged: (value) {
+                            // Trigger rebuild to update button color
+                            controller.update();
+                          },
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -626,6 +748,10 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                               borderSide: BorderSide(color: Colors.grey[300]!),
                             ),
                           ),
+                          onChanged: (value) {
+                            // Trigger rebuild to update button color
+                            controller.update();
+                          },
                         ),
                       ),
                     ],
@@ -722,6 +848,8 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
   }
 
   // Milestones Section with Budget Validation
+  // Milestones Section with Budget Validation
+   // Milestones Section with Budget Validation - WITHOUT Obx
   Widget _buildMilestonesSection() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -743,22 +871,25 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              if (!controller.showMilestoneForm.value)
-                TextButton.icon(
-                  onPressed: () {
-                    controller.showMilestoneForm.value = true;
-                  },
-                  icon: const Icon(Icons.add_circle, size: 20),
-                  label: const Text('Add Milestone'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: primary,
-                  ),
-                ),
+              // Simple condition, no Obx
+              !controller.showMilestoneForm.value
+                  ? TextButton.icon(
+                      onPressed: () {
+                        controller.showMilestoneForm.value = true;
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.add_circle, size: 20),
+                      label: const Text('Add Milestone'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: primary,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ],
           ),
           const SizedBox(height: 4),
           Text(
-            'Break down your project into milestones (Optional)',
+            'Break down your project into milestones (Total must equal max budget)',
             style: TextStyle(
               fontSize: 13,
               color: Colors.grey[600],
@@ -766,193 +897,212 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
           ),
           const SizedBox(height: 16),
 
-          // List of added milestones
-          Obx(() {
-            if (controller.milestonesList.isEmpty) {
+          // Budget Range Display
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue[200]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 20, color: Colors.blue[700]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Max Budget: \$${controller.maxBudgetController.text}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Milestones List
+          if (controller.milestonesList.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.flag_outlined,
+                      size: 40,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No milestones added yet',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Add milestones to break down payment',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          if (controller.milestonesList.isNotEmpty)
+            ...List.generate(controller.milestonesList.length, (index) {
+              final milestone = controller.milestonesList[index];
               return Container(
-                padding: const EdgeInsets.all(24),
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.grey[50],
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey[200]!),
                 ),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.flag_outlined,
-                        size: 40,
-                        color: Colors.grey[400],
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: primary,
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'No milestones added yet',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Add milestones to break down payment',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: controller.milestonesList.length,
-              itemBuilder: (context, index) {
-                final milestone = controller.milestonesList[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${index + 1}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
+                      child: Center(
+                        child: Text(
+                          '${index + 1}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              milestone['title'],
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            milestone['title'],
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              milestone['description'],
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey[600],
-                              ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            milestone['description'],
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.green[50],
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.green[200]!),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.attach_money,
+                                      size: 14,
+                                      color: Colors.green,
+                                    ),
+                                    Text(
+                                      '\$${(milestone['amount'] as double).toStringAsFixed(0)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.green[700],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (milestone['dueDate'] != null) ...[
+                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.green[50],
+                                    color: Colors.blue[50],
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.green[200]!),
+                                    border: Border.all(color: Colors.blue[200]!),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(
-                                        Icons.attach_money,
-                                        size: 14,
-                                        color: Colors.green,
+                                      Icon(
+                                        Icons.calendar_today,
+                                        size: 12,
+                                        color: Colors.blue[600],
                                       ),
+                                      const SizedBox(width: 4),
                                       Text(
-                                        '\$${milestone['amount'].toStringAsFixed(0)}',
+                                        _formatDate(milestone['dueDate']),
                                         style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.green[700],
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.blue[700],
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                if (milestone['dueDate'] != null) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue[50],
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: Colors.blue[200]!),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.calendar_today,
-                                          size: 12,
-                                          color: Colors.blue[600],
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          _formatDate(milestone['dueDate']),
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.blue[700],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
                               ],
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () {
-                          controller.milestonesList.removeAt(index);
-                        },
-                        color: Colors.grey[600],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          }),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () {
+                        controller.milestonesList.removeAt(index);
+                        setState(() {});
+                      },
+                      color: Colors.grey[600],
+                    ),
+                  ],
+                ),
+              );
+            }),
 
           const SizedBox(height: 16),
 
           // Milestone Form
-          Obx(() {
-            if (!controller.showMilestoneForm.value) return const SizedBox.shrink();
-
-            return Container(
+          if (controller.showMilestoneForm.value)
+            Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.grey[50],
@@ -1053,6 +1203,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                             );
                             if (date != null) {
                               controller.selectedMilestoneDueDate.value = date;
+                              setState(() {});
                             }
                           },
                           child: Container(
@@ -1072,7 +1223,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
-                                  child: Obx(() => Text(
+                                  child: Text(
                                     controller.selectedMilestoneDueDate.value == null
                                         ? 'Due Date (Optional)'
                                         : _formatDate(controller.selectedMilestoneDueDate.value!),
@@ -1082,7 +1233,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                                           ? Colors.grey[500]
                                           : Colors.black87,
                                     ),
-                                  )),
+                                  ),
                                 ),
                               ],
                             ),
@@ -1092,51 +1243,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // Budget validation for fixed price
-                  Obx(() {
-                    if (controller.budgetType.value == 'FIXED' && controller.maxBudgetController.text.isNotEmpty) {
-                      final maxBudget = double.tryParse(controller.maxBudgetController.text) ?? 0;
-                      final currentTotal = controller.milestonesList.fold<double>(
-                        0, (sum, m) => sum + (m['amount'] as double)
-                      );
-                      final newAmount = double.tryParse(controller.milestoneAmountController.text) ?? 0;
-                      
-                      if (currentTotal + newAmount > maxBudget + 0.01) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.orange[50],
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.orange[300]!),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.warning_amber,
-                                  size: 16,
-                                  color: Colors.orange[700],
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Total will exceed budget by \$${(currentTotal + newAmount - maxBudget).toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.orange[700],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                    return const SizedBox.shrink();
-                  }),
 
                   Row(
                     children: [
@@ -1148,6 +1254,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                             controller.milestoneAmountController.clear();
                             controller.selectedMilestoneDueDate.value = null;
                             controller.showMilestoneForm.value = false;
+                            setState(() {});
                           },
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.grey[700],
@@ -1179,107 +1286,288 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                   ),
                 ],
               ),
-            );
-          }),
+            ),
 
-          // Total milestones summary with budget validation status
-          Obx(() {
-            if (controller.milestonesList.isEmpty) return const SizedBox.shrink();
-            
-            final minBudget = double.tryParse(controller.minBudgetController.text) ?? 0;
-            final maxBudget = double.tryParse(controller.maxBudgetController.text) ?? 0;
-            final total = controller.milestonesList.fold<double>(
-              0, (sum, m) => sum + (m['amount'] as double)
-            );
-            
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue[200]!),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Total Milestones Amount:',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          '\$${total.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+          // Total milestones summary
+          if (controller.milestonesList.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
                 ),
-                
-                // Budget validation status
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: total >= minBudget && total <= maxBudget 
-                          ? Colors.green[50] 
-                          : Colors.orange[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: total >= minBudget && total <= maxBudget 
-                            ? Colors.green[200]! 
-                            : Colors.orange[200]!,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Milestones Amount:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          total >= minBudget && total <= maxBudget 
-                              ? Icons.check_circle 
-                              : Icons.warning_amber,
-                          color: total >= minBudget && total <= maxBudget 
-                              ? Colors.green[700] 
-                              : Colors.orange[700],
-                          size: 20,
+                    Text(
+                      '\$${_getTotalMilestones().toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Budget validation status
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _getBudgetStatusColor().withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _getBudgetStatusColor().withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _getBudgetStatusIcon(),
+                      color: _getBudgetStatusColor(),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _getBudgetStatusMessage(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: _getBudgetStatusColor(),
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            total < minBudget
-                                ? '⚠️ Total (\$${total.toStringAsFixed(0)}) is below minimum budget (\$${minBudget.toStringAsFixed(0)})'
-                                : total > maxBudget
-                                    ? '❌ Total (\$${total.toStringAsFixed(0)}) exceeds maximum budget (\$${maxBudget.toStringAsFixed(0)})'
-                                    : '✅ Total (\$${total.toStringAsFixed(0)}) is within budget range',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: total >= minBudget && total <= maxBudget 
-                                  ? Colors.green[700] 
-                                  : Colors.orange[700],
-                              fontWeight: FontWeight.w500,
-                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Warning if not equal
+            if (_isBudgetMismatch())
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red[300]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.block, color: Colors.red[700], size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '⚠️ You cannot proceed to next step until total equals max budget',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.red[700],
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            );
-          }),
+              ),
+          ],
         ],
       ),
     );
+  }
+
+  // Helper methods for budget status (no Obx needed)
+  double _getTotalMilestones() {
+    return controller.milestonesList.fold<double>(
+      0, (sum, m) => sum + (m['amount'] as double)
+    );
+  }
+
+  double _getMaxBudget() {
+    return double.tryParse(controller.maxBudgetController.text) ?? 0;
+  }
+
+  bool _isBudgetMismatch() {
+    final maxBudget = _getMaxBudget();
+    if (maxBudget <= 0) return false;
+    final total = _getTotalMilestones();
+    const double tolerance = 0.5;
+    return (total - maxBudget).abs() > tolerance;
+  }
+
+  Color _getBudgetStatusColor() {
+    final maxBudget = _getMaxBudget();
+    final total = _getTotalMilestones();
+    const double tolerance = 0.5;
+    
+    if (maxBudget <= 0) return Colors.grey;
+    if ((total - maxBudget).abs() <= tolerance) return Colors.green;
+    if (total < maxBudget) return Colors.orange;
+    return Colors.red;
+  }
+
+  IconData _getBudgetStatusIcon() {
+    final maxBudget = _getMaxBudget();
+    final total = _getTotalMilestones();
+    const double tolerance = 0.5;
+    
+    if (maxBudget <= 0) return Icons.info;
+    if ((total - maxBudget).abs() <= tolerance) return Icons.check_circle;
+    if (total < maxBudget) return Icons.warning_amber;
+    return Icons.error;
+  }
+
+  String _getBudgetStatusMessage() {
+    final maxBudget = _getMaxBudget();
+    final total = _getTotalMilestones();
+    const double tolerance = 0.5;
+    
+    if (maxBudget <= 0) return 'Total: \$${total.toStringAsFixed(0)}';
+    if ((total - maxBudget).abs() <= tolerance) return '✅ Perfect! Total matches max budget';
+    if (total < maxBudget) {
+      return '⚠️ Total (\$${total.toStringAsFixed(0)}) is \$${(maxBudget - total).toStringAsFixed(0)} less than max budget';
+    }
+    return '❌ Total (\$${total.toStringAsFixed(0)}) exceeds max budget by \$${(total - maxBudget).toStringAsFixed(0)}';
+  }
+  Widget _buildBudgetTypeButton(String type) {
+    return Obx(() => GestureDetector(
+      onTap: () => controller.budgetType.value = type,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: controller.budgetType.value == type ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: controller.budgetType.value == type
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : [],
+        ),
+        child: Text(
+          type,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: controller.budgetType.value == type ? primary : Colors.grey[600],
+          ),
+        ),
+      ),
+    ));
+  }
+
+  void _addMilestone() {
+    if (controller.milestoneTitleController.text.isEmpty ||
+        controller.milestoneDescController.text.isEmpty ||
+        controller.milestoneAmountController.text.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Please fill all fields',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    final amount = double.tryParse(controller.milestoneAmountController.text);
+    if (amount == null || amount <= 0) {
+      Get.snackbar(
+        'Error',
+        'Please enter a valid amount',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // ✅ STRICT VALIDATION: Total must not exceed max budget
+    final maxBudget = double.tryParse(controller.maxBudgetController.text) ?? 0;
+    
+    if (maxBudget <= 0) {
+      Get.snackbar(
+        'Error',
+        'Please enter valid max budget first',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+    
+    final currentTotal = controller.milestonesList.fold<double>(
+      0, (sum, m) => sum + (m['amount'] as double)
+    );
+    final newTotal = currentTotal + amount;
+
+    // Check if total would exceed max budget
+    if (newTotal > maxBudget + 0.01) {
+      Get.snackbar(
+        '❌ Budget Exceeded',
+        'Total milestones (\$${newTotal.toStringAsFixed(0)}) exceeds max budget (\$${maxBudget.toStringAsFixed(0)})',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    // Add milestone to list
+    Map<String, dynamic> newMilestone = {
+      'title': controller.milestoneTitleController.text,
+      'description': controller.milestoneDescController.text,
+      'amount': amount,
+    };
+    
+    if (controller.selectedMilestoneDueDate.value != null) {
+      newMilestone['dueDate'] = controller.selectedMilestoneDueDate.value;
+    }
+    
+    controller.milestonesList.add(newMilestone);
+
+    // Clear form
+    controller.milestoneTitleController.clear();
+    controller.milestoneDescController.clear();
+    controller.milestoneAmountController.clear();
+    controller.selectedMilestoneDueDate.value = null;
+    controller.showMilestoneForm.value = false;
+    
+    // Show success message
+    Get.snackbar(
+      '✅ Success',
+      'Milestone added successfully',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.green,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  String _formatDate(dynamic date) {
+    if (date == null) return '';
+    if (date is DateTime) {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+    return date.toString();
   }
 
   Widget _buildStep3() {
@@ -1589,7 +1877,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                                     ),
                                   ),
                                 ),
-                              
                               ],
                             ),
                           ],
@@ -1635,134 +1922,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
         ),
       ),
     ));
-  }
-
-  Widget _buildBudgetTypeButton(String type) {
-    return Obx(() => GestureDetector(
-      onTap: () => controller.budgetType.value = type,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: controller.budgetType.value == type ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          boxShadow: controller.budgetType.value == type
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
-                ]
-              : [],
-        ),
-        child: Text(
-          type,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: controller.budgetType.value == type ? primary : Colors.grey[600],
-          ),
-        ),
-      ),
-    ));
-  }
-
-  void _addMilestone() {
-    if (controller.milestoneTitleController.text.isEmpty ||
-        controller.milestoneDescController.text.isEmpty ||
-        controller.milestoneAmountController.text.isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Please fill all fields',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-      return;
-    }
-
-    final amount = double.tryParse(controller.milestoneAmountController.text);
-    if (amount == null || amount <= 0) {
-      Get.snackbar(
-        'Error',
-        'Please enter a valid amount',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-      return;
-    }
-
-    // Get budget values
-    final minBudget = double.tryParse(controller.minBudgetController.text) ?? 0;
-    final maxBudget = double.tryParse(controller.maxBudgetController.text) ?? 0;
-    
-    // Calculate current total including new milestone
-    final currentTotal = controller.milestonesList.fold<double>(
-      0, (sum, m) => sum + (m['amount'] as double)
-    );
-    final newTotal = currentTotal + amount;
-
-    // Validate against budget range
-    if (controller.budgetType.value == 'FIXED') {
-      // Check if exceeds max budget
-      if (newTotal > maxBudget + 0.01) {
-        Get.snackbar(
-          'Error',
-          'Total milestone amount (\$${newTotal.toStringAsFixed(0)}) exceeds max budget (\$${maxBudget.toStringAsFixed(0)})',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-        );
-        return;
-      }
-      
-      // Check if below min budget
-      if (newTotal < minBudget - 0.01) {
-        Get.snackbar(
-          'Warning',
-          'Total milestone amount (\$${newTotal.toStringAsFixed(0)}) is below min budget (\$${minBudget.toStringAsFixed(0)})',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
-        );
-        // Allow adding but show warning
-      }
-    }
-
-    // Add milestone to list
-    Map<String, dynamic> newMilestone = {
-      'title': controller.milestoneTitleController.text,
-      'description': controller.milestoneDescController.text,
-      'amount': amount,
-    };
-    
-    if (controller.selectedMilestoneDueDate.value != null) {
-      newMilestone['dueDate'] = controller.selectedMilestoneDueDate.value;
-    }
-    
-    controller.milestonesList.add(newMilestone);
-
-    // Clear form
-    controller.milestoneTitleController.clear();
-    controller.milestoneDescController.clear();
-    controller.milestoneAmountController.clear();
-    controller.selectedMilestoneDueDate.value = null;
-    controller.showMilestoneForm.value = false;
-    
-    // Show success message
-    Get.snackbar(
-      '✅ Success',
-      'Milestone added successfully',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.green,
-      colorText: Colors.white,
-      duration: const Duration(seconds: 2),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
   }
 
   void _showAddDeliverableDialog() {

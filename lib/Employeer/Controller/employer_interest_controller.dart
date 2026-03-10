@@ -146,7 +146,6 @@ print(response.body);
     }
   }
 
-  // ============== REFRESH DATA ==============
   Future<void> refreshData() async {
     await Future.wait([
       fetchInterestedCandidates(),

@@ -19,7 +19,6 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
   final TextEditingController _searchController = TextEditingController();
   String searchQuery = '';
 
-  // Dynamic values from SharedPreferences
   late String baseUrl;
   late String myToken;
   late String myUserId;
@@ -36,22 +35,21 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
     _initializeChat();
   }
 
-  // Initialize chat with user data from SharedPreferences
   Future<void> _initializeChat() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
-      // Get values from SharedPreferences
+
       baseUrl = ApiConfig.baseUrl;
       myToken = prefs.getString('auth_token') ?? '';
       myUserId = prefs.getString('auth_user_id') ?? '';
-      
-      // Get user name from auth_user JSON
+
       final userJson = prefs.getString('auth_user');
       if (userJson != null) {
         try {
           final userData = jsonDecode(userJson);
-          myName = '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'.trim();
+          myName =
+              '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'
+                  .trim();
           if (myName.isEmpty) myName = 'User';
         } catch (e) {
           myName = 'User';
@@ -60,7 +58,6 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
         myName = 'User';
       }
 
-      // Validate required data
       if (myToken.isEmpty || myUserId.isEmpty) {
         Get.snackbar(
           'Error',
@@ -72,29 +69,34 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
         return;
       }
 
-      // Initialize Socket Controller
-      socketC = Get.put(
-        ChatSocketController(
-          socketBaseUrl: baseUrl,
-          token: myToken,
-          myUserId: myUserId,
-        ),
-        permanent: true,
-      );
+      // ✅ FIX: Pehle check karo socket exist karta hai ya nahi
+      if (Get.isRegistered<ChatSocketController>()) {
+        socketC = Get.find<ChatSocketController>();
+        print('✅ Reusing existing ChatSocketController');
+      } else {
+        socketC = Get.put(
+          ChatSocketController(
+            socketBaseUrl: baseUrl,
+            token: myToken,
+            myUserId: myUserId,
+          ),
+          permanent: true,
+        );
+        print('✅ Created new ChatSocketController');
+      }
 
-      // Initialize Chat List Controller
-      listC = Get.put(
-        ChatListController(
-          baseUrl: baseUrl, 
-          token: myToken
-        ),
-      );
+      // ChatListController
+      if (Get.isRegistered<ChatListController>()) {
+        listC = Get.find<ChatListController>();
+      } else {
+        listC = Get.put(
+          ChatListController(baseUrl: baseUrl, token: myToken),
+        );
+      }
 
-      // Setup socket listeners
       _setupSocketListeners();
 
       setState(() => _isLoading = false);
-      
     } catch (e) {
       print('❌ Error initializing chat: $e');
       setState(() => _isLoading = false);
@@ -108,12 +110,9 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
   }
 
   void _setupSocketListeners() {
-    // Update conversation when new message arrives
     socketC.onConversationUpdated = (data) {
       listC.updateConversation(data);
     };
-
-    // Update online status
     socketC.onUserPresence = (userId, online) {
       listC.updateUserOnlineStatus(userId, online);
     };
@@ -125,26 +124,22 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
     super.dispose();
   }
 
-  Widget _buildAvatar(String? imageUrl, String fallbackLetter, {double size = 56}) {
-    // AGAR IMAGE URL HAI TO USE KARO
+  Widget _buildAvatar(String? imageUrl, String fallbackLetter,
+      {double size = 56}) {
     if (imageUrl != null && imageUrl.isNotEmpty) {
       return CircleAvatar(
         radius: size / 2,
         backgroundColor: Colors.grey[300],
         backgroundImage: NetworkImage(imageUrl),
-        onBackgroundImageError: (_, __) {
-          // Image load fail ho to fallback
-        },
+        onBackgroundImageError: (_, __) {},
       );
     }
-    
-    // UI AVATARS - Automatic name se image generate
-    final initial = fallbackLetter.isNotEmpty 
-        ? fallbackLetter[0].toUpperCase() 
-        : '?';
-    
-    final uiAvatarUrl = 'https://ui-avatars.com/api/?name=$initial&background=4F46E5&color=fff&size=128';
-    
+
+    final initial =
+        fallbackLetter.isNotEmpty ? fallbackLetter[0].toUpperCase() : '?';
+    final uiAvatarUrl =
+        'https://ui-avatars.com/api/?name=$initial&background=4F46E5&color=fff&size=128';
+
     return CircleAvatar(
       radius: size / 2,
       backgroundColor: Colors.grey[400],
@@ -154,19 +149,16 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
 
   String _formatTime(dynamic t) {
     if (t == null || t.toString().isEmpty) return "";
-    
     try {
       final date = DateTime.parse(t.toString());
       final now = DateTime.now();
       final difference = now.difference(date);
 
       if (difference.inDays == 0) {
-        // Today: show time
         return '${date.hour % 12 == 0 ? 12 : date.hour % 12}:${date.minute.toString().padLeft(2, '0')} ${date.hour >= 12 ? 'PM' : 'AM'}';
       } else if (difference.inDays == 1) {
         return 'Yesterday';
       } else if (difference.inDays < 7) {
-        // Show day name
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         return days[date.weekday - 1];
       } else {
@@ -179,7 +171,6 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Show loading while initializing
     if (_isLoading) {
       return Scaffold(
         backgroundColor: Colors.white,
@@ -206,7 +197,7 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Connection Status
+            // Connection Status Banner
             Obx(() {
               if (!socketC.isConnected.value) {
                 return Container(
@@ -219,12 +210,14 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.wifi_off, size: 16, color: Colors.orange.shade700),
+                      Icon(Icons.wifi_off,
+                          size: 16, color: Colors.orange.shade700),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Connecting to chat server...',
-                          style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
+                          style: TextStyle(
+                              color: Colors.orange.shade700, fontSize: 12),
                         ),
                       ),
                     ],
@@ -254,15 +247,17 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                       ),
                       IconButton(
                         onPressed: () => listC.loadConversations(),
-                        icon: Icon(Icons.refresh_rounded, color: Colors.grey[600], size: 24),
+                        icon: Icon(Icons.refresh_rounded,
+                            color: Colors.grey[600], size: 24),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Obx(() => Text(
-                    '${listC.conversations.length} conversations',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  )),
+                        '${listC.conversations.length} conversations',
+                        style:
+                            TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      )),
                 ],
               ),
             ),
@@ -273,24 +268,31 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.grey[200]!, width: 1.5),
+                  border:
+                      Border.all(color: Colors.grey[200]!, width: 1.5),
                 ),
                 child: TextField(
                   controller: _searchController,
                   onChanged: (val) => setState(() => searchQuery = val),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
                     hintText: 'Search messages...',
-                    hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
+                    hintStyle:
+                        TextStyle(color: Colors.grey[500], fontSize: 16),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    contentPadding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 20),
                     prefixIcon: Padding(
-                      padding: const EdgeInsets.only(left: 16, right: 12),
-                      child: Icon(Icons.search_rounded, color: primary, size: 24),
+                      padding:
+                          const EdgeInsets.only(left: 16, right: 12),
+                      child: Icon(Icons.search_rounded,
+                          color: primary, size: 24),
                     ),
                     suffixIcon: searchQuery.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.close, color: Colors.grey),
+                            icon: const Icon(Icons.close,
+                                color: Colors.grey),
                             onPressed: () {
                               _searchController.clear();
                               setState(() => searchQuery = '');
@@ -306,10 +308,17 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
 
             // Section Title
             Padding(
-              padding: EdgeInsets.fromLTRB(20, searchQuery.isEmpty ? 0 : 16, 20, 12),
-              child: Text(
-                searchQuery.isEmpty ? 'All Messages' : 'Search Results',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+              padding: EdgeInsets.fromLTRB(
+                  20, searchQuery.isEmpty ? 0 : 16, 20, 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  searchQuery.isEmpty ? 'All Messages' : 'Search Results',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[800]),
+                ),
               ),
             ),
 
@@ -320,9 +329,10 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final users = listC.conversations;
-                final filteredUsers = users.where((u) {
-                  final name = (u["name"] ?? "").toString().toLowerCase();
+                final filteredUsers =
+                    listC.conversations.where((u) {
+                  final name =
+                      (u["name"] ?? "").toString().toLowerCase();
                   return name.contains(searchQuery.toLowerCase());
                 }).toList();
 
@@ -331,29 +341,22 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.chat_bubble_outline,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
+                        Icon(Icons.chat_bubble_outline,
+                            size: 64, color: Colors.grey[400]),
                         const SizedBox(height: 16),
                         Text(
-                          searchQuery.isEmpty 
-                              ? 'No conversations yet' 
+                          searchQuery.isEmpty
+                              ? 'No conversations yet'
                               : 'No conversations found',
                           style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
+                              fontSize: 16, color: Colors.grey[600]),
                         ),
                         if (searchQuery.isEmpty) ...[
                           const SizedBox(height: 8),
                           Text(
                             'Start chatting with talents and employers',
                             style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[500],
-                            ),
+                                fontSize: 14, color: Colors.grey[500]),
                           ),
                         ],
                       ],
@@ -362,44 +365,52 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: filteredUsers.length,
-                  separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey[100], indent: 72),
+                  separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: Colors.grey[100],
+                      indent: 72),
                   itemBuilder: (context, index) {
                     final user = filteredUsers[index];
-                    final name = (user["name"] ?? "Unknown User").toString();
-                    final toUserId = (user["userId"] ?? "").toString();
+                    final name =
+                        (user["name"] ?? "Unknown User").toString();
+                    final toUserId =
+                        (user["userId"] ?? "").toString();
                     final unread = (user["unread"] ?? 0) as int;
-                    final lastMessage = (user["lastMessage"] ?? "No messages yet").toString();
+                    final lastMessage =
+                        (user["lastMessage"] ?? "No messages yet")
+                            .toString();
                     final time = _formatTime(user["time"]);
                     final imageUrl = user["image"]?.toString();
                     final isOnline = user["online"] ?? false;
 
                     return InkWell(
                       onTap: () async {
-                        // Navigate to Chat Screen
-                        final result = await Get.to(() => ChatScreen(
-                          userName: name,
-                          userOnline: isOnline,
-                          toUserId: toUserId,
-                          baseUrl: baseUrl,
-                          myToken: myToken,
-                          myUserId: myUserId,
-                        ));
-                        
-                        // Refresh list if needed
-                        if (result == true) {
-                          listC.loadConversations();
-                        }
+                        // ✅ FIX: socketC pass karo ta ke same controller use ho
+                        await Get.to(() => ChatScreen(
+                              userName: name,
+                              userOnline: isOnline,
+                              toUserId: toUserId,
+                              baseUrl: baseUrl,
+                              myToken: myToken,
+                              myUserId: myUserId,
+                            ));
+
+                        // Wapas aane pe refresh
+                        listC.loadConversations();
                       },
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 12),
                         child: Row(
                           children: [
                             // Avatar with online indicator
                             Stack(
                               children: [
-                                _buildAvatar(imageUrl, name, size: 56),
+                                _buildAvatar(imageUrl, name,
+                                    size: 56),
                                 if (isOnline)
                                   Positioned(
                                     bottom: 2,
@@ -410,18 +421,21 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                                       decoration: BoxDecoration(
                                         color: Colors.green,
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white, width: 2),
+                                        border: Border.all(
+                                            color: Colors.white,
+                                            width: 2),
                                       ),
                                     ),
                                   ),
                               ],
                             ),
                             const SizedBox(width: 16),
-                            
+
                             // Message info
                             Expanded(
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     children: [
@@ -430,10 +444,13 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                                           name,
                                           style: TextStyle(
                                             fontSize: 16,
-                                            fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w600,
+                                            fontWeight: unread > 0
+                                                ? FontWeight.w700
+                                                : FontWeight.w600,
                                             color: Colors.grey[900],
                                           ),
-                                          overflow: TextOverflow.ellipsis,
+                                          overflow:
+                                              TextOverflow.ellipsis,
                                         ),
                                       ),
                                       if (time.isNotEmpty)
@@ -441,8 +458,12 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                                           time,
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: unread > 0 ? primary : Colors.grey[500],
-                                            fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.normal,
+                                            color: unread > 0
+                                                ? primary
+                                                : Colors.grey[500],
+                                            fontWeight: unread > 0
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
                                           ),
                                         ),
                                     ],
@@ -452,8 +473,12 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                                     lastMessage,
                                     style: TextStyle(
                                       fontSize: 14,
-                                      color: unread > 0 ? Colors.grey[800] : Colors.grey[600],
-                                      fontWeight: unread > 0 ? FontWeight.w500 : FontWeight.normal,
+                                      color: unread > 0
+                                          ? Colors.grey[800]
+                                          : Colors.grey[600],
+                                      fontWeight: unread > 0
+                                          ? FontWeight.w500
+                                          : FontWeight.normal,
                                       height: 1.4,
                                     ),
                                     maxLines: 2,
@@ -462,7 +487,7 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                                 ],
                               ),
                             ),
-                            
+
                             // Unread badge
                             if (unread > 0) ...[
                               const SizedBox(width: 12),
@@ -474,7 +499,8 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: primary.withOpacity(0.3),
+                                      color:
+                                          primary.withOpacity(0.3),
                                       blurRadius: 4,
                                       offset: const Offset(0, 2),
                                     ),
@@ -482,7 +508,9 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                                 ),
                                 child: Center(
                                   child: Text(
-                                    unread > 9 ? '9+' : unread.toString(),
+                                    unread > 9
+                                        ? '9+'
+                                        : unread.toString(),
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.white,
