@@ -1,3 +1,4 @@
+//aaa
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:templink/Employeer/Controller/employer_own_projects_controller.dart';
@@ -41,7 +42,6 @@ class _EmployerOwnProjectsScreenState extends State<EmployerOwnProjectsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-      
         title: const Text(
           'Proposals Recieved',
           style: TextStyle(
@@ -50,7 +50,6 @@ class _EmployerOwnProjectsScreenState extends State<EmployerOwnProjectsScreen> {
             fontSize: 18,
           ),
         ),
-     
       ),
       body: Obx(() {
         if (controller.isLoading.value) {
@@ -59,20 +58,15 @@ class _EmployerOwnProjectsScreenState extends State<EmployerOwnProjectsScreen> {
 
         return Column(
           children: [
-            // Search Bar
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: _buildSearchField(),
             ),
-            
-            // Stats Summary
             Padding(
               padding: const EdgeInsets.all(20),
               child: _buildStatsSummary(),
             ),
-            
-            // Projects List
             Expanded(
               child: _buildProjectsList(),
             ),
@@ -204,6 +198,14 @@ class _EmployerOwnProjectsScreenState extends State<EmployerOwnProjectsScreen> {
   }
 
   Widget _buildProjectCard(EmployerProject project) {
+    // ✅ Withdrawn exclude karke counts nikalo
+    final activeProposals = project.proposals
+        .where((p) => p.status != 'WITHDRAWN')
+        .toList();
+    final activePending = activeProposals
+        .where((p) => p.status == 'PENDING')
+        .length;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -223,7 +225,6 @@ class _EmployerOwnProjectsScreenState extends State<EmployerOwnProjectsScreen> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Project Icon
                 Container(
                   width: 50,
                   height: 50,
@@ -243,8 +244,6 @@ class _EmployerOwnProjectsScreenState extends State<EmployerOwnProjectsScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                
-                // Project Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,8 +292,8 @@ class _EmployerOwnProjectsScreenState extends State<EmployerOwnProjectsScreen> {
               ],
             ),
           ),
-          
-          // Project Stats Row
+
+          // ✅ Stats — withdrawn exclude
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -308,31 +307,30 @@ class _EmployerOwnProjectsScreenState extends State<EmployerOwnProjectsScreen> {
                 const SizedBox(width: 16),
                 _buildProjectStat(
                   'Proposals',
-                  '${project.proposals.length}',
+                  '${activeProposals.length}', // ✅ withdrawn exclude
                   Icons.description_outlined,
-                  project.proposals.length > 0 ? Colors.blue : Colors.grey.shade400,
+                  activeProposals.isNotEmpty ? Colors.blue : Colors.grey.shade400,
                 ),
                 const SizedBox(width: 16),
                 _buildProjectStat(
                   'Pending',
-                  '${project.pendingProposals}',
+                  '$activePending', // ✅ withdrawn exclude
                   Icons.pending_outlined,
-                  project.pendingProposals > 0 ? Colors.orange : Colors.grey.shade400,
+                  activePending > 0 ? Colors.orange : Colors.grey.shade400,
                 ),
               ],
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
-          // View Proposals Button
+
+          // ✅ Button text mein bhi withdrawn exclude
           Padding(
             padding: const EdgeInsets.all(16),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // Navigate to proposals screen
                   Get.to(() => ProjectProposalsScreen(project: project));
                 },
                 style: ElevatedButton.styleFrom(
@@ -349,7 +347,7 @@ class _EmployerOwnProjectsScreenState extends State<EmployerOwnProjectsScreen> {
                     const Icon(Icons.visibility, size: 18),
                     const SizedBox(width: 8),
                     Text(
-                      'View Proposals (${project.proposals.length})',
+                      'View Proposals (${activeProposals.length})', // ✅ withdrawn exclude
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -402,7 +400,7 @@ class _EmployerOwnProjectsScreenState extends State<EmployerOwnProjectsScreen> {
 
   Widget _buildEmptyState() {
     final hasSearch = controller.searchQuery.value.isNotEmpty;
-    
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -434,9 +432,7 @@ class _EmployerOwnProjectsScreenState extends State<EmployerOwnProjectsScreen> {
             const SizedBox(height: 24),
             if (!hasSearch)
               ElevatedButton(
-                onPressed: () {
-                  // Navigate to create project
-                },
+                onPressed: () {},
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primary,
                   foregroundColor: Colors.white,

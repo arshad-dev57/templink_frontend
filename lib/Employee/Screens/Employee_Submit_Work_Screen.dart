@@ -1,7 +1,6 @@
-// screens/employee/employee_submit_work_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:templink/Employee/Controllers/Employee_Active_Project_Controller.dart';
 import 'package:templink/Employee/models/Employee_Active_Project_model.dart';
 import 'package:templink/Utils/colors.dart';
@@ -15,8 +14,7 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
   final currencyFormat = NumberFormat.currency(symbol: '\$');
   final descriptionController = TextEditingController();
   final notesController = TextEditingController();
-  
-  // ✅ RxList sahi tarike se initialize
+
   final selectedFiles = <File>[].obs;
 
   EmployeeSubmitWorkScreen({
@@ -32,10 +30,7 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text(
           'Submit Work',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
@@ -49,7 +44,6 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
         if (controller.isLoading.value) {
           return const Center(child: CircularProgressIndicator());
         }
-
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -91,10 +85,7 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
         children: [
           Text(
             project.title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Container(
@@ -108,15 +99,11 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: Colors.green,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.payment,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  child: const Icon(Icons.payment, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -126,17 +113,12 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
                       Text(
                         milestone.title,
                         style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Amount: ${currencyFormat.format(milestone.amount)}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -196,10 +178,7 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
         children: [
           const Text(
             'Work Description *',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -208,8 +187,7 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
             decoration: InputDecoration(
               hintText: 'Describe the work you have completed...',
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+                  borderRadius: BorderRadius.circular(12)),
               filled: true,
               fillColor: Colors.grey[50],
             ),
@@ -238,10 +216,7 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
         children: [
           const Text(
             'Additional Notes (Optional)',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -250,8 +225,7 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
             decoration: InputDecoration(
               hintText: 'Any additional information for the client...',
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+                  borderRadius: BorderRadius.circular(12)),
               filled: true,
               fillColor: Colors.grey[50],
             ),
@@ -278,100 +252,149 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Attachments',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              const Text(
+                'Attachments',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 8),
+              Obx(() => selectedFiles.isNotEmpty
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${selectedFiles.length} file(s)',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.green,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink()),
+            ],
           ),
+          const SizedBox(height: 8),
+
+          // ✅ File type chips — user ko pata ho kya accept hoga
+          Wrap(
+            spacing: 8,
+            children: [
+              _fileTypeChip(Icons.image, 'Images', Colors.blue),
+              _fileTypeChip(Icons.picture_as_pdf, 'PDF', Colors.red),
+              _fileTypeChip(Icons.description, 'DOC/DOCX', Colors.indigo),
+              _fileTypeChip(Icons.table_chart, 'Excel', Colors.green),
+              _fileTypeChip(Icons.insert_drive_file, 'Any File', Colors.grey),
+            ],
+          ),
+
           const SizedBox(height: 12),
-          
-          // Upload Button
+
+          // ✅ Upload button — file picker se sab types
           InkWell(
             onTap: _pickFiles,
+            borderRadius: BorderRadius.circular(12),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 20),
               decoration: BoxDecoration(
-                border: Border.all(
-                  color: primary.withOpacity(0.3),
-                ),
+                border: Border.all(color: primary.withOpacity(0.3)),
                 borderRadius: BorderRadius.circular(12),
                 color: primary.withOpacity(0.05),
               ),
               child: Column(
                 children: [
-                  Icon(
-                    Icons.cloud_upload,
-                    size: 40,
-                    color: primary.withOpacity(0.5),
-                  ),
+                  Icon(Icons.cloud_upload, size: 40, color: primary.withOpacity(0.5)),
                   const SizedBox(height: 8),
                   Text(
                     'Tap to upload files',
                     style: TextStyle(
-                      color: Colors.grey[600],
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
+                  const SizedBox(height: 4),
                   Text(
-                    'Supported: Images, PDF, DOC',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                    ),
+                    'Images • PDF • DOC • Excel • Any file',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                   ),
                 ],
               ),
             ),
           ),
-          
+
           const SizedBox(height: 12),
-          
-          // ✅ Selected Files List with Obx
+
+          // ✅ Selected files list
           Obx(() => selectedFiles.isNotEmpty
               ? Column(
                   children: selectedFiles.map((file) {
+                    final fileName = file.path.split('/').last;
+                    final fileSize = file.lengthSync();
+                    final fileSizeStr = fileSize > 1024 * 1024
+                        ? '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB'
+                        : '${(fileSize / 1024).toStringAsFixed(1)} KB';
+
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey[200]!),
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            _getFileIcon(file.path),
-                            color: primary,
+                          // ✅ File icon with color
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: _getFileColor(file.path).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              _getFileIcon(file.path),
+                              color: _getFileColor(file.path),
+                              size: 20,
+                            ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  file.path.split('/').last,
+                                  fileName,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w500,
+                                    fontSize: 13,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
+                                const SizedBox(height: 2),
                                 Text(
-                                  '${(file.lengthSync() / 1024).toStringAsFixed(1)} KB',
+                                  fileSizeStr,
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.grey[600],
+                                    color: Colors.grey[500],
                                   ),
                                 ),
                               ],
                             ),
                           ),
+                          // ✅ Remove button
                           IconButton(
-                            icon: const Icon(Icons.close, size: 18),
+                            icon: Icon(Icons.close,
+                                size: 18, color: Colors.grey[500]),
                             onPressed: () => selectedFiles.remove(file),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
                           ),
                         ],
                       ),
@@ -379,60 +402,154 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
                   }).toList(),
                 )
               : const SizedBox.shrink()),
-          
+        ],
+      ),
+    );
+  }
+
+  // ✅ File type chip widget
+  Widget _fileTypeChip(IconData icon, String label, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildSubmitButton() {
-      
-      return SizedBox(
-        width: double.infinity,
-        height: 54,
-        child: ElevatedButton.icon(
-          onPressed:  _submitWork,
-          icon: const Icon(Icons.send),
-          label: const Text(
-            'Submit Work',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: Colors.grey[300],
-            disabledForegroundColor: Colors.grey[600],
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: ElevatedButton.icon(
+        onPressed: _submitWork,
+        icon: const Icon(Icons.send),
+        label: const Text(
+          'Submit Work',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
-      );
-    
+      ),
+    );
   }
 
   // ==================== HELPER METHODS ====================
+
+  // ✅ File picker — har tarah ki file pick hogi
   Future<void> _pickFiles() async {
-    final picker = ImagePicker();
-    final List<XFile> images = await picker.pickMultiImage();
-    
-    for (var image in images) {
-      selectedFiles.add(File(image.path));
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.any, // ✅ Sab types allow
+    );
+
+    if (result != null) {
+      for (var file in result.files) {
+        if (file.path != null) {
+          // ✅ Duplicate check — same file dobara na aye
+          final alreadyAdded = selectedFiles
+              .any((f) => f.path.split('/').last == file.name);
+          if (!alreadyAdded) {
+            selectedFiles.add(File(file.path!));
+          }
+        }
+      }
     }
   }
 
+  // ✅ File icon by extension
   IconData _getFileIcon(String path) {
-    if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.jpeg')) {
-      return Icons.image;
-    } else if (path.endsWith('.pdf')) {
-      return Icons.picture_as_pdf;
-    } else if (path.endsWith('.doc') || path.endsWith('.docx')) {
-      return Icons.description;
+    final ext = path.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'webp':
+        return Icons.image;
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'xls':
+      case 'xlsx':
+        return Icons.table_chart;
+      case 'ppt':
+      case 'pptx':
+        return Icons.slideshow;
+      case 'zip':
+      case 'rar':
+        return Icons.folder_zip;
+      case 'mp4':
+      case 'mov':
+      case 'avi':
+        return Icons.video_file;
+      case 'mp3':
+      case 'wav':
+        return Icons.audio_file;
+      default:
+        return Icons.insert_drive_file;
     }
-    return Icons.insert_drive_file;
+  }
+
+  // ✅ File color by extension
+  Color _getFileColor(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'webp':
+        return Colors.blue;
+      case 'pdf':
+        return Colors.red;
+      case 'doc':
+      case 'docx':
+        return Colors.indigo;
+      case 'xls':
+      case 'xlsx':
+        return Colors.green;
+      case 'ppt':
+      case 'pptx':
+        return Colors.orange;
+      case 'zip':
+      case 'rar':
+        return Colors.brown;
+      case 'mp4':
+      case 'mov':
+      case 'avi':
+        return Colors.purple;
+      case 'mp3':
+      case 'wav':
+        return Colors.teal;
+      default:
+        return Colors.grey;
+    }
   }
 
   int _daysUntil(DateTime dueDate) {
@@ -442,120 +559,106 @@ class EmployeeSubmitWorkScreen extends StatelessWidget {
   int _daysOverdue(DateTime dueDate) {
     return DateTime.now().difference(dueDate).inDays;
   }
-// screens/employee/employee_submit_work_screen.dart
 
-Future<void> _submitWork() async {
-  if (descriptionController.text.isEmpty) {
-    Get.snackbar(
-      'Error',
-      'Please provide work description',
-      backgroundColor: Colors.red,
-      colorText: Colors.white,
-    );
-    return;
-  }
+  Future<void> _submitWork() async {
+    if (descriptionController.text.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Please provide work description',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
 
-  // Show loading dialog
-  Get.dialog(
-    const Center(
-      child: Material(
-        color: Colors.transparent,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: Colors.white),
-            SizedBox(height: 16),
-            Text(
-              'Submitting work...',
-              style: TextStyle(color: Colors.white),
-            ),
-          ],
+    Get.dialog(
+      const Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Colors.white),
+              SizedBox(height: 16),
+              Text('Submitting work...',
+                  style: TextStyle(color: Colors.white)),
+            ],
+          ),
         ),
       ),
-    ),
-    barrierDismissible: false,
-  );
-
-  try {
-    final success = await controller.submitWork(
-      projectId: project.id,
-      milestoneId: milestone.id,
-      description: descriptionController.text,
-      notes: notesController.text.isNotEmpty ? notesController.text : null,
-      attachments: selectedFiles.isNotEmpty ? selectedFiles.toList() : null,
+      barrierDismissible: false,
     );
 
-    Get.back(); // Close loading dialog
+    try {
+      final success = await controller.submitWork(
+        projectId: project.id,
+        milestoneId: milestone.id,
+        description: descriptionController.text,
+        notes: notesController.text.isNotEmpty ? notesController.text : null,
+        attachments: selectedFiles.isNotEmpty ? selectedFiles.toList() : null,
+      );
 
-    if (success) {
-      // Show success dialog
-      Get.dialog(
-        AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  shape: BoxShape.circle,
+      Get.back(); // Close loading dialog
+
+      if (success) {
+        Get.dialog(
+          AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle,
+                      color: Colors.green, size: 60),
                 ),
-                child: const Icon(
-                  Icons.check_circle,
-                  color: Colors.green,
-                  size: 60,
+                const SizedBox(height: 20),
+                const Text(
+                  'Work Submitted Successfully!',
+                  style: TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Work Submitted Successfully!',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: 12),
+                Text(
+                  'Your work has been submitted for review.\nThe employer will review it soon.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Your work has been submitted for review.\nThe employer will review it soon.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Get.back();
+                  Get.back();
+                  controller.fetchProjectDetails(project.id);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  minimumSize: const Size(double.infinity, 50),
                 ),
-                textAlign: TextAlign.center,
+                child: const Text('Done'),
               ),
             ],
           ),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                Get.back(); // Close dialog
-                Get.back(); // Go back to details screen
-                controller.fetchProjectDetails(project.id); // Refresh data
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                minimumSize: const Size(double.infinity, 50),
-              ),
-              child: const Text('Done'),
-            ),
-          ],
-        ),
+        );
+      }
+    } catch (e) {
+      Get.back();
+      Get.snackbar(
+        'Error',
+        'Failed to submit work. Please try again.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
       );
     }
-  } catch (e) {
-    Get.back(); // Close loading dialog
-    Get.snackbar(
-      'Error',
-      'Failed to submit work. Please try again.',
-      backgroundColor: Colors.red,
-      colorText: Colors.white,
-    );
   }
-}}
+}

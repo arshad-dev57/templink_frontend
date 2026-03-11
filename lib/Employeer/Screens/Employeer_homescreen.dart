@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Employee/Controllers/Employee_home_controller.dart';
+import 'package:templink/Employee/Screens/Employee_Stats_Screen.dart';
 import 'package:templink/Employee/Screens/Employee_proposals_Screen.dart';
 import 'package:templink/Employee/models/project_model.dart';
 import 'package:templink/Employeer/Screens/Employeer_Projects_Discovery_Screen.dart';
@@ -173,7 +174,9 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
                 _drawerItem(Icons.assignment_outlined, 'Job Applicatons', () {
                   Get.to(EmployerJobApplicationsScreen());
                 }),
-                _drawerItem(Icons.assignment_outlined, 'Reports', () {}),
+                _drawerItem(Icons.assignment_outlined, 'My Stats', () {
+                  Get.to(MyStatsScreen());
+                }),
                 _drawerItem(Icons.settings_outlined, 'Settings', () {
                   Get.to(() => const SettingsScreen());
                 }),

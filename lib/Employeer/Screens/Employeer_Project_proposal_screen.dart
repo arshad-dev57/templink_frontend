@@ -32,14 +32,25 @@ class _ProjectProposalsScreenState extends State<ProjectProposalsScreen> {
 
   List<String> get _filterOptions {
     final options = ['All'];
-    final statuses =
-        widget.project.proposals.map((p) => p.displayStatus).toSet().toList();
+    final statuses = widget.project.proposals
+        .where((p) => p.status != 'WITHDRAWN')  // ✅ withdrawn status chip bhi hide
+        .map((p) => p.displayStatus)
+        .toSet()
+        .toList();
     options.addAll(statuses);
     return options;
   }
-
   List<ProjectProposal> get _filteredProposals {
-    var filtered = List<ProjectProposal>.from(widget.project.proposals);
+    // ✅ Withdrawn exclude karo
+    var filtered = List<ProjectProposal>.from(widget.project.proposals)
+        .where((p) => p.status != 'WITHDRAWN')
+        .toList();
+
+    // ✅ Agar koi ACCEPTED hai to sirf wohi dikhao
+    final hasAccepted = filtered.any((p) => p.status == 'ACCEPTED');
+    if (hasAccepted) {
+      filtered = filtered.where((p) => p.status == 'ACCEPTED').toList();
+    }
 
     if (_selectedFilter != 'All') {
       filtered =
@@ -57,7 +68,6 @@ class _ProjectProposalsScreenState extends State<ProjectProposalsScreen> {
 
     return filtered;
   }
-
   @override
   void initState() {
     super.initState();
@@ -198,28 +208,44 @@ class _ProjectProposalsScreenState extends State<ProjectProposalsScreen> {
       ),
     );
   }
+Widget _buildStatsBar() {
+    final activeProposals = widget.project.proposals
+        .where((p) => p.status != 'WITHDRAWN')
+        .toList();
 
-  Widget _buildStatsBar() {
+    // ✅ Agar accepted hai to sirf accepted count dikhao
+    final hasAccepted = activeProposals.any((p) => p.status == 'ACCEPTED');
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildStatChip(
-              'Total', widget.project.proposals.length, Colors.blue),
-          _buildStatChip(
-              'Pending', widget.project.pendingProposals, Colors.orange),
-          _buildStatChip(
-              'Accepted', widget.project.acceptedProposals, Colors.green),
-          _buildStatChip(
-              'Rejected', widget.project.rejectedProposals, Colors.red),
-        ],
-      ),
+      child: hasAccepted
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildStatChip('Accepted', 1, Colors.green),
+              ],
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatChip('Total', activeProposals.length, Colors.blue),
+                _buildStatChip(
+                    'Pending',
+                    activeProposals.where((p) => p.status == 'PENDING').length,
+                    Colors.orange),
+                _buildStatChip(
+                    'Accepted',
+                    0,
+                    Colors.green),
+                _buildStatChip(
+                    'Rejected',
+                    activeProposals.where((p) => p.status == 'REJECTED').length,
+                    Colors.red),
+              ],
+            ),
     );
-  }
-
-  Widget _buildStatChip(String label, int count, Color color) {
+  }  Widget _buildStatChip(String label, int count, Color color) {
     return Column(
       children: [
         Text(
@@ -282,8 +308,14 @@ class _ProjectProposalsScreenState extends State<ProjectProposalsScreen> {
       ),
     );
   }
+Widget _buildFilterChips() {
+    // ✅ Agar accepted hai to filter chips hide karo
+    final hasAccepted = widget.project.proposals
+        .where((p) => p.status != 'WITHDRAWN')
+        .any((p) => p.status == 'ACCEPTED');
 
-  Widget _buildFilterChips() {
+    if (hasAccepted) return const SizedBox.shrink();
+
     return Container(
       color: Colors.white,
       height: 50,
@@ -295,17 +327,18 @@ class _ProjectProposalsScreenState extends State<ProjectProposalsScreen> {
           final filter = _filterOptions[index];
           final isSelected = _selectedFilter == filter;
           final count = filter == 'All'
-              ? widget.project.proposals.length
+              ? widget.project.proposals
+                  .where((p) => p.status != 'WITHDRAWN')
+                  .length
               : widget.project.proposals
-                  .where((p) => p.displayStatus == filter)
+                  .where((p) => p.displayStatus == filter && p.status != 'WITHDRAWN')
                   .length;
 
           return GestureDetector(
             onTap: () => setState(() => _selectedFilter = filter),
             child: Container(
               margin: const EdgeInsets.only(right: 8),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: isSelected ? primary : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(20),
@@ -320,15 +353,13 @@ class _ProjectProposalsScreenState extends State<ProjectProposalsScreen> {
                     filter,
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       color: isSelected ? Colors.white : Colors.black87,
                     ),
                   ),
                   const SizedBox(width: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? Colors.white.withOpacity(0.2)
@@ -340,8 +371,7 @@ class _ProjectProposalsScreenState extends State<ProjectProposalsScreen> {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color:
-                            isSelected ? Colors.white : Colors.grey.shade700,
+                        color: isSelected ? Colors.white : Colors.grey.shade700,
                       ),
                     ),
                   ),
@@ -353,7 +383,6 @@ class _ProjectProposalsScreenState extends State<ProjectProposalsScreen> {
       ),
     );
   }
-
   Widget _buildProposalCard(ProjectProposal proposal) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

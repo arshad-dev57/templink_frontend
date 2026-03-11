@@ -1,8 +1,11 @@
+// lib/screens/chat_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:templink/Services/chat_api_service.dart';
 import '../controllers/chat_socket_controller.dart';
 import '../controllers/chat_list_controller.dart';
+import '../controllers/call_controller.dart'; // ← NEW IMPORT
 import '../Utils/colors.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -35,40 +38,41 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-  
+
   late final ChatSocketController controller;
   late final ChatListController listController;
 
   String? conversationId;
   bool _isLoading = true;
   bool _initialLoadDone = false;
-  
+
   bool _isComposing = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
+
     _initializeController();
-    
+
     if (widget.initialConversationId != null) {
       conversationId = widget.initialConversationId;
       controller.setActiveConversation(widget.initialConversationId!);
-      
+
       if (widget.initialMessages != null && widget.initialMessages!.isNotEmpty) {
-        controller.replaceMessages(widget.initialConversationId!, widget.initialMessages!);
+        controller.replaceMessages(
+            widget.initialConversationId!, widget.initialMessages!);
         _isLoading = false;
         _initialLoadDone = true;
       }
-      
+
       _refreshMessagesInBackground();
     } else {
       _initChat();
     }
 
     _messageController.addListener(_onTextChanged);
-    
+
     ever(controller.messages, (_) {
       if (mounted && _initialLoadDone) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -106,12 +110,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           permanent: true,
         );
       }
-      
+
       if (Get.isRegistered<ChatListController>()) {
         listController = Get.find<ChatListController>();
       } else {
         listController = Get.put(
-          ChatListController(baseUrl: widget.baseUrl, token: widget.myToken),
+          ChatListController(
+              baseUrl: widget.baseUrl, token: widget.myToken),
         );
       }
     } catch (e) {
@@ -131,7 +136,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       controller.replaceMessages(conversationId!, msgs);
       controller.markRead(conversationId: conversationId!);
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -152,7 +157,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _initChat() async {
     try {
       String? cid = listController.getCachedConversationId(widget.toUserId);
-      
+
       if (cid == null) {
         cid = await ChatApi.getOrCreateConversation(
           baseUrl: widget.baseUrl,
@@ -198,7 +203,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         });
       }
 
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _scrollToBottom());
     } catch (e) {
       print('❌ Chat initialization error: $e');
       if (mounted) {
@@ -212,7 +218,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _scrollToBottom() {
     if (!_scrollController.hasClients) return;
-    
+
     try {
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
@@ -226,7 +232,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _sendMessage() {
     final cid = conversationId;
-    
+
     if (cid == null) return;
 
     final text = _messageController.text.trim();
@@ -257,7 +263,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _handleTextChanged(String val) {
     final cid = conversationId;
     if (cid == null) return;
-    
+
     try {
       controller.sendTyping(
         conversationId: cid,
@@ -266,6 +272,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     } catch (e) {
       print('❌ Error sending typing: $e');
+    }
+  }
+
+  // ==================== VOICE CALL ====================
+  void _startVoiceCall() {
+    try {
+      print("voice function");
+      // CallController already initialized hoga app start mein
+      final callCtrl = Get.find<CallController>();
+      callCtrl.startCall(
+        toUserId: widget.toUserId,
+        toUserName: widget.userName,
+      );
+    } catch (e) {
+      print('❌ Call error: $e');
+      Get.snackbar(
+        'Error',
+        'Could not start call. Please try again.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+      );
     }
   }
 
@@ -286,7 +314,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       case "sent":
         return Icon(Icons.check, size: 14, color: Colors.white.withOpacity(0.7));
       case "delivered":
-        return Icon(Icons.done_all, size: 14, color: Colors.white.withOpacity(0.7));
+        return Icon(Icons.done_all,
+            size: 14, color: Colors.white.withOpacity(0.7));
       case "read":
         return Icon(Icons.done_all, size: 14, color: Colors.lightBlueAccent);
       case "failed":
@@ -299,7 +328,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _formatTime(dynamic createdAt) {
     try {
       if (createdAt == null) return "";
-      
+
       DateTime dt;
       if (createdAt is String) {
         dt = DateTime.parse(createdAt).toLocal();
@@ -308,7 +337,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       } else {
         return "";
       }
-      
+
       final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
       final m = dt.minute.toString().padLeft(2, "0");
       final ap = dt.hour >= 12 ? "PM" : "AM";
@@ -318,7 +347,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  // ✅ MODERN MESSAGE BUBBLE - SENT (OWN MESSAGE)
   Widget _buildSentBubble({
     required String text,
     required String time,
@@ -329,16 +357,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // Status indicators
           Container(
             margin: const EdgeInsets.only(right: 8),
             child: _statusIcon(status),
           ),
-          
-          // Message bubble
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: primary,
                 borderRadius: BorderRadius.circular(20).copyWith(
@@ -355,7 +381,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Message text
                   Text(
                     text,
                     style: const TextStyle(
@@ -365,7 +390,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // Time
                   Text(
                     time,
                     style: TextStyle(
@@ -383,7 +407,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ✅ MODERN MESSAGE BUBBLE - RECEIVED (OTHER USER)
   Widget _buildReceivedBubble({
     required String text,
     required String time,
@@ -394,7 +417,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // User avatar (small)
           Container(
             width: 32,
             height: 32,
@@ -405,7 +427,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
             child: Center(
               child: Text(
-                widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
+                widget.userName.isNotEmpty
+                    ? widget.userName[0].toUpperCase()
+                    : '?',
                 style: TextStyle(
                   color: primary,
                   fontWeight: FontWeight.w600,
@@ -414,11 +438,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
             ),
           ),
-          
-          // Message bubble
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20).copyWith(
@@ -435,7 +458,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Message text
                   Text(
                     text,
                     style: TextStyle(
@@ -445,7 +467,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // Time
                   Text(
                     time,
                     style: TextStyle(
@@ -463,7 +484,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ✅ GROUPED MESSAGES - SENT (WITHOUT AVATAR FOR CONSECUTIVE)
   Widget _buildGroupedSentBubble({
     required String text,
     required String time,
@@ -480,18 +500,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          if (!isFirstInGroup) const SizedBox(width: 22), // Space for status
+          if (!isFirstInGroup) const SizedBox(width: 22),
           if (isFirstInGroup) _statusIcon(status),
           if (!isFirstInGroup) const SizedBox(width: 8),
-          
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: primary,
                 borderRadius: BorderRadius.circular(18).copyWith(
-                  bottomRight: isFirstInGroup 
-                      ? const Radius.circular(4) 
+                  bottomRight: isFirstInGroup
+                      ? const Radius.circular(4)
                       : const Radius.circular(18),
                 ),
               ),
@@ -500,7 +520,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 children: [
                   Text(
                     text,
-                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                    style:
+                        const TextStyle(color: Colors.white, fontSize: 15),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -519,7 +540,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ✅ GROUPED MESSAGES - RECEIVED (WITHOUT AVATAR FOR CONSECUTIVE)
   Widget _buildGroupedReceivedBubble({
     required String text,
     required String time,
@@ -546,22 +566,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
               child: Center(
                 child: Text(
-                  widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
-                  style: TextStyle(color: primary, fontWeight: FontWeight.w600),
+                  widget.userName.isNotEmpty
+                      ? widget.userName[0].toUpperCase()
+                      : '?',
+                  style: TextStyle(
+                      color: primary, fontWeight: FontWeight.w600),
                 ),
               ),
             )
           else
-            const SizedBox(width: 40), // Space for avatar
-          
+            const SizedBox(width: 40),
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18).copyWith(
-                  bottomLeft: isFirstInGroup 
-                      ? const Radius.circular(4) 
+                  bottomLeft: isFirstInGroup
+                      ? const Radius.circular(4)
                       : const Radius.circular(18),
                 ),
                 boxShadow: [
@@ -576,12 +599,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 children: [
                   Text(
                     text,
-                    style: TextStyle(color: Colors.grey[900], fontSize: 15),
+                    style:
+                        TextStyle(color: Colors.grey[900], fontSize: 15),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     time,
-                    style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                    style:
+                        TextStyle(color: Colors.grey[500], fontSize: 10),
                   ),
                 ],
               ),
@@ -592,7 +617,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ✅ MESSAGE DIVIDER (DATE)
   Widget _buildDateDivider(String date) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
@@ -600,7 +624,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         children: [
           Expanded(child: Divider(color: Colors.grey[300])),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.grey[100],
               borderRadius: BorderRadius.circular(12),
@@ -620,7 +645,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ✅ TYPING INDICATOR
   Widget _typingIndicator() {
     return Container(
       margin: const EdgeInsets.only(left: 16, bottom: 8),
@@ -636,8 +660,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
             child: Center(
               child: Text(
-                widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
-                style: TextStyle(color: primary, fontWeight: FontWeight.w600),
+                widget.userName.isNotEmpty
+                    ? widget.userName[0].toUpperCase()
+                    : '?',
+                style:
+                    TextStyle(color: primary, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -671,7 +698,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Widget _buildTypingDot(int delay) {
     return AnimatedContainer(
-      duration: Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOut,
       width: 8,
       height: 8,
@@ -682,7 +709,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ✅ SHIMMER LOADING
   Widget _buildShimmerLoading() {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -707,7 +733,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ✅ INPUT BAR
   Widget _buildInputBar(String cid) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -726,18 +751,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // Attachment button
             Container(
               margin: const EdgeInsets.only(right: 8),
               child: IconButton(
-                onPressed: () {
-                  // Handle attachment
-                },
-                icon: Icon(Icons.add_circle_outline, color: primary, size: 28),
+                onPressed: () {},
+                icon:
+                    Icon(Icons.add_circle_outline, color: primary, size: 28),
               ),
             ),
-            
-            // Text field
             Expanded(
               child: Container(
                 constraints: const BoxConstraints(maxHeight: 120),
@@ -766,15 +787,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            
-            // Send button
             Container(
               margin: const EdgeInsets.only(left: 8),
               child: FloatingActionButton(
                 onPressed: _isComposing ? _sendMessage : null,
                 mini: true,
                 elevation: 0,
-                backgroundColor: _isComposing ? primary : Colors.grey[300],
+                backgroundColor:
+                    _isComposing ? primary : Colors.grey[300],
                 child: Icon(
                   Icons.send_rounded,
                   color: _isComposing ? Colors.white : Colors.grey[600],
@@ -788,7 +808,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ✅ APPBAR
+  // ==================== APPBAR (call button wired) ====================
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       elevation: 0,
@@ -808,7 +828,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   widget.userName.isNotEmpty
                       ? widget.userName[0].toUpperCase()
                       : "?",
-                  style: TextStyle(color: primary, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                      color: primary, fontWeight: FontWeight.w700),
                 ),
               ),
               if (widget.userOnline)
@@ -821,7 +842,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     decoration: BoxDecoration(
                       color: Colors.green,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                      border:
+                          Border.all(color: Colors.white, width: 2),
                     ),
                   ),
                 ),
@@ -857,7 +879,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     widget.userOnline ? "Online" : "Offline",
                     style: TextStyle(
                       fontSize: 12,
-                      color: widget.userOnline ? Colors.green : Colors.grey,
+                      color: widget.userOnline
+                          ? Colors.green
+                          : Colors.grey,
                       fontWeight: FontWeight.w500,
                     ),
                   );
@@ -868,9 +892,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ],
       ),
       actions: [
+        // ── VOICE CALL BUTTON (wired) ──
         IconButton(
-          onPressed: () {},
+          onPressed: _startVoiceCall,
           icon: Icon(Icons.phone, color: primary),
+          tooltip: 'Voice Call',
         ),
         IconButton(
           onPressed: () {},
@@ -884,8 +910,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final cid = conversationId;
 
-    final bool showLoading = _isLoading && 
-        controller.messages.isEmpty && 
+    final bool showLoading = _isLoading &&
+        controller.messages.isEmpty &&
         (widget.initialMessages?.isEmpty ?? true);
 
     return Scaffold(
@@ -897,18 +923,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ? const Center(child: Text("Chat not available"))
               : Column(
                   children: [
-                    // Messages list
                     Expanded(
                       child: Obx(() {
                         final messages = controller.messages;
-                        
+
                         if (messages.isEmpty) {
                           return Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.chat_bubble_outline, 
-                                    size: 64, color: Colors.grey[400]),
+                                Icon(Icons.chat_bubble_outline,
+                                    size: 64,
+                                    color: Colors.grey[400]),
                                 const SizedBox(height: 16),
                                 Text(
                                   "No messages yet",
@@ -933,22 +959,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
                         return ListView.builder(
                           controller: _scrollController,
-                          padding: const EdgeInsets.only(top: 8, bottom: 8),
+                          padding:
+                              const EdgeInsets.only(top: 8, bottom: 8),
                           itemCount: messages.length,
                           itemBuilder: (context, index) {
                             final message = messages[index];
-                            final isMe = (message["from"] ?? "").toString() == widget.myUserId;
-                            final text = (message["text"] ?? "").toString();
-                            final status = (message["status"] ?? "").toString();
-                            final time = _formatTime(message["createdAt"]);
+                            final isMe =
+                                (message["from"] ?? "").toString() ==
+                                    widget.myUserId;
+                            final text =
+                                (message["text"] ?? "").toString();
+                            final status =
+                                (message["status"] ?? "").toString();
+                            final time =
+                                _formatTime(message["createdAt"]);
 
-                            // Check if message is first in group
                             final bool isFirstInGroup = index == 0 ||
-                                messages[index - 1]["from"] != message["from"];
+                                messages[index - 1]["from"] !=
+                                    message["from"];
 
-                            // Check if message is last in group
-                            final bool isLastInGroup = index == messages.length - 1 ||
-                                messages[index + 1]["from"] != message["from"];
+                            final bool isLastInGroup =
+                                index == messages.length - 1 ||
+                                    messages[index + 1]["from"] !=
+                                        message["from"];
 
                             if (isMe) {
                               return _buildGroupedSentBubble(
@@ -968,13 +1001,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         );
                       }),
                     ),
-
-                    // Typing indicator
                     Obx(() => controller.isOtherTyping.value
                         ? _typingIndicator()
                         : const SizedBox()),
-
-                    // Input bar
                     if (cid != null) _buildInputBar(cid),
                   ],
                 ),
@@ -987,7 +1016,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
-    
+
     try {
       if (Get.isRegistered<ChatSocketController>()) {
         controller.clearActiveConversation();
@@ -995,7 +1024,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (e) {
       print('❌ Error clearing active conversation: $e');
     }
-    
+
     super.dispose();
   }
 }

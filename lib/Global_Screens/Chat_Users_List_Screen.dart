@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Global_Screens/Chat_Screen.dart';
 import 'package:templink/Utils/colors.dart';
 import 'package:templink/config/api_config.dart';
+import 'package:templink/controllers/call_controller.dart'; // ← NEW
 import 'package:templink/controllers/chat_list_controller.dart';
 import 'package:templink/controllers/chat_socket_controller.dart';
 
@@ -69,7 +70,7 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
         return;
       }
 
-      // ✅ FIX: Pehle check karo socket exist karta hai ya nahi
+      // ChatSocketController
       if (Get.isRegistered<ChatSocketController>()) {
         socketC = Get.find<ChatSocketController>();
         print('✅ Reusing existing ChatSocketController');
@@ -92,6 +93,15 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
         listC = Get.put(
           ChatListController(baseUrl: baseUrl, token: myToken),
         );
+      }
+
+      // ✅ CallController — socket ke baad init karo
+      if (!Get.isRegistered<CallController>()) {
+        final callCtrl = Get.put(CallController(), permanent: true);
+        callCtrl.init(myUserId);
+        print('✅ CallController initialized for $myUserId');
+      } else {
+        print('✅ Reusing existing CallController');
       }
 
       _setupSocketListeners();
@@ -255,8 +265,8 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                   const SizedBox(height: 4),
                   Obx(() => Text(
                         '${listC.conversations.length} conversations',
-                        style:
-                            TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        style: TextStyle(
+                            fontSize: 14, color: Colors.grey[600]),
                       )),
                 ],
               ),
@@ -268,8 +278,7 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  border:
-                      Border.all(color: Colors.grey[200]!, width: 1.5),
+                  border: Border.all(color: Colors.grey[200]!, width: 1.5),
                 ),
                 child: TextField(
                   controller: _searchController,
@@ -284,8 +293,7 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                     contentPadding: const EdgeInsets.symmetric(
                         vertical: 16, horizontal: 20),
                     prefixIcon: Padding(
-                      padding:
-                          const EdgeInsets.only(left: 16, right: 12),
+                      padding: const EdgeInsets.only(left: 16, right: 12),
                       child: Icon(Icons.search_rounded,
                           color: primary, size: 24),
                     ),
@@ -329,8 +337,7 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final filteredUsers =
-                    listC.conversations.where((u) {
+                final filteredUsers = listC.conversations.where((u) {
                   final name =
                       (u["name"] ?? "").toString().toLowerCase();
                   return name.contains(searchQuery.toLowerCase());
@@ -365,8 +372,7 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                 }
 
                 return ListView.separated(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: filteredUsers.length,
                   separatorBuilder: (_, __) => Divider(
                       height: 1,
@@ -388,7 +394,6 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
 
                     return InkWell(
                       onTap: () async {
-                        // ✅ FIX: socketC pass karo ta ke same controller use ho
                         await Get.to(() => ChatScreen(
                               userName: name,
                               userOnline: isOnline,
@@ -398,19 +403,16 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                               myUserId: myUserId,
                             ));
 
-                        // Wapas aane pe refresh
                         listC.loadConversations();
                       },
                       child: Padding(
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Row(
                           children: [
                             // Avatar with online indicator
                             Stack(
                               children: [
-                                _buildAvatar(imageUrl, name,
-                                    size: 56),
+                                _buildAvatar(imageUrl, name, size: 56),
                                 if (isOnline)
                                   Positioned(
                                     bottom: 2,
@@ -422,8 +424,7 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                                         color: Colors.green,
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                            color: Colors.white,
-                                            width: 2),
+                                            color: Colors.white, width: 2),
                                       ),
                                     ),
                                   ),
@@ -449,8 +450,7 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                                                 : FontWeight.w600,
                                             color: Colors.grey[900],
                                           ),
-                                          overflow:
-                                              TextOverflow.ellipsis,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                       if (time.isNotEmpty)
@@ -499,8 +499,7 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color:
-                                          primary.withOpacity(0.3),
+                                      color: primary.withOpacity(0.3),
                                       blurRadius: 4,
                                       offset: const Offset(0, 2),
                                     ),

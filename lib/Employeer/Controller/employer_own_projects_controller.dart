@@ -28,7 +28,6 @@ class EmployerProjectsController extends GetxController {
     fetchMyProjectsWithProposals();
   }
 
-  // ==================== FETCH PROJECTS ====================
   Future<void> fetchMyProjectsWithProposals() async {
     try {
       isLoading.value = true;
@@ -61,30 +60,35 @@ class EmployerProjectsController extends GetxController {
     }
   }
 
-  void filterProjects() {
-    if (searchQuery.value.isEmpty) {
-      filteredProjects.value = projects;
-    } else {
-      final query = searchQuery.value.toLowerCase();
-      filteredProjects.value = projects.where((p) {
-        return p.title.toLowerCase().contains(query) ||
-            p.category.toLowerCase().contains(query) ||
-            p.skills.any((s) => s.toLowerCase().contains(query));
-      }).toList();
-    }
-  }
+void filterProjects() {
+  // ✅ Completed projects filter out karo
+  final activeProjects = projects.where((p) {
+    final status = p.Status?.toLowerCase() ?? '';
+    return status != 'completed' && status != 'complete';
+  }).toList();
 
+  if (searchQuery.value.isEmpty) {
+    filteredProjects.value = activeProjects;
+  } else {
+    final query = searchQuery.value.toLowerCase();
+    filteredProjects.value = activeProjects.where((p) {
+      return p.title.toLowerCase().contains(query) ||
+          p.category.toLowerCase().contains(query) ||
+          p.skills.any((s) => s.toLowerCase().contains(query));
+    }).toList();
+  }
+}
   void updateSearch(String query) {
     searchQuery.value = query;
     filterProjects();
   }
+
 
   void clearFilters() {
     searchQuery.value = '';
     filterProjects();
   }
 
-  // ==================== ACCEPT PROPOSAL ====================
   Future<void> acceptProposal(String proposalId) async {
     try {
       print("🟡 ===== ACCEPT PROPOSAL STARTED =====");
@@ -419,9 +423,11 @@ Future<void> submitRating({
 
   // ==================== GETTERS ====================
   int get totalProjects => projects.length;
-  int get totalProposals => projects.fold(0, (sum, p) => sum + p.proposals.length);
-  int get totalPendingProposals =>
-      projects.fold(0, (sum, p) => sum + p.pendingProposals);
+int get totalProposals => projects.fold(
+    0, (sum, p) => sum + p.proposals.where((pr) => pr.status != 'WITHDRAWN').length);
+    
+int get totalPendingProposals => projects.fold(
+    0, (sum, p) => sum + p.proposals.where((pr) => pr.status == 'PENDING').length);
   int get totalAcceptedProposals =>
       projects.fold(0, (sum, p) => sum + p.acceptedProposals);
 }

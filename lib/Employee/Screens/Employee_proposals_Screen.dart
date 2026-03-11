@@ -1,8 +1,8 @@
+//aa
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:templink/Controllers/proposal_controller.dart';
 import 'package:templink/Employee/Screens/Employee_Contract_Screen.dart';
-import 'package:templink/Employeer/Screens/Emplyeer_profile_screen.dart';
 import 'package:templink/Models/proposals_model.dart';
 import 'package:templink/Utils/colors.dart';
 
@@ -15,7 +15,6 @@ class MyProposalsScreen extends StatefulWidget {
 
 class _MyProposalsScreenState extends State<MyProposalsScreen> {
   final ProposalController controller = Get.put(ProposalController());
-
   final TextEditingController searchController = TextEditingController();
 
   @override
@@ -62,7 +61,6 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: _buildSearchField(),
             ),
-            
             Container(
               color: Colors.white,
               height: 50,
@@ -74,12 +72,13 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                   final status = controller.statusTabs[index];
                   final isSelected = controller.selectedStatus.value == status;
                   final count = controller.getCountByStatus(status);
-                  
+
                   return GestureDetector(
                     onTap: () => controller.updateStatus(status),
                     child: Container(
                       margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: isSelected ? primary : Colors.transparent,
                         borderRadius: BorderRadius.circular(20),
@@ -93,16 +92,22 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                             status,
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                              color: isSelected ? Colors.white : Colors.black87,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                              color:
+                                  isSelected ? Colors.white : Colors.black87,
                             ),
                           ),
                           if (count > 0) ...[
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: isSelected ? Colors.white.withOpacity(0.2) : primary.withOpacity(0.1),
+                                color: isSelected
+                                    ? Colors.white.withOpacity(0.2)
+                                    : primary.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -122,16 +127,12 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                 },
               ),
             ),
-            
             const SizedBox(height: 12),
-            
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _buildStatsSummary(),
             ),
-            
             const SizedBox(height: 12),
-            
             Expanded(
               child: _buildProposalsList(),
             ),
@@ -168,15 +169,14 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
             ),
           ),
           Obx(() => controller.searchQuery.value.isNotEmpty
-            ? IconButton(
-                icon: const Icon(Icons.close, size: 18, color: Colors.grey),
-                onPressed: () {
-                  searchController.clear();
-                  controller.updateSearch('');
-                },
-              )
-            : const SizedBox.shrink()
-          ),
+              ? IconButton(
+                  icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+                  onPressed: () {
+                    searchController.clear();
+                    controller.updateSearch('');
+                  },
+                )
+              : const SizedBox.shrink()),
         ],
       ),
     );
@@ -199,10 +199,14 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatChip('Total', controller.totalProposals.toString(), Colors.blue),
-          _buildStatChip('Submitted', controller.submittedCount.toString(), Colors.orange),
-          _buildStatChip('Accepted', controller.acceptedCount.toString(), Colors.green),
-          _buildStatChip('Rejected', controller.rejectedCount.toString(), Colors.red),
+          _buildStatChip(
+              'Total', controller.totalProposals.toString(), Colors.blue),
+          _buildStatChip(
+              'Submitted', controller.submittedCount.toString(), Colors.orange),
+          _buildStatChip(
+              'Accepted', controller.acceptedCount.toString(), Colors.green),
+          _buildStatChip(
+              'Rejected', controller.rejectedCount.toString(), Colors.red),
         ],
       ),
     );
@@ -232,7 +236,10 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
   }
 
   Widget _buildProposalsList() {
-    final proposals = controller.filteredProposals;
+    // ✅ Withdrawn proposals UI se filter karo
+    final proposals = controller.filteredProposals
+        .where((p) => p.statusType != 'withdrawn')
+        .toList();
 
     if (proposals.isEmpty) {
       return _buildEmptyState();
@@ -243,11 +250,20 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         children: [
           if (controller.getProposalsByStatusType('submitted').isNotEmpty)
-            _buildStatusSection('Submitted', controller.getProposalsByStatusType('submitted'), Colors.blue),
+            _buildStatusSection(
+                'Submitted',
+                controller.getProposalsByStatusType('submitted'),
+                Colors.blue),
           if (controller.getProposalsByStatusType('accepted').isNotEmpty)
-            _buildStatusSection('Accepted', controller.getProposalsByStatusType('accepted'), Colors.green),
+            _buildStatusSection(
+                'Accepted',
+                controller.getProposalsByStatusType('accepted'),
+                Colors.green),
           if (controller.getProposalsByStatusType('rejected').isNotEmpty)
-            _buildStatusSection('Rejected', controller.getProposalsByStatusType('rejected'), Colors.red),
+            _buildStatusSection(
+                'Rejected',
+                controller.getProposalsByStatusType('rejected'),
+                Colors.red),
         ],
       );
     } else {
@@ -261,7 +277,12 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
     }
   }
 
-  Widget _buildStatusSection(String title, List<ProposalModel> proposals, Color color) {
+  Widget _buildStatusSection(
+      String title, List<ProposalModel> proposals, Color color) {
+    // ✅ Section mein bhi withdrawn filter karo
+    final filtered = proposals.where((p) => p.statusType != 'withdrawn').toList();
+    if (filtered.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -288,13 +309,14 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  proposals.length.toString(),
+                  filtered.length.toString(),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -305,7 +327,7 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
             ],
           ),
         ),
-        ...proposals.map((p) => _buildProposalCard(p)).toList(),
+        ...filtered.map((p) => _buildProposalCard(p)).toList(),
         const SizedBox(height: 16),
       ],
     );
@@ -314,7 +336,7 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
   Widget _buildProposalCard(ProposalModel proposal) {
     final statusColor = proposal.statusColor;
     final statusType = proposal.statusType;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -339,7 +361,8 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
@@ -347,7 +370,8 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.assignment_outlined, size: 12, color: primary),
+                          Icon(Icons.assignment_outlined,
+                              size: 12, color: primary),
                           SizedBox(width: 4),
                           Text(
                             'PROJECT',
@@ -360,15 +384,15 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                         ],
                       ),
                     ),
-                    
                     const Spacer(),
-                    
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: statusColor.withOpacity(0.3)),
+                        border:
+                            Border.all(color: statusColor.withOpacity(0.3)),
                       ),
                       child: Text(
                         proposal.displayStatus,
@@ -381,9 +405,7 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                     ),
                   ],
                 ),
-                
                 const SizedBox(height: 12),
-                
                 Row(
                   children: [
                     Container(
@@ -395,8 +417,10 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          proposal.project.employerSnapshot.displayName.isNotEmpty 
-                              ? proposal.project.employerSnapshot.displayName[0]
+                          proposal.project.employerSnapshot.displayName
+                                  .isNotEmpty
+                              ? proposal
+                                  .project.employerSnapshot.displayName[0]
                               : 'C',
                           style: TextStyle(
                             fontSize: 18,
@@ -407,7 +431,6 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,10 +446,8 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
-                        
                           InkWell(
-                            onTap: (){
-                            },
+                            onTap: () {},
                             child: Text(
                               proposal.project.employerSnapshot.displayName,
                               style: TextStyle(
@@ -438,9 +459,9 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                         ],
                       ),
                     ),
-                    
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.green.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
@@ -462,34 +483,34 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                     ),
                   ],
                 ),
-                
                 const SizedBox(height: 12),
-                
                 Wrap(
                   spacing: 16,
                   runSpacing: 8,
                   children: [
                     _detailItem(Icons.attach_money, proposal.displayBudget),
                     _detailItem(Icons.schedule, proposal.project.duration),
-                    _detailItem(Icons.send_outlined, 'Sent ${proposal.displayDate}'),
+                    _detailItem(
+                        Icons.send_outlined, 'Sent ${proposal.displayDate}'),
                   ],
                 ),
-                
                 const SizedBox(height: 12),
-                
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
-                  children: proposal.selectedPortfolioProjects.take(3).map((project) {
+                  children: proposal.selectedPortfolioProjects
+                      .take(3)
+                      .map((project) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        project.title.length > 15 
-                            ? '${project.title.substring(0, 12)}...' 
+                        project.title.length > 15
+                            ? '${project.title.substring(0, 12)}...'
                             : project.title,
                         style: TextStyle(
                           fontSize: 10,
@@ -499,9 +520,7 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                     );
                   }).toList(),
                 ),
-                
                 const SizedBox(height: 12),
-                
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -544,7 +563,6 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                     ],
                   ),
                 ),
-
                 if (statusType == 'accepted')
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -556,7 +574,8 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle, size: 14, color: Colors.green),
+                          const Icon(Icons.check_circle,
+                              size: 14, color: Colors.green),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -572,7 +591,6 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                       ),
                     ),
                   ),
-
                 if (statusType == 'rejected')
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -584,7 +602,8 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.info_outline, size: 14, color: Colors.red),
+                          Icon(Icons.info_outline,
+                              size: 14, color: Colors.red),
                           SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -602,9 +621,9 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
               ],
             ),
           ),
-          
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
               borderRadius: const BorderRadius.only(
@@ -625,7 +644,7 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
   }
 
   String _getStatusMessage(String statusType) {
-    switch(statusType) {
+    switch (statusType) {
       case 'submitted':
         return 'Your Proposal';
       case 'accepted':
@@ -656,27 +675,28 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () {
-                // View proposal details
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-              child: const Text('View Proposal'),
-            ),
-          ),
+          // Expanded(
+          //   child: ElevatedButton(
+          //     onPressed: () {
+          //       // View proposal details
+          //     },
+          //     style: ElevatedButton.styleFrom(
+          //       backgroundColor: primary,
+          //       foregroundColor: Colors.white,
+          //       shape: RoundedRectangleBorder(
+          //         borderRadius: BorderRadius.circular(8),
+          //       ),
+          //       padding: const EdgeInsets.symmetric(vertical: 10),
+          //     ),
+          //     child: const Text('View Proposal'),
+          //   ),
+          // ),
         ];
-      
+
       case 'accepted':
+        final isContractCompleted = proposal.contractStatus == 'COMPLETED';
         final hasActiveContract = proposal.hasActiveContract;
-        
+
         return [
           Expanded(
             child: OutlinedButton(
@@ -694,44 +714,46 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
               child: const Text('Chat'),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () {
-                if (hasActiveContract) {
-                  Get.to(() => EmployeeContractScreen(
-                    projectId: proposal.project.id,
-                    viewOnly: true,
-                  ));
-                } else {
-                  Get.to(() => EmployeeContractScreen(
-                    projectId: proposal.project.id,
-                  ));
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: hasActiveContract ? Colors.blue : Colors.green,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          if (!isContractCompleted) ...[
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  if (hasActiveContract) {
+                    Get.to(() => EmployeeContractScreen(
+                          projectId: proposal.project.id,
+                          viewOnly: true,
+                        ));
+                  } else {
+                    Get.to(() => EmployeeContractScreen(
+                          projectId: proposal.project.id,
+                        ));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      hasActiveContract ? Colors.blue : Colors.green,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-              child: Text(
-                hasActiveContract ? 'View Contract' : 'Sign Contract',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                child: Text(
+                  hasActiveContract ? 'View Contract' : 'Sign Contract',
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
-          ),
+          ],
         ];
-      
+
       case 'rejected':
         return [
           Expanded(
             child: OutlinedButton(
-              onPressed: () {
-                // View feedback
-              },
+              onPressed: () {},
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.grey.shade700,
                 side: BorderSide(color: Colors.grey.shade300),
@@ -749,9 +771,7 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
-              onPressed: () {
-                // Find similar projects
-              },
+              onPressed: () {},
               style: ElevatedButton.styleFrom(
                 backgroundColor: primary,
                 foregroundColor: Colors.white,
@@ -764,14 +784,12 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
             ),
           ),
         ];
-      
+
       default:
         return [
           Expanded(
             child: ElevatedButton(
-              onPressed: () {
-                // View details
-              },
+              onPressed: () {},
               style: ElevatedButton.styleFrom(
                 backgroundColor: primary,
                 foregroundColor: Colors.white,
@@ -801,9 +819,10 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
     );
   }
 
+  // ✅ Empty state — center mein "No Proposals" show karega
   Widget _buildEmptyState() {
     final hasSearch = controller.searchQuery.value.isNotEmpty;
-    
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -817,10 +836,10 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              hasSearch ? 'No proposals found' : 'No proposals sent yet',
+              hasSearch ? 'No proposals found' : 'No Proposals Yet',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
                 color: Colors.grey.shade600,
               ),
             ),
@@ -828,25 +847,27 @@ class _MyProposalsScreenState extends State<MyProposalsScreen> {
             Text(
               hasSearch
                   ? 'Try searching with different keywords'
-                  : 'Start applying to projects to see your proposals here',
+                  : 'You haven\'t applied to any projects yet.\nStart browsing and submit your first proposal!',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             if (!hasSearch)
-              ElevatedButton(
+              ElevatedButton.icon(
                 onPressed: () {
                   // Navigate to browse projects
                 },
+                icon: const Icon(Icons.search),
+                label: const Text('Browse Projects'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 28, vertical: 14),
                 ),
-                child: const Text('Browse Projects'),
               ),
           ],
         ),

@@ -143,6 +143,49 @@ class ChatListController extends GetxController {
     return _conversationIdCache[userId];
   }
 
+  // ==================== ✅ NEW METHOD: UPDATE LAST MESSAGE ====================
+  void updateLastMessage({
+    required String conversationId,
+    required String userId,
+    required String lastMessage,
+    String? time,
+  }) {
+    // Find conversation index
+    final index = conversations.indexWhere((c) => 
+      c['conversationId'] == conversationId || c['userId'] == userId
+    );
+
+    if (index != -1) {
+      // Update existing conversation
+      conversations[index]['lastMessage'] = lastMessage;
+      conversations[index]['time'] = time ?? _formatTime(DateTime.now().toIso8601String());
+      
+      // Move to top (most recent)
+      if (index > 0) {
+        final conv = conversations.removeAt(index);
+        conversations.insert(0, conv);
+      }
+    } else {
+      // Create new conversation entry if it doesn't exist
+      final newConv = {
+        'conversationId': conversationId,
+        'userId': userId,
+        'name': 'User', // This will be updated when conversations load
+        'image': '',
+        'lastMessage': lastMessage,
+        'time': time ?? _formatTime(DateTime.now().toIso8601String()),
+        'unread': 1,
+        'online': false,
+      };
+      conversations.insert(0, newConv);
+    }
+
+    // Update cache
+    _conversationIdCache[userId] = conversationId;
+
+    print('✅ Updated last message for conversation: $conversationId');
+  }
+
   // ==================== UPDATE CONVERSATION (from socket) ====================
   void updateConversation(Map<String, dynamic> data) {
     final conversationId = data['conversationId']?.toString();

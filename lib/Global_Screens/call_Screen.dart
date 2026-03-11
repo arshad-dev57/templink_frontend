@@ -1,16 +1,10 @@
 
-
-// lib/screens/voice_call_screen.dart
-// ============================================================
-// Beautiful Voice Call UI — Works for incoming & outgoing
-// ============================================================
-
-import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:templink/Controllers/call_controller.dart';
 
-import '../Utils/colors.dart'; // tumhara existing colors file
+import '../controllers/call_controller.dart';
 
 class VoiceCallScreen extends StatefulWidget {
   final String remoteUserId;
@@ -30,43 +24,42 @@ class VoiceCallScreen extends StatefulWidget {
 
 class _VoiceCallScreenState extends State<VoiceCallScreen>
     with TickerProviderStateMixin {
-  late final CallController _callCtrl;
 
-  // Animations
-  late AnimationController _pulseController;
-  late AnimationController _waveController;
-  late Animation<double> _pulseAnimation;
+  final CallController _callCtrl = Get.put(CallController());
+
+  late AnimationController _rippleController;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeIn;
 
   @override
   void initState() {
     super.initState();
-    _callCtrl = Get.find<CallController>();
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ));
 
-    // Pulse animation for avatar
-    _pulseController = AnimationController(
+    _rippleController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 2200),
+    )..repeat();
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
     );
 
-    // Wave animation for connected state
-    _waveController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
+    _fadeIn = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
+    _fadeController.forward();
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
-    _waveController.dispose();
+    _rippleController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
-  // ─── Avatar initials ───
   String get _initials {
     final parts = widget.remoteName.trim().split(' ');
     if (parts.isEmpty) return '?';
@@ -74,120 +67,107 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
-  // ─── Status text ───
-  Widget _buildStatusText() {
-    return Obx(() {
-      final state = _callCtrl.callState.value;
-
-      String text;
-      Color color;
-
-      switch (state) {
-        case CallState.calling:
-          text = 'Calling...';
-          color = Colors.white70;
-          break;
-        case CallState.incoming:
-          text = widget.isOutgoing ? 'Calling...' : 'Incoming call';
-          color = Colors.white70;
-          break;
-        case CallState.connected:
-          text = _callCtrl.formattedDuration;
-          color = const Color(0xFF4ADE80); // green
-          break;
-        case CallState.ended:
-          text = 'Call ended';
-          color = Colors.white54;
-          break;
-        default:
-          text = '';
-          color = Colors.white70;
-      }
-
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: Text(
-          text,
-          key: ValueKey(text),
-          style: TextStyle(
-            fontSize: 16,
-            color: color,
-            fontWeight: state == CallState.connected
-                ? FontWeight.w600
-                : FontWeight.w400,
-            letterSpacing: 0.5,
-          ),
+  // ─── Background ───────────────────────────────────────────
+  Widget _buildBackground() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF075E54), // WhatsApp dark teal
+            Color(0xFF128C7E), // WhatsApp teal
+            Color(0xFF0A3D35),
+          ],
+          stops: [0.0, 0.5, 1.0],
         ),
-      );
-    });
+      ),
+    );
   }
 
-  // ─── Animated avatar ───
+  // ─── Ripple rings (calling state) ─────────────────────────
+  Widget _buildRippleRings() {
+    return AnimatedBuilder(
+      animation: _rippleController,
+      builder: (_, __) {
+        return Stack(
+          alignment: Alignment.center,
+          children: List.generate(3, (i) {
+            final delay = i * 0.33;
+            final progress = (_rippleController.value + delay) % 1.0;
+            final size = 130.0 + (progress * 120);
+            final opacity = (1.0 - progress) * 0.25;
+
+            return Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(opacity),
+                  width: 1.5,
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+
+  // ─── Avatar ───────────────────────────────────────────────
   Widget _buildAvatar() {
     return Obx(() {
       final connected = _callCtrl.callState.value == CallState.connected;
-
       return SizedBox(
-        width: 180,
-        height: 180,
+        width: 200,
+        height: 200,
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Outer pulse rings (when calling/incoming)
-            if (!connected) ...[
-              _buildRing(80, 0.3),
-              _buildRing(100, 0.15),
-            ],
+            // Ripple rings — only when not connected
+            if (!connected) _buildRippleRings(),
 
-            // Sound waves (when connected)
-            if (connected) ...[
-              _buildWaveRing(75, 0),
-              _buildWaveRing(90, 0.3),
-              _buildWaveRing(105, 0.6),
-            ],
+            // Connected: soft glow
+            if (connected)
+              Container(
+                width: 148,
+                height: 148,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF25D366).withOpacity(0.4),
+                      blurRadius: 32,
+                      spreadRadius: 8,
+                    ),
+                  ],
+                ),
+              ),
 
             // Avatar circle
-            AnimatedBuilder(
-              animation: _pulseAnimation,
-              builder: (_, __) {
-                final scale = connected ? 1.0 : _pulseAnimation.value;
-                return Transform.scale(
-                  scale: scale,
-                  child: Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          primary,
-                          primary.withOpacity(0.7),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primary.withOpacity(0.4),
-                          blurRadius: 24,
-                          spreadRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        _initials,
-                        style: const TextStyle(
-                          fontSize: 38,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
+            Container(
+              width: 124,
+              height: 124,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.15),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  _initials,
+                  style: const TextStyle(
+                    fontSize: 44,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    letterSpacing: 1,
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ],
         ),
@@ -195,90 +175,114 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     });
   }
 
-  Widget _buildRing(double size, double opacity) {
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (_, __) {
-        return Container(
-          width: size * _pulseAnimation.value,
-          height: size * _pulseAnimation.value,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: primary.withOpacity(opacity),
-              width: 1.5,
-            ),
+  // ─── Status text ──────────────────────────────────────────
+  Widget _buildStatusText() {
+    return Obx(() {
+      final state = _callCtrl.callState.value;
+
+      String text;
+      Color color;
+      FontWeight weight;
+
+      switch (state) {
+        case CallState.calling:
+          text = widget.isOutgoing ? 'Calling...' : 'Incoming call';
+          color = Colors.white.withOpacity(0.7);
+          weight = FontWeight.w400;
+          break;
+        case CallState.incoming:
+          text = widget.isOutgoing ? 'Calling...' : 'Incoming call';
+          color = Colors.white.withOpacity(0.7);
+          weight = FontWeight.w400;
+          break;
+        case CallState.connected:
+          text = _callCtrl.formattedDuration;
+          color = const Color(0xFF25D366);
+          weight = FontWeight.w500;
+          break;
+        case CallState.ended:
+          text = 'Call ended';
+          color = Colors.white.withOpacity(0.5);
+          weight = FontWeight.w400;
+          break;
+        default:
+          text = '';
+          color = Colors.white.withOpacity(0.7);
+          weight = FontWeight.w400;
+      }
+
+      return AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        child: Text(
+          text,
+          key: ValueKey(text),
+          style: TextStyle(
+            fontSize: 15,
+            color: color,
+            fontWeight: weight,
+            letterSpacing: 0.3,
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
   }
 
-  Widget _buildWaveRing(double size, double phaseOffset) {
-    return AnimatedBuilder(
-      animation: _waveController,
-      builder: (_, __) {
-        final value = math.sin(
-          (_waveController.value + phaseOffset) * 2 * math.pi,
-        );
-        final scale = 1.0 + (value * 0.08);
-        final opacity = 0.15 + (value * 0.1).clamp(0.0, 0.3);
-        return Transform.scale(
-          scale: scale,
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF4ADE80).withOpacity(opacity),
-                width: 1.5,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ─── Call action button ───
-  Widget _buildActionBtn({
+  // ─── Single control button ─────────────────────────────────
+  Widget _buildControlBtn({
     required IconData icon,
     required String label,
     required VoidCallback onTap,
-    required Color bgColor,
-    Color iconColor = Colors.white,
-    double size = 64,
+    bool isActive = false,
+    bool isDanger = false,
+    bool isLarge = false,
   }) {
+    final double size = isLarge ? 68.0 : 56.0;
+    final Color bg = isDanger
+        ? const Color(0xFFFF3B30)
+        : isActive
+            ? Colors.white.withOpacity(0.9)
+            : Colors.white.withOpacity(0.15);
+    final Color iconC = isDanger
+        ? Colors.white
+        : isActive
+            ? const Color(0xFF075E54)
+            : Colors.white;
+
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             width: size,
             height: size,
             decoration: BoxDecoration(
-              color: bgColor,
+              color: bg,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: bgColor.withOpacity(0.35),
-                  blurRadius: 16,
-                  spreadRadius: 2,
-                ),
-              ],
+              boxShadow: isDanger
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFFFF3B30).withOpacity(0.4),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : [],
             ),
-            child: Icon(icon, color: iconColor, size: size * 0.42),
+            child: Icon(icon, color: iconC, size: size * 0.42),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
           Text(
             label,
             style: TextStyle(
               fontSize: 11,
-              color: Colors.white.withOpacity(0.7),
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.3,
+              color: Colors.white.withOpacity(0.65),
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0.2,
             ),
           ),
         ],
@@ -286,7 +290,46 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     );
   }
 
-  // ─── Controls row (during call) ───
+  // ─── Accept button (large green) ──────────────────────────
+  Widget _buildAcceptBtn() {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        _callCtrl.acceptCall();
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              color: const Color(0xFF25D366),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF25D366).withOpacity(0.45),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: const Icon(Icons.call, color: Colors.white, size: 30),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            'Accept',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.white.withOpacity(0.65),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── In-call controls ─────────────────────────────────────
   Widget _buildCallControls() {
     return Obx(() {
       final muted = _callCtrl.isMuted.value;
@@ -294,183 +337,238 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
       return Column(
         children: [
-          // Top controls row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildActionBtn(
-                icon: muted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                label: muted ? 'Unmute' : 'Mute',
-                onTap: _callCtrl.toggleMute,
-                bgColor: muted
-                    ? Colors.white.withOpacity(0.2)
-                    : Colors.white.withOpacity(0.12),
-                size: 60,
-              ),
-              _buildActionBtn(
-                icon: speaker
-                    ? Icons.volume_up_rounded
-                    : Icons.volume_down_rounded,
-                label: speaker ? 'Speaker' : 'Earpiece',
-                onTap: _callCtrl.toggleSpeaker,
-                bgColor: speaker
-                    ? primary.withOpacity(0.8)
-                    : Colors.white.withOpacity(0.12),
-                size: 60,
-              ),
-            ],
+          // Top row: mute, speaker, (spacer)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildControlBtn(
+                  icon: muted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                  label: muted ? 'Unmute' : 'Mute',
+                  onTap: _callCtrl.toggleMute,
+                  isActive: muted,
+                ),
+                _buildControlBtn(
+                  icon: speaker
+                      ? Icons.volume_up_rounded
+                      : Icons.phone_in_talk_rounded,
+                  label: speaker ? 'Speaker' : 'Earpiece',
+                  onTap: _callCtrl.toggleSpeaker,
+                  isActive: speaker,
+                ),
+                _buildControlBtn(
+                  icon: Icons.keyboard_rounded,
+                  label: 'Keypad',
+                  onTap: () {},
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 36),
-          // End call button
-          _buildActionBtn(
+
+          const SizedBox(height: 40),
+
+          // End call
+          _buildControlBtn(
             icon: Icons.call_end_rounded,
-            label: 'End Call',
+            label: 'End call',
             onTap: _callCtrl.endCall,
-            bgColor: const Color(0xFFEF4444),
-            size: 72,
+            isDanger: true,
+            isLarge: true,
           ),
         ],
       );
     });
   }
 
-  // ─── Incoming call actions ───
+  // ─── Incoming call actions ────────────────────────────────
   Widget _buildIncomingActions() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        // Decline
-        _buildActionBtn(
-          icon: Icons.call_end_rounded,
-          label: 'Decline',
-          onTap: _callCtrl.rejectCall,
-          bgColor: const Color(0xFFEF4444),
-          size: 72,
-        ),
-        // Accept
-        _buildActionBtn(
-          icon: Icons.call_rounded,
-          label: 'Accept',
-          onTap: _callCtrl.acceptCall,
-          bgColor: const Color(0xFF22C55E),
-          size: 72,
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildControlBtn(
+            icon: Icons.call_end_rounded,
+            label: 'Decline',
+            onTap: _callCtrl.rejectCall,
+            isDanger: true,
+            isLarge: true,
+          ),
+          _buildAcceptBtn(),
+        ],
+      ),
     );
   }
 
-  // ─── Outgoing (waiting) actions ───
+  // ─── Outgoing / cancel ────────────────────────────────────
   Widget _buildCallingActions() {
-    return _buildActionBtn(
+    return _buildControlBtn(
       icon: Icons.call_end_rounded,
       label: 'Cancel',
       onTap: _callCtrl.endCall,
-      bgColor: const Color(0xFFEF4444),
-      size: 72,
+      isDanger: true,
+      isLarge: true,
     );
   }
 
+  // ─── Bottom frosted panel ─────────────────────────────────
+  Widget _buildBottomPanel() {
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.25),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
+          child: Obx(() {
+            final state = _callCtrl.callState.value;
+
+            if (state == CallState.incoming && !widget.isOutgoing) {
+              return _buildIncomingActions();
+            }
+
+            if (state == CallState.calling ||
+                (state == CallState.incoming && widget.isOutgoing)) {
+              return Center(child: _buildCallingActions());
+            }
+
+            if (state == CallState.connected) {
+              return _buildCallControls();
+            }
+
+            return const SizedBox(height: 80);
+          }),
+        ),
+      ),
+    );
+  }
+
+  // ─── Main build ───────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFF0F172A), // dark navy
-              const Color(0xFF1E293B),
-              Color.lerp(const Color(0xFF1E293B), primary, 0.15)!,
-            ],
-            stops: const [0.0, 0.5, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF075E54),
+        body: FadeTransition(
+          opacity: _fadeIn,
+          child: Stack(
             children: [
-              // ── Top bar
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 16),
-                child: Row(
+              // Background
+              Positioned.fill(child: _buildBackground()),
+
+              // Content
+              SafeArea(
+                bottom: false,
+                child: Column(
                   children: [
-                    // Back / minimize
-                    GestureDetector(
-                      onTap: () => Get.back(),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
+                    // Top bar
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => Get.back(),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              child: const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          Obx(() {
+                            final connected =
+                                _callCtrl.callState.value == CallState.connected;
+                            if (!connected) return const SizedBox();
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF25D366).withOpacity(0.25),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFF25D366).withOpacity(0.5),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF25D366),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Connected',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+
+                    const Spacer(flex: 2),
+
+                    // Avatar
+                    _buildAvatar(),
+
+                    const SizedBox(height: 24),
+
+                    // Name
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        widget.remoteName,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          letterSpacing: 0.2,
                         ),
-                        child: const Icon(Icons.keyboard_arrow_down_rounded,
-                            color: Colors.white, size: 24),
                       ),
                     ),
-                    const Spacer(),
-                    Text(
-                      'Voice Call',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const Spacer(),
-                    const SizedBox(width: 40), // balance
+
+                    const SizedBox(height: 8),
+
+                    // Status / timer
+                    _buildStatusText(),
+
+                    const Spacer(flex: 3),
+
+                    // Bottom frosted panel
+                    _buildBottomPanel(),
                   ],
                 ),
               ),
-
-              const Spacer(flex: 2),
-
-              // ── Avatar
-              _buildAvatar(),
-
-              const SizedBox(height: 28),
-
-              // ── Name
-              Text(
-                widget.remoteName,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: 0.3,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // ── Status / timer
-              _buildStatusText(),
-
-              const Spacer(flex: 3),
-
-              // ── Buttons (reactive)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: Obx(() {
-                  final state = _callCtrl.callState.value;
-
-                  if (state == CallState.incoming && !widget.isOutgoing) {
-                    return _buildIncomingActions();
-                  } else if (state == CallState.calling ||
-                      (state == CallState.incoming && widget.isOutgoing)) {
-                    return _buildCallingActions();
-                  } else if (state == CallState.connected) {
-                    return _buildCallControls();
-                  }
-
-                  return const SizedBox();
-                }),
-              ),
-
-              const SizedBox(height: 48),
             ],
           ),
         ),

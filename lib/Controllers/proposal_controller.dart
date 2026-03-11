@@ -11,20 +11,18 @@ class ProposalController extends GetxController {
   var isLoading = false.obs;
   var proposalResponse = Rx<ProposalResponse?>(null);
   final baseurl = ApiConfig.baseUrl;
-  
+
   Future<bool> submitProposal(ProposalRequest proposal) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      var token  = prefs.getString("auth_token");
-      print("auth_token");
+      var token = prefs.getString("auth_token");
       isLoading.value = true;
 
-      
       final response = await http.post(
         Uri.parse('$baseurl/api/proposals/create'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token', 
+          'Authorization': 'Bearer $token',
         },
         body: jsonEncode(proposal.toJson()),
       ).timeout(
@@ -33,9 +31,8 @@ class ProposalController extends GetxController {
           throw 'Connection timeout. Please try again.';
         },
       );
-print(response.statusCode);
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        print("success");
         final jsonResponse = jsonDecode(response.body);
         proposalResponse.value = ProposalResponse.fromJson(jsonResponse);
         return true;
@@ -57,11 +54,10 @@ print(response.statusCode);
       isLoading.value = false;
     }
   }
-  
+
   Future<List<PortfolioProject>> getPortfolioProjects() async {
-    // Simulate API call
     await Future.delayed(const Duration(seconds: 1));
-    
+
     return [
       PortfolioProject(
         portfolioId: "65bcaf4d9c8e1d25e81f9911",
@@ -87,10 +83,9 @@ print(response.statusCode);
     ];
   }
 
-  
   Future<String?> uploadFile(String filePath, String fileName) async {
     try {
-          await Future.delayed(const Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 1));
       return 'https://yourcdn.com/$fileName';
     } catch (e) {
       Get.snackbar('Error', 'Failed to upload file: $e');
@@ -103,8 +98,22 @@ print(response.statusCode);
   var searchQuery = ''.obs;
   var selectedStatus = 'All'.obs;
 
-  // ✅ Status types to exclude
-  final List<String> excludedStatuses = ['completed', 'Completed', 'COMPLETED'];
+  // ✅ Proposal status + Contract status dono exclude honge
+  final List<String> excludedProposalStatuses = ['completed', 'Completed', 'COMPLETED'];
+  final List<String> excludedContractStatuses = ['COMPLETED', 'completed', 'Completed'];
+
+  // ✅ Yeh method check karta hai ke proposal show hona chahiye ya nahi
+  bool _shouldShowProposal(ProposalModel p) {
+    if(p.statusType == 'withdrawn') return false;
+    // Proposal ka apna status completed nahi hona chahiye
+    if (excludedProposalStatuses.contains(p.displayStatus)) return false;
+
+    // ✅ Contract ka status bhi COMPLETED nahi hona chahiye
+    if (p.contractStatus != null &&
+        excludedContractStatuses.contains(p.contractStatus)) return false;
+
+    return true;
+  }
 
   @override
   void onInit() {
@@ -114,14 +123,11 @@ print(response.statusCode);
 
   List<String> get statusTabs {
     final statuses = ['All'];
-    
-    // ✅ Filter out excluded statuses
     final uniqueStatuses = proposals
+        .where((p) => _shouldShowProposal(p))
         .map((p) => p.displayStatus)
-        .where((status) => !excludedStatuses.contains(status))
         .toSet()
         .toList();
-    
     statuses.addAll(uniqueStatuses);
     return statuses;
   }
@@ -131,7 +137,7 @@ print(response.statusCode);
       isLoading.value = true;
       SharedPreferences prefs = await SharedPreferences.getInstance();
       var token = prefs.getString("auth_token");
-      
+
       final response = await http.get(
         Uri.parse('$baseurl/api/proposals/my'),
         headers: {
@@ -144,19 +150,17 @@ print(response.statusCode);
           throw 'Connection timeout. Please try again.';
         },
       );
-      
+
       print(response.statusCode);
       print(response.body);
-      
+
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         final proposalsResponse = ProposalsResponse.fromJson(jsonResponse);
-        
-        // ✅ Filter out completed proposals
         proposals.value = proposalsResponse.proposals
-            .where((p) => !excludedStatuses.contains(p.displayStatus))
+            .where((p) => _shouldShowProposal(p))
             .toList();
-            
+
         filterProposals();
       } else {
         throw 'Failed to load proposals: ${response.statusCode}';
@@ -169,24 +173,23 @@ print(response.statusCode);
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
-      print("error in propasals $e");
+      print("error in proposals $e");
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Filter proposals based on search and status
   void filterProposals() {
-    // ✅ First filter out completed proposals
+    // ✅ Pehle dono conditions se filter karo
     var filtered = proposals
-        .where((p) => !excludedStatuses.contains(p.displayStatus))
+        .where((p) => _shouldShowProposal(p))
         .toList();
 
-    // Filter by status
+    // Filter by status tab
     if (selectedStatus.value != 'All') {
-      filtered = filtered.where((p) => 
-        p.displayStatus == selectedStatus.value
-      ).toList();
+      filtered = filtered
+          .where((p) => p.displayStatus == selectedStatus.value)
+          .toList();
     }
 
     // Filter by search query
@@ -194,99 +197,113 @@ print(response.statusCode);
       final query = searchQuery.value.toLowerCase();
       filtered = filtered.where((p) {
         return p.project.title.toLowerCase().contains(query) ||
-               p.project.employerSnapshot.displayName.toLowerCase().contains(query) ||
-               p.coverLetter.toLowerCase().contains(query);
+            p.project.employerSnapshot.displayName.toLowerCase().contains(query) ||
+            p.coverLetter.toLowerCase().contains(query);
       }).toList();
     }
 
     filteredProposals.value = filtered;
   }
 
-  // Update search query
   void updateSearch(String query) {
     searchQuery.value = query;
     filterProposals();
   }
 
-  // Update selected status
   void updateStatus(String status) {
     selectedStatus.value = status;
     filterProposals();
   }
 
-  // Get count for a specific status (excluding completed)
   int getCountByStatus(String status) {
     if (status == 'All') {
-      return proposals.length;
+      return proposals.where((p) => _shouldShowProposal(p)).length;
     }
     return proposals
+        .where((p) => _shouldShowProposal(p))
         .where((p) => p.displayStatus == status)
-        .where((p) => !excludedStatuses.contains(p.displayStatus))
         .length;
   }
 
-  // Get proposals by status type for sections (excluding completed)
   List<ProposalModel> getProposalsByStatusType(String statusType) {
     return proposals
+        .where((p) => _shouldShowProposal(p))
         .where((p) => p.statusType == statusType)
-        .where((p) => !excludedStatuses.contains(p.displayStatus))
         .where((p) {
           if (searchQuery.value.isEmpty) return true;
           final query = searchQuery.value.toLowerCase();
           return p.project.title.toLowerCase().contains(query) ||
-                 p.project.employerSnapshot.displayName.toLowerCase().contains(query);
+              p.project.employerSnapshot.displayName.toLowerCase().contains(query);
         })
         .toList();
   }
 
-  // Stats (excluding completed)
-  int get totalProposals => proposals.length;
+  // ✅ Stats bhi sirf visible proposals ki count karengi
+  int get totalProposals =>
+      proposals.where((p) => _shouldShowProposal(p)).length;
+
   int get submittedCount => proposals
+      .where((p) => _shouldShowProposal(p))
       .where((p) => p.statusType == 'submitted')
-      .where((p) => !excludedStatuses.contains(p.displayStatus))
       .length;
-      
+
   int get acceptedCount => proposals
+      .where((p) => _shouldShowProposal(p))
       .where((p) => p.statusType == 'accepted')
-      .where((p) => !excludedStatuses.contains(p.displayStatus))
       .length;
-      
+
   int get rejectedCount => proposals
+      .where((p) => _shouldShowProposal(p))
       .where((p) => p.statusType == 'rejected')
-      .where((p) => !excludedStatuses.contains(p.displayStatus))
       .length;
-
-  // Withdraw proposal
-  Future<void> withdrawProposal(String proposalId) async {
+Future<void> withdrawProposal(String proposalId) async {
+  
     try {
-      // TODO: Implement withdraw API
-      // final response = await http.post(
-      //   Uri.parse('$baseUrl/proposals/$proposalId/withdraw'),
-      //   headers: {'Authorization': 'Bearer YOUR_TOKEN_HERE'},
-      // );
+      print("called withdwal");
+      isLoading.value = true;
+      
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      var token = prefs.getString("auth_token");
 
-      // For now, just update locally
-      final index = proposals.indexWhere((p) => p.id == proposalId);
-      if (index != -1) {
-        // In real implementation, you'd refetch after successful API call
-        await fetchMyProposals();
-      }
-
-      Get.snackbar(
-        'Success',
-        'Proposal withdrawn successfully',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
+      final response = await http.patch(
+        Uri.parse('$baseurl/api/proposals/withdraw/$proposalId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw 'Connection timeout. Please try again.';
+        },
       );
+      print("withdral body");
+print(response.body);
+      if (response.statusCode == 200) {
+        // ✅ API success — list refresh karo
+        await fetchMyProposals();
+
+        Get.snackbar(
+          'Success',
+          'Proposal withdrawn successfully',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+      } else {
+        final error = jsonDecode(response.body);
+        throw error['message'] ?? 'Failed to withdraw proposal';
+      }
     } catch (e) {
       Get.snackbar(
         'Error',
-        'Failed to withdraw proposal: $e',
+        e.toString(),
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
+    } finally {
+      isLoading.value = false;
     }
   }
 }

@@ -1423,7 +1423,6 @@ class _MiniSlatePreview extends StatelessWidget {
         _bar(80, 1.5, const Color(0xFFDDDDDD)),
       ]);
 }
-
 // ROSE — Elegant feminine gradient header
 class _MiniRosePreview extends StatelessWidget {
   final Color accent;
@@ -1433,160 +1432,160 @@ class _MiniRosePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
-      child: Container(
-        color: const Color(0xFFFFF8FA),
-        child: Column(children: [
-          // Gradient header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-            decoration: BoxDecoration(
-                gradient: LinearGradient(
-                    colors: [accent, const Color(0xFFFF85C2)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight)),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: SizedBox(
+          width: 280, // Fixed width for consistency
+          height: 180, // Slightly reduced height to fit better
+          child: Container(
+            color: const Color(0xFFFFF8FA),
             child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.3),
-                          border:
-                              Border.all(color: Colors.white, width: 2))),
-                  const SizedBox(height: 4),
-                  _bar(55, 5, Colors.white),
-                  const SizedBox(height: 2),
-                  _bar(38, 2.5, Colors.white70),
-                  const SizedBox(height: 3),
-                  Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Gradient header
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+                  decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                          colors: [accent, const Color(0xFFFF85C2)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight)),
+                  child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        _bar(25, 2, Colors.white54),
-                        const SizedBox(width: 5),
-                        _bar(30, 2, Colors.white54),
-                        const SizedBox(width: 5),
-                        _bar(22, 2, Colors.white54),
+                        Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withOpacity(0.3),
+                                border:
+                                    Border.all(color: Colors.white, width: 1.5))),
+                        const SizedBox(height: 3),
+                        _bar(45, 4, Colors.white),
+                        const SizedBox(height: 1.5),
+                        _bar(32, 2, Colors.white70),
+                        const SizedBox(height: 2),
+                        Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _bar(20, 1.5, Colors.white54),
+                              const SizedBox(width: 4),
+                              _bar(25, 1.5, Colors.white54),
+                            ]),
                       ]),
-                ]),
-          ),
-          // Body
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Main left
-                    Expanded(
-                      flex: 6,
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _roseSec('ABOUT ME', accent),
-                            _bar(double.infinity, 1.5,
-                                const Color(0xFFEEEEEE)),
-                            const SizedBox(height: 1.5),
-                            _bar(double.infinity, 1.5,
-                                const Color(0xFFEEEEEE)),
-                            const SizedBox(height: 1.5),
-                            _bar(65, 1.5, const Color(0xFFEEEEEE)),
-                            const SizedBox(height: 6),
-                            _roseSec('EXPERIENCE', accent),
-                            _roseExp(
-                                'Fashion Director', 'Vogue', accent),
-                            const SizedBox(height: 5),
-                            _roseExp('Art Director', 'Elle', accent),
-                          ]),
-                    ),
-                    const SizedBox(width: 8),
-                    // Right
-                    Expanded(
-                      flex: 4,
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _roseSec('SKILLS', accent),
-                            _roseSkill('Styling', 0.95, accent),
-                            _roseSkill('Branding', 0.85, accent),
-                            _roseSkill('Direction', 0.90, accent),
-                            const SizedBox(height: 5),
-                            _roseSec('EDUCATION', accent),
-                            _bar(48, 2.5, const Color(0xFF444444)),
-                            const SizedBox(height: 2),
-                            _bar(38, 1.5, const Color(0xFFAAAAAA)),
-                            const SizedBox(height: 2),
-                            _bar(28, 1.5, accent),
-                            const SizedBox(height: 5),
-                            _roseSec('LANGUAGES', accent),
-                            _bar(45, 1.5, const Color(0xFFCCCCCC)),
-                            const SizedBox(height: 2),
-                            _bar(38, 1.5, const Color(0xFFCCCCCC)),
-                          ]),
-                    ),
-                  ]),
+                ),
+                // Body
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Main left
+                          Expanded(
+                            flex: 6,
+                            child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _roseSec('ABOUT', accent),
+                                  _bar(double.infinity, 1.2,
+                                      const Color(0xFFEEEEEE)),
+                                  const SizedBox(height: 1),
+                                  _bar(double.infinity, 1.2,
+                                      const Color(0xFFEEEEEE)),
+                                  const SizedBox(height: 4),
+                                  _roseSec('EXPERIENCE', accent),
+                                  _roseExp('Fashion Director', 'Vogue', accent),
+                                  const SizedBox(height: 3),
+                                  _roseExp('Art Director', 'Elle', accent),
+                                ]),
+                          ),
+                          const SizedBox(width: 5),
+                          // Right
+                          Expanded(
+                            flex: 4,
+                            child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _roseSec('SKILLS', accent),
+                                  _roseSkill('Styling', 0.95, accent),
+                                  _roseSkill('Branding', 0.85, accent),
+                                  const SizedBox(height: 3),
+                                  _roseSec('EDUCATION', accent),
+                                  _bar(40, 2, const Color(0xFF444444)),
+                                  const SizedBox(height: 1),
+                                  _bar(32, 1.2, const Color(0xFFAAAAAA)),
+                                ]),
+                          ),
+                        ]),
+                  ),
+                ),
+              ],
             ),
           ),
-        ]),
+        ),
       ),
     );
   }
 
   Widget _roseSec(String t, Color accent) => Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(children: [
-        Container(
-            width: 2.5,
-            height: 10,
-            decoration: BoxDecoration(
-                color: accent, borderRadius: BorderRadius.circular(2))),
-        const SizedBox(width: 4),
-        Text(t,
-            style: const TextStyle(
-                fontSize: 7,
-                letterSpacing: 1,
-                color: Color(0xFF444444),
-                fontWeight: FontWeight.w800)),
-        const SizedBox(width: 4),
-        Expanded(
-            child:
-                Container(height: 1, color: const Color(0xFFE8E8E8))),
-      ]));
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+              width: 2,
+              height: 8,
+              decoration: BoxDecoration(
+                  color: accent, borderRadius: BorderRadius.circular(1))),
+          const SizedBox(width: 3),
+          Text(t,
+              style: const TextStyle(
+                  fontSize: 6,
+                  letterSpacing: 1,
+                  color: Color(0xFF444444),
+                  fontWeight: FontWeight.w800)),
+        ],
+      ));
 
-  Widget _roseExp(String role, String co, Color accent) =>
-      Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _bar(50, 2.5, const Color(0xFF333333)),
-            const SizedBox(height: 2),
-            _bar(30, 2, accent),
-            const SizedBox(height: 2),
-            _bar(double.infinity, 1.5, const Color(0xFFEEEEEE)),
+  Widget _roseExp(String role, String co, Color accent) => Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _bar(40, 2, const Color(0xFF333333)),
+            const SizedBox(height: 1),
+            _bar(25, 1.5, accent),
+            const SizedBox(height: 1),
+            _bar(double.infinity, 1.2, const Color(0xFFEEEEEE)),
           ]));
 
-  Widget _roseSkill(String label, double v, Color accent) =>
-      Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget _roseSkill(String label, double v, Color accent) => Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(label,
                 style: const TextStyle(
-                    fontSize: 7, color: Color(0xFF555555))),
-            const SizedBox(height: 2),
+                    fontSize: 5.5, color: Color(0xFF555555))),
+            const SizedBox(height: 1),
             ClipRRect(
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(1),
                 child: LinearProgressIndicator(
                     value: v,
-                    minHeight: 3,
+                    minHeight: 2,
                     backgroundColor: const Color(0xFFFFD6EC),
                     valueColor: AlwaysStoppedAnimation(accent))),
           ]));
 }
-
-// ATS CLASSIC — Clean B&W
 class _MiniAtsClassicPreview extends StatelessWidget {
   final Color accent;
   const _MiniAtsClassicPreview({required this.accent});
@@ -1597,47 +1596,62 @@ class _MiniAtsClassicPreview extends StatelessWidget {
       borderRadius: BorderRadius.circular(6),
       child: Container(
         color: Colors.white,
-        padding: const EdgeInsets.all(10),
-        child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Centered header
-              Center(
-                  child: Column(children: [
-                _bar(85, 5, const Color(0xFF111111)),
-                const SizedBox(height: 3),
-                _bar(60, 3, const Color(0xFF555555)),
-                const SizedBox(height: 3),
-                _bar(100, 2, const Color(0xFFBBBBBB)),
-              ])),
-              const SizedBox(height: 8),
-              Container(height: 1.5, color: const Color(0xFF111111)),
-              const SizedBox(height: 6),
-              _atsSec('PROFESSIONAL SUMMARY'),
-              _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
-              const SizedBox(height: 2),
-              _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
-              const SizedBox(height: 2),
-              _bar(80, 1.5, const Color(0xFFCCCCCC)),
-              const SizedBox(height: 7),
-              _atsSec('WORK EXPERIENCE'),
-              _atsJob('Senior Software Engineer', 'Meta', '2021–Present'),
-              const SizedBox(height: 5),
-              _atsJob('Software Engineer', 'Google', '2018–2021'),
-              const SizedBox(height: 7),
-              _atsSec('SKILLS'),
-              _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
-              const SizedBox(height: 7),
-              _atsSec('EDUCATION'),
-              _atsJob('M.Sc Computer Science', 'MIT', '2016–2018'),
-            ]),
+        padding: const EdgeInsets.all(8), // Reduced padding
+        child: FittedBox(
+          fit: BoxFit.scaleDown, // This will scale down content if needed
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 280), // Limit max width
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Centered header
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _bar(85, 5, const Color(0xFF111111)),
+                      const SizedBox(height: 3),
+                      _bar(60, 3, const Color(0xFF555555)),
+                      const SizedBox(height: 3),
+                      _bar(100, 2, const Color(0xFFBBBBBB)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(height: 1.5, color: const Color(0xFF111111)),
+                const SizedBox(height: 4),
+                _atsSec('PROFESSIONAL SUMMARY'),
+                _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
+                const SizedBox(height: 1.5),
+                _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
+                const SizedBox(height: 1.5),
+                _bar(70, 1.5, const Color(0xFFCCCCCC)),
+                const SizedBox(height: 5),
+                _atsSec('WORK EXPERIENCE'),
+                _atsJob('Senior Software Engineer', 'Meta', '2021–Present'),
+                const SizedBox(height: 4),
+                _atsJob('Software Engineer', 'Google', '2018–2021'),
+                const SizedBox(height: 5),
+                _atsSec('SKILLS'),
+                _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
+                const SizedBox(height: 5),
+                _atsSec('EDUCATION'),
+                _atsJob('M.Sc Computer Science', 'MIT', '2016–2018'),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _atsSec(String t) => Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    padding: const EdgeInsets.only(bottom: 3),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
         Text(t,
             style: const TextStyle(
                 fontSize: 7.5,
@@ -1647,30 +1661,32 @@ class _MiniAtsClassicPreview extends StatelessWidget {
         Container(
             height: 1,
             color: const Color(0xFF444444),
-            margin: const EdgeInsets.only(top: 2)),
-      ]));
+            margin: const EdgeInsets.only(top: 1.5)),
+      ],
+    ),
+  );
 
-  Widget _atsJob(String title, String co, String dates) =>
-      Padding(
-          padding: const EdgeInsets.only(bottom: 3),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _bar(65, 2.5, const Color(0xFF111111)),
-                  _bar(28, 2, const Color(0xFF777777)),
-                ]),
-            const SizedBox(height: 1.5),
-            _bar(38, 2, const Color(0xFF555555)),
-            const SizedBox(height: 2),
-            _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
-            const SizedBox(height: 1.5),
-            _bar(80, 1.5, const Color(0xFFCCCCCC)),
-          ]));
+  Widget _atsJob(String title, String co, String dates) => Padding(
+    padding: const EdgeInsets.only(bottom: 2),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _bar(55, 2.5, const Color(0xFF111111)),
+              _bar(25, 2, const Color(0xFF777777)),
+            ]),
+        const SizedBox(height: 1),
+        _bar(35, 2, const Color(0xFF555555)),
+        const SizedBox(height: 1.5),
+        _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
+      ],
+    ),
+  );
 }
 
-// ATS MODERN — Blue accent line
 class _MiniAtsModernPreview extends StatelessWidget {
   final Color accent;
   const _MiniAtsModernPreview({required this.accent});
@@ -1679,98 +1695,105 @@ class _MiniAtsModernPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(6),
-      child: IntrinsicHeight(
-        child: Row(children: [
-          Container(width: 4, color: accent),
-          Expanded(
-            child: Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                _bar(75, 5, const Color(0xFF111111)),
-                                const SizedBox(height: 3),
-                                _bar(50, 3, accent),
-                              ]),
-                          Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                _bar(35, 2, const Color(0xFFAAAAAA)),
-                                const SizedBox(height: 2),
-                                _bar(40, 2, const Color(0xFFAAAAAA)),
-                                const SizedBox(height: 2),
-                                _bar(30, 2, const Color(0xFFAAAAAA)),
-                              ]),
-                        ]),
-                    const SizedBox(height: 8),
-                    Container(height: 1.5, color: accent.withOpacity(0.3)),
-                    const SizedBox(height: 7),
-                    _atsSec2('SUMMARY', accent),
-                    _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
-                    const SizedBox(height: 2),
-                    _bar(80, 1.5, const Color(0xFFCCCCCC)),
-                    const SizedBox(height: 7),
-                    _atsSec2('EXPERIENCE', accent),
-                    _modernJob(
-                        'Product Manager', 'Notion', '2021–Present', accent),
-                    const SizedBox(height: 5),
-                    _modernJob('Analyst', 'McKinsey', '2018–2021', accent),
-                    const SizedBox(height: 7),
-                    _atsSec2('SKILLS', accent),
-                    _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
-                    const SizedBox(height: 7),
-                    _atsSec2('EDUCATION', accent),
-                    _modernJob('MBA', 'Stanford GSB', '2014–2016', accent),
-                  ]),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: SizedBox(
+          width: 280, // Fixed width for consistency
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(width: 4, color: accent),
+                Expanded(
+                  child: Container(
+                    color: Colors.white,
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _bar(65, 5, const Color(0xFF111111)),
+                                    const SizedBox(height: 2),
+                                    _bar(45, 3, accent),
+                                  ]),
+                              Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _bar(30, 2, const Color(0xFFAAAAAA)),
+                                    const SizedBox(height: 1.5),
+                                    _bar(35, 2, const Color(0xFFAAAAAA)),
+                                  ]),
+                            ]),
+                        const SizedBox(height: 6),
+                        Container(height: 1.5, color: accent.withOpacity(0.3)),
+                        const SizedBox(height: 5),
+                        _atsSec2('SUMMARY', accent),
+                        _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
+                        const SizedBox(height: 1.5),
+                        _bar(70, 1.5, const Color(0xFFCCCCCC)),
+                        const SizedBox(height: 5),
+                        _atsSec2('EXPERIENCE', accent),
+                        _modernJob('Product Manager', 'Notion', '2021–Present', accent),
+                        const SizedBox(height: 4),
+                        _modernJob('Analyst', 'McKinsey', '2018–2021', accent),
+                        const SizedBox(height: 5),
+                        _atsSec2('SKILLS', accent),
+                        _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ]),
+        ),
       ),
     );
   }
 
   Widget _atsSec2(String t, Color accent) => Padding(
-      padding: const EdgeInsets.only(bottom: 5),
-      child: Row(children: [
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Row(
+      children: [
         Text(t,
             style: const TextStyle(
                 fontSize: 7.5,
                 fontWeight: FontWeight.w900,
                 color: Color(0xFF111111),
                 letterSpacing: 1)),
-        const SizedBox(width: 6),
-        Expanded(
-            child: Container(height: 1.5, color: accent.withOpacity(0.3))),
-      ]));
+        const SizedBox(width: 5),
+        Expanded(child: Container(height: 1.5, color: accent.withOpacity(0.3))),
+      ],
+    ),
+  );
 
-  Widget _modernJob(
-          String title, String co, String dates, Color accent) =>
-      Padding(
-          padding: const EdgeInsets.only(bottom: 3),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _bar(60, 2.5, const Color(0xFF111111)),
-                  _bar(28, 2, const Color(0xFF777777)),
-                ]),
-            const SizedBox(height: 1.5),
-            _bar(38, 2, accent),
-            const SizedBox(height: 2),
-            _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
-          ]));
+  Widget _modernJob(String title, String co, String dates, Color accent) => Padding(
+    padding: const EdgeInsets.only(bottom: 2),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          _bar(50, 2.5, const Color(0xFF111111)),
+          _bar(25, 2, const Color(0xFF777777)),
+        ]),
+        const SizedBox(height: 1),
+        _bar(35, 2, accent),
+        const SizedBox(height: 1.5),
+        _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
+      ],
+    ),
+  );
 }
 
-// ATS EXECUTIVE — Green accents, structured
 class _MiniAtsExecutivePreview extends StatelessWidget {
   final Color accent;
   const _MiniAtsExecutivePreview({required this.accent});
@@ -1779,66 +1802,78 @@ class _MiniAtsExecutivePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(6),
-      child: Container(
-        color: Colors.white,
-        padding: const EdgeInsets.all(10),
-        child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _bar(80, 5, const Color(0xFF111111)),
-                        const SizedBox(height: 3),
-                        _bar(55, 3, accent),
-                      ]),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: SizedBox(
+          width: 280,
+          child: Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _bar(70, 5, const Color(0xFF111111)),
+                            const SizedBox(height: 2),
+                            _bar(50, 3, accent),
+                          ]),
+                    ),
+                    Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _bar(32, 2, const Color(0xFFAAAAAA)),
+                          const SizedBox(height: 1.5),
+                          _bar(38, 2, const Color(0xFFAAAAAA)),
+                        ]),
+                  ],
                 ),
-                Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      _bar(38, 2, const Color(0xFFAAAAAA)),
-                      const SizedBox(height: 2),
-                      _bar(42, 2, const Color(0xFFAAAAAA)),
-                      const SizedBox(height: 2),
-                      _bar(32, 2, const Color(0xFFAAAAAA)),
-                    ]),
-              ]),
-              const SizedBox(height: 7),
-              Container(height: 2, color: accent),
-              const SizedBox(height: 7),
-              _execSec('EXECUTIVE PROFILE', accent),
-              Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                      color: accent.withOpacity(0.04),
-                      border: Border.all(color: accent.withOpacity(0.15))),
-                  child: Column(children: [
-                    _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
-                    const SizedBox(height: 2),
-                    _bar(75, 1.5, const Color(0xFFCCCCCC)),
-                  ])),
-              const SizedBox(height: 7),
-              _execSec('EXPERIENCE', accent),
-              _execJob(
-                  'Chief Financial Officer', 'Goldman Sachs', accent),
-              const SizedBox(height: 5),
-              _execJob('VP Finance', 'JPMorgan', accent),
-              const SizedBox(height: 7),
-              _execSec('EDUCATION', accent),
-              _execJob('MBA Finance', 'Wharton', accent),
-              const SizedBox(height: 7),
-              _execSec('SKILLS', accent),
-              _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
-            ]),
+                const SizedBox(height: 6),
+                Container(height: 2, color: accent),
+                const SizedBox(height: 5),
+                _execSec('EXECUTIVE PROFILE', accent),
+                Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                        color: accent.withOpacity(0.04),
+                        border: Border.all(color: accent.withOpacity(0.15))),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
+                        const SizedBox(height: 1.5),
+                        _bar(65, 1.5, const Color(0xFFCCCCCC)),
+                      ],
+                    )),
+                const SizedBox(height: 5),
+                _execSec('EXPERIENCE', accent),
+                _execJob('Chief Financial Officer', 'Goldman Sachs', accent),
+                const SizedBox(height: 4),
+                _execJob('VP Finance', 'JPMorgan', accent),
+                const SizedBox(height: 5),
+                _execSec('EDUCATION', accent),
+                _execJob('MBA Finance', 'Wharton', accent),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _execSec(String t, Color accent) => Padding(
-      padding: const EdgeInsets.only(bottom: 5),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
         Text(t,
             style: TextStyle(
                 fontSize: 7.5,
@@ -1848,33 +1883,29 @@ class _MiniAtsExecutivePreview extends StatelessWidget {
         Container(
             height: 1,
             color: accent.withOpacity(0.4),
-            margin: const EdgeInsets.only(top: 2)),
-      ]));
+            margin: const EdgeInsets.only(top: 1.5)),
+      ],
+    ),
+  );
 
-  Widget _execJob(String title, String co, Color accent) =>
-      Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _bar(60, 2.5, const Color(0xFF111111)),
-                  _bar(28, 2, const Color(0xFF777777)),
-                ]),
-            const SizedBox(height: 1.5),
-            _bar(38, 2, accent),
-            const SizedBox(height: 2),
-            _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
-            const SizedBox(height: 1.5),
-            Row(children: [
-              Text('◆ ',
-                  style: TextStyle(fontSize: 6, color: accent)),
-              _bar(60, 1.5, const Color(0xFFCCCCCC)),
-            ]),
-          ]));
+  Widget _execJob(String title, String co, Color accent) => Padding(
+    padding: const EdgeInsets.only(bottom: 3),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          _bar(50, 2.5, const Color(0xFF111111)),
+          _bar(25, 2, const Color(0xFF777777)),
+        ]),
+        const SizedBox(height: 1),
+        _bar(35, 2, accent),
+        const SizedBox(height: 1.5),
+        _bar(double.infinity, 1.5, const Color(0xFFCCCCCC)),
+      ],
+    ),
+  );
 }
-
 // ============================================
 // PREVIEW PAGE
 // ============================================

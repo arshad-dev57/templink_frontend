@@ -19,6 +19,9 @@ import 'package:templink/Global_Screens/login_screen.dart';
 import 'package:templink/Resume_Builder/Screens/Resume_Dashboard_Screen.dart';
 import 'package:templink/Services/Notificaton_Service.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:templink/config/api_config.dart';               // ← ADD
+import 'package:templink/controllers/call_controller.dart';     // ← ADD
+import 'package:templink/controllers/chat_socket_controller.dart'; // ← ADD
 
 class EmployeeHomeScreen extends StatefulWidget {
   const EmployeeHomeScreen({super.key});
@@ -30,14 +33,14 @@ class EmployeeHomeScreen extends StatefulWidget {
 class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     with SingleTickerProviderStateMixin {
   int currentIndex = 0;
-  int selectedFeedTab = 0; 
-  
+  int selectedFeedTab = 0;
+
   int selectedJobFilterIndex = 0;
   int selectedProjectFilterIndex = 0;
 
   final EmployeeHomeController homeController = Get.put(EmployeeHomeController());
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
+
   final List<Map<String, dynamic>> jobFilters = [
     {'label': 'All', 'icon': Icons.all_inclusive},
     {'label': 'Remote Only', 'icon': Icons.home_work},
@@ -46,7 +49,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     {'label': 'Urgent', 'icon': Icons.priority_high},
   ];
 
-  // ✅ Project Filters
   final List<Map<String, dynamic>> projectFilters = [
     {'label': 'All', 'icon': Icons.all_inclusive},
     {'label': 'Featured', 'icon': Icons.star},
@@ -55,8 +57,48 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     {'label': 'New', 'icon': Icons.fiber_new},
   ];
 
-  // Scroll controller for horizontal category scrolling
   final ScrollController _categoryScrollController = ScrollController();
+
+  // ─────────────────────────────────────────────
+  // ✅ ADD: initState — call services initialize karo
+  // ─────────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    _initCallServices();
+  }
+
+  Future<void> _initCallServices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token  = prefs.getString('auth_token') ?? '';
+      final userId = prefs.getString('auth_user_id') ?? '';
+
+      if (token.isEmpty || userId.isEmpty) return;
+
+      // ChatSocketController — permanent, ek baar banao
+      if (!Get.isRegistered<ChatSocketController>()) {
+        Get.put(
+          ChatSocketController(
+            socketBaseUrl: ApiConfig.baseUrl,
+            token: token,
+            myUserId: userId,
+          ),
+          permanent: true,
+        );
+        print('✅ [HomeScreen] ChatSocketController initialized');
+      }
+
+      // CallController — permanent, ek baar banao
+      if (!Get.isRegistered<CallController>()) {
+        final callCtrl = Get.put(CallController(), permanent: true);
+        callCtrl.init(userId);
+        print('✅ [HomeScreen] CallController initialized for $userId');
+      }
+    } catch (e) {
+      print('❌ [HomeScreen] _initCallServices error: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -150,21 +192,19 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
                 _drawerItem(Icons.bar_chart_outlined, 'My stats', () {
                   Get.to(MyStatsScreen());
                 }),
-                 _drawerItem(Icons.bar_chart_outlined, 'Resume Builder', () {
+                _drawerItem(Icons.bar_chart_outlined, 'Resume Builder', () {
                   Get.to(ResumeDashboardScreen());
                 }),
-                  _drawerItem(Icons.person_add, 'Hire Requests', () {
+                _drawerItem(Icons.person_add, 'Hire Requests', () {
                   Get.to(EmployeeRequestsScreen());
                 }),
-                   _drawerItem(Icons.wordpress, 'Applied Jobs', () {
+                _drawerItem(Icons.wordpress, 'Applied Jobs', () {
                   Get.to(EmployeeAppliedJobsScreen());
                 }),
                 _drawerItem(Icons.assignment_outlined, 'Reports', () {}),
-                _drawerItem(Icons.dashboard, "Active Projects", (){
+                _drawerItem(Icons.dashboard, "Active Projects", () {
                   Get.to(EmployeeActiveProjectsScreen());
                 }),
-                
-                // _drawerItem(Icons.request_page_outlined, 'My Requests', () {}),
                 _drawerItem(Icons.settings_outlined, 'Settings', () {}),
                 _drawerItem(Icons.help_outline, 'Help & Support', () {}),
                 _buildThemeItem(),
@@ -181,10 +221,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
   Widget _drawerItem(IconData icon, String title, VoidCallback onTap) {
     return ListTile(
       leading: Icon(icon, color: Colors.grey.shade600, size: 22),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 14, color: Colors.black87),
-      ),
+      title: Text(title, style: const TextStyle(fontSize: 14, color: Colors.black87)),
       trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
       onTap: onTap,
     );
@@ -197,10 +234,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
         children: [
           Icon(Icons.palette_outlined, color: Colors.grey.shade600, size: 22),
           const SizedBox(width: 12),
-          const Text(
-            'Theme: Auto',
-            style: TextStyle(fontSize: 14, color: Colors.black87),
-          ),
+          const Text('Theme: Auto', style: TextStyle(fontSize: 14, color: Colors.black87)),
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -208,49 +242,105 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
               color: primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              'Auto',
-              style: TextStyle(fontSize: 12, color: primary, fontWeight: FontWeight.w500),
-            ),
+            child: Text('Auto', style: TextStyle(fontSize: 12, color: primary, fontWeight: FontWeight.w500)),
           ),
         ],
       ),
     );
   }
 
- Widget _buildLogoutItem() {
+// lib/Employee/Screens/Employee_Home_Screen.dart
+Widget _buildLogoutItem() {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
     child: GestureDetector(
       onTap: () async {
-        await NotificationService.instance.logout();
+        // Show loading dialog
+        Get.dialog(
+          const Center(child: CircularProgressIndicator()),
+          barrierDismissible: false,
+        );
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('auth_token');
-        await prefs.remove('auth_user');
-        await prefs.remove('auth_role');
-        await prefs.remove('auth_user_id');
+        try {
+          // 1️⃣ Notification service logout
+          await NotificationService.instance.logout();
 
-        Get.offAll(() => const LoginScreen());
+          // 2️⃣ 🔥 CHAT SOCKET CONTROLLER CLEANUP
+          if (Get.isRegistered<ChatSocketController>()) {
+            print('📴 Disconnecting ChatSocketController...');
+            final socketCtrl = Get.find<ChatSocketController>();
+            
+            // Call disconnect method
+            socketCtrl.disconnect();
+            
+            // Delete controller with force
+            Get.delete<ChatSocketController>(force: true);
+            print('✅ ChatSocketController deleted');
+          }
+
+          // 3️⃣ 🔥 CALL CONTROLLER CLEANUP
+          if (Get.isRegistered<CallController>()) {
+            print('📴 Cleaning up CallController...');
+            final callCtrl = Get.find<CallController>();
+            
+            // Call resetForLogout method
+            callCtrl.resetForLogout();
+            
+            // Delete controller with force
+            Get.delete<CallController>(force: true);
+            print('✅ CallController deleted');
+          }
+
+          // 4️⃣ Clear SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('auth_token');
+          await prefs.remove('auth_user');
+          await prefs.remove('auth_role');
+          await prefs.remove('auth_user_id');
+          
+          // Optional: Clear all preferences
+          // await prefs.clear();
+
+          // 5️⃣ Close loading dialog
+          if (Get.isDialogOpen ?? false) Get.back();
+
+          // 6️⃣ Navigate to Login
+          Get.offAll(() => const LoginScreen());
+
+        } catch (e) {
+          print('❌ Logout error: $e');
+          
+          // Close loading dialog if open
+          if (Get.isDialogOpen ?? false) Get.back();
+          
+          // Show error snackbar
+          Get.snackbar(
+            'Error',
+            'Logout failed: ${e.toString()}',
+            snackPosition: SnackPosition.TOP,
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 3),
+          );
+        }
       },
       child: Row(
         children: [
-          Icon(Icons.logout_outlined, color: Colors.red, size: 22),
+          const Icon(Icons.logout_outlined, color: Colors.red, size: 22),
           const SizedBox(width: 12),
-          Text(
+          const Text(
             'Log Out',
             style: TextStyle(
-              fontSize: 14,
-              color: Colors.red,
-              fontWeight: FontWeight.w500,
+              fontSize: 14, 
+              color: Colors.red, 
+              fontWeight: FontWeight.w500
             ),
           ),
         ],
       ),
     ),
   );
-}
-  Widget _buildFooter() {
+}  Widget _buildFooter() {
     return Column(
       children: [
         const Divider(height: 40, thickness: 1),
@@ -258,15 +348,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: [
-              Text(
-                'Version 2.1.0 (1768)',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-              ),
+              Text('Version 2.1.0 (1768)', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
               const SizedBox(height: 8),
-              Text(
-                '© 2024 Templink. All rights reserved.',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
-              ),
+              Text('© 2024 Templink. All rights reserved.', style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
             ],
           ),
         ),
@@ -283,11 +367,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
           color: primary,
           borderRadius: BorderRadius.circular(40),
           boxShadow: [
-            BoxShadow(
-              color: primary.withOpacity(0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
+            BoxShadow(color: primary.withOpacity(0.35), blurRadius: 20, offset: const Offset(0, 10)),
           ],
         ),
         child: Row(
@@ -329,16 +409,10 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
             const SizedBox(height: 8),
             _buildFeedTabs(),
             const SizedBox(height: 20),
-            
-            // ✅ Categories Section - Sirf Jobs Tab ke liye visible hoga
             if (selectedFeedTab == 0) _buildCategoriesSection(),
-            
             const SizedBox(height: 20),
-            
-            // ✅ Dynamic filter chips based on selected tab
             if (selectedFeedTab == 0) _buildJobFilterChips(),
             if (selectedFeedTab == 1) _buildProjectFilterChips(),
-            
             const SizedBox(height: 20),
             _buildFeedContent(),
             const SizedBox(height: 30),
@@ -350,7 +424,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     );
   }
 
-  // ✅ NEW: Categories Section with Horizontal Scrollable Buttons - Sirf Jobs ke liye
   Widget _buildCategoriesSection() {
     return Obx(() {
       if (homeController.isLoadingCategories.value) {
@@ -359,43 +432,25 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
           child: Center(child: CircularProgressIndicator()),
         );
       }
-
       if (homeController.categoriesError.value != null) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Row(
             children: [
-              Text(
-                'Error loading categories',
-                style: TextStyle(color: Colors.red.shade400),
-              ),
+              Text('Error loading categories', style: TextStyle(color: Colors.red.shade400)),
               const SizedBox(width: 10),
-              TextButton(
-                onPressed: () => homeController.fetchCategories(),
-                child: const Text('Retry'),
-              ),
+              TextButton(onPressed: () => homeController.fetchCategories(), child: const Text('Retry')),
             ],
           ),
         );
       }
-
-      if (homeController.categories.length <= 1) {
-        return const SizedBox.shrink(); // Agar sirf "All" hai to hide karo
-      }
-
+      if (homeController.categories.length <= 1) return const SizedBox.shrink();
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'Browse Jobs by Category',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
+            child: Text('Browse Jobs by Category', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87)),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -408,32 +463,16 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
               itemBuilder: (context, index) {
                 final category = homeController.categories[index];
                 final isSelected = homeController.selectedCategory.value == category;
-                
                 return Container(
                   margin: const EdgeInsets.only(right: 10),
                   child: FilterChip(
-                    label: Text(
-                      category,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black87,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
+                    label: Text(category, style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
                     selected: isSelected,
-                    onSelected: (selected) {
-                      if (selected) {
-                        homeController.setSelectedCategory(category);
-                      }
-                    },
+                    onSelected: (selected) { if (selected) homeController.setSelectedCategory(category); },
                     backgroundColor: Colors.white,
                     selectedColor: primary,
                     checkmarkColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(
-                        color: isSelected ? primary : Colors.grey.shade300,
-                      ),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isSelected ? primary : Colors.grey.shade300)),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 );
@@ -466,19 +505,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Good Morning,',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                    ),
+                    Text('Good Morning,', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                     const SizedBox(height: 2),
-                    Obx(() => Text(
-                      homeController.fullName.value,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    )),
+                    Obx(() => Text(homeController.fullName.value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87))),
                   ],
                 ),
               ],
@@ -490,18 +519,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
                 icon: const Icon(Icons.notifications_outlined, color: Colors.black87, size: 26),
                 onPressed: () => Get.to(() => const NotificationScreen()),
               ),
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
+              Positioned(right: 8, top: 8, child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle))),
             ],
           ),
         ],
@@ -514,16 +532,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         height: 48,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            _buildTabButton('Jobs', 0),
-            _buildTabButton('Temp Projects', 1),
-          ],
-        ),
+        decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+        child: Row(children: [_buildTabButton('Jobs', 0), _buildTabButton('Temp Projects', 1)]),
       ),
     );
   }
@@ -534,30 +544,15 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
         onTap: () => setState(() {
           selectedFeedTab = index;
           if (index == 0) selectedJobFilterIndex = 0;
-          if (index == 1) {
-            selectedProjectFilterIndex = 0;
-            // Projects tab pe jaate waqt category filter reset karo
-            homeController.setSelectedCategory('All');
-          }
+          if (index == 1) { selectedProjectFilterIndex = 0; homeController.setSelectedCategory('All'); }
         }),
         child: Container(
           decoration: BoxDecoration(
             color: selectedFeedTab == index ? primary : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: selectedFeedTab == index
-                ? [BoxShadow(color: primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))]
-                : null,
+            boxShadow: selectedFeedTab == index ? [BoxShadow(color: primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))] : null,
           ),
-          child: Center(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: selectedFeedTab == index ? Colors.white : Colors.black87,
-              ),
-            ),
-          ),
+          child: Center(child: Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: selectedFeedTab == index ? Colors.white : Colors.black87))),
         ),
       ),
     );
@@ -572,12 +567,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
           children: jobFilters.asMap().entries.map((entry) {
             final index = entry.key;
             final filter = entry.value;
-            return Row(
-              children: [
-                _jobFilterChip(filter['label'], filter['icon'], index),
-                if (index < jobFilters.length - 1) const SizedBox(width: 8),
-              ],
-            );
+            return Row(children: [_jobFilterChip(filter['label'], filter['icon'], index), if (index < jobFilters.length - 1) const SizedBox(width: 8)]);
           }).toList(),
         ),
       ),
@@ -594,23 +584,14 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
           color: selected ? primary : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: selected ? primary : Colors.grey.shade300, width: 1),
-          boxShadow: selected
-              ? [BoxShadow(color: primary.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))]
-              : null,
+          boxShadow: selected ? [BoxShadow(color: primary.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))] : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16, color: selected ? Colors.white : Colors.grey.shade600),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: selected ? Colors.white : Colors.black87,
-              ),
-            ),
+            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: selected ? Colors.white : Colors.black87)),
           ],
         ),
       ),
@@ -626,12 +607,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
           children: projectFilters.asMap().entries.map((entry) {
             final index = entry.key;
             final filter = entry.value;
-            return Row(
-              children: [
-                _projectFilterChip(filter['label'], filter['icon'], index),
-                if (index < projectFilters.length - 1) const SizedBox(width: 8),
-              ],
-            );
+            return Row(children: [_projectFilterChip(filter['label'], filter['icon'], index), if (index < projectFilters.length - 1) const SizedBox(width: 8)]);
           }).toList(),
         ),
       ),
@@ -648,23 +624,14 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
           color: selected ? primary : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: selected ? primary : Colors.grey.shade300, width: 1),
-          boxShadow: selected
-              ? [BoxShadow(color: primary.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))]
-              : null,
+          boxShadow: selected ? [BoxShadow(color: primary.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))] : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16, color: selected ? Colors.white : Colors.grey.shade600),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: selected ? Colors.white : Colors.black87,
-              ),
-            ),
+            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: selected ? Colors.white : Colors.black87)),
           ],
         ),
       ),
@@ -675,7 +642,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     return selectedFeedTab == 0 ? _buildJobsSection() : _buildProjectsSection();
   }
 
-  // ==================== JOBS SECTION WITH CATEGORY FILTER ====================
   Widget _buildJobsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -686,24 +652,12 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Obx(() => Text(
-                homeController.selectedCategory.value == 'All' 
-                    ? _getJobSectionTitle()
-                    : '${homeController.selectedCategory.value} Jobs',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+                homeController.selectedCategory.value == 'All' ? _getJobSectionTitle() : '${homeController.selectedCategory.value} Jobs',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
               )),
               Obx(() {
                 if (homeController.selectedCategory.value != 'All') {
-                  return TextButton(
-                    onPressed: () {
-                      homeController.setSelectedCategory('All');
-                    },
-                    style: TextButton.styleFrom(foregroundColor: primary),
-                    child: const Text('Clear Filter', style: TextStyle(fontSize: 12)),
-                  );
+                  return TextButton(onPressed: () => homeController.setSelectedCategory('All'), style: TextButton.styleFrom(foregroundColor: primary), child: const Text('Clear Filter', style: TextStyle(fontSize: 12)));
                 }
                 return const SizedBox.shrink();
               }),
@@ -714,102 +668,25 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Obx(() {
-            if (homeController.isLoadingJobs.value) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-
+            if (homeController.isLoadingJobs.value) return const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator()));
             if (homeController.jobsError.value != null) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Column(
-                  children: [
-                    Text(
-                      homeController.jobsError.value!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () => homeController.fetchJobs(),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              );
+              return Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Column(children: [Text(homeController.jobsError.value!, style: const TextStyle(color: Colors.red)), const SizedBox(height: 8), ElevatedButton(onPressed: () => homeController.fetchJobs(), child: const Text('Retry'))]));
             }
-
-            // Use filtered jobs from controller
             final displayJobs = homeController.filteredJobsByCategory;
-
             if (displayJobs.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(Icons.work_off, size: 48, color: Colors.grey.shade400),
-                      const SizedBox(height: 8),
-                      Text(
-                        homeController.selectedCategory.value == 'All'
-                            ? 'No jobs found'
-                            : 'No jobs found in ${homeController.selectedCategory.value} category',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                ),
-              );
+              return Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Center(child: Column(children: [Icon(Icons.work_off, size: 48, color: Colors.grey.shade400), const SizedBox(height: 8), Text(homeController.selectedCategory.value == 'All' ? 'No jobs found' : 'No jobs found in ${homeController.selectedCategory.value} category', style: TextStyle(color: Colors.grey.shade600))])));
             }
-
-            // Apply additional job filters
             List<JobPostModel> filteredJobs = displayJobs;
-            
             switch (selectedJobFilterIndex) {
-              case 1: // Remote Only
-                filteredJobs = filteredJobs.where((j) => 
-                  j.workplace.toLowerCase() == 'remote'
-                ).toList();
-                break;
-              case 2: // Full-time
-                filteredJobs = filteredJobs.where((j) => 
-                  j.type.toLowerCase().contains('full')
-                ).toList();
-                break;
-              case 3: // Contract
-                filteredJobs = filteredJobs.where((j) => 
-                  j.type.toLowerCase().contains('contract')
-                ).toList();
-                break;
-              case 4: // Urgent
-                filteredJobs = filteredJobs.where((j) => 
-                  j.urgency == true
-                ).toList();
-                break;
+              case 1: filteredJobs = filteredJobs.where((j) => j.workplace.toLowerCase() == 'remote').toList(); break;
+              case 2: filteredJobs = filteredJobs.where((j) => j.type.toLowerCase().contains('full')).toList(); break;
+              case 3: filteredJobs = filteredJobs.where((j) => j.type.toLowerCase().contains('contract')).toList(); break;
+              case 4: filteredJobs = filteredJobs.where((j) => j.urgency == true).toList(); break;
             }
-
             if (filteredJobs.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(Icons.filter_alt_off, size: 48, color: Colors.grey.shade400),
-                      const SizedBox(height: 8),
-                      Text(
-                        'No jobs match this filter',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                ),
-              );
+              return Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Center(child: Column(children: [Icon(Icons.filter_alt_off, size: 48, color: Colors.grey.shade400), const SizedBox(height: 8), Text('No jobs match this filter', style: TextStyle(color: Colors.grey.shade600))])));
             }
-
-            return Column(
-              children: filteredJobs.map((job) => _buildJobCard(job)).toList(),
-            );
+            return Column(children: filteredJobs.map((job) => _buildJobCard(job)).toList());
           }),
         ),
       ],
@@ -831,17 +708,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -851,227 +718,40 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
               Expanded(
                 child: Row(
                   children: [
-                    // Logo
                     Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color: Colors.blue.withOpacity(0.1),
-                      ),
+                      width: 44, height: 44,
+                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.blue.withOpacity(0.1)),
                       child: job.logoUrl != null && job.logoUrl!.isNotEmpty
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.network(
-                                job.logoUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Center(
-                                    child: Text(
-                                      job.companyInitials,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            )
-                          : Center(
-                              child: Text(
-                                job.companyInitials,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
+                          ? ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(job.logoUrl!, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => Center(child: Text(job.companyInitials, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)))))
+                          : Center(child: Text(job.companyInitials, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white))),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  job.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                              if (job.isVerified) ...[
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.verified,
-                                  size: 14,
-                                  color: Colors.blue.shade700,
-                                ),
-                              ],
-                            ],
-                          ),
+                          Row(children: [Expanded(child: Text(job.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87))), if (job.isVerified) ...[const SizedBox(width: 4), Icon(Icons.verified, size: 14, color: Colors.blue.shade700)]]),
                           const SizedBox(height: 2),
-                          Text(
-                            job.displayCompanyName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
+                          Text(job.displayCompanyName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
                         ],
                       ),
                     ),
                   ],
                 ),
               ),
-              if (job.urgency)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    'URGENT',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange.shade700,
-                    ),
-                  ),
-                ),
+              if (job.urgency) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.orange.withOpacity(0.3))), child: Text('URGENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade700))),
             ],
           ),
           const SizedBox(height: 12),
-          // Location
-          Row(
-            children: [
-              Icon(Icons.location_on_outlined, size: 14, color: Colors.grey.shade500),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  job.employerLocation,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-              ),
-            ],
-          ),
+          Row(children: [Icon(Icons.location_on_outlined, size: 14, color: Colors.grey.shade500), const SizedBox(width: 4), Expanded(child: Text(job.employerLocation, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)))]),
           const SizedBox(height: 12),
-          // Tags
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: job.displayTags.map((tag) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  tag,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: primary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
+          Wrap(spacing: 8, runSpacing: 8, children: job.displayTags.map((tag) => Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: primary.withOpacity(0.08), borderRadius: BorderRadius.circular(8)), child: Text(tag, style: TextStyle(fontSize: 11, color: primary, fontWeight: FontWeight.w500)))).toList()),
           const SizedBox(height: 16),
-          // Bottom Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Match Score (static for now)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Match Score',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 42, // 70% of 60
-                              height: 8,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [Colors.green, Colors.lightGreen],
-                                ),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        '70%',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.bookmark_border, color: Colors.grey.shade600, size: 20),
-                    onPressed: () {
-                      // Bookmark functionality
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      Get.to(() => JobDetailScreen(job: job));
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    ),
-                    child: const Text(
-                      'Apply Now',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Match Score', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)), const SizedBox(height: 2), Row(children: [Container(width: 60, height: 8, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4)), child: Row(children: [Container(width: 42, height: 8, decoration: BoxDecoration(gradient: const LinearGradient(colors: [Colors.green, Colors.lightGreen]), borderRadius: BorderRadius.circular(4)))])), const SizedBox(width: 8), const Text('70%', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87))])]),
+              Row(children: [IconButton(icon: Icon(Icons.bookmark_border, color: Colors.grey.shade600, size: 20), onPressed: () {}), const SizedBox(width: 8), ElevatedButton(onPressed: () => Get.to(() => JobDetailScreen(job: job)), style: ElevatedButton.styleFrom(backgroundColor: primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)), child: const Text('Apply Now', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)))]),
             ],
           ),
         ],
@@ -1079,116 +759,27 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     );
   }
 
-  // ==================== PROJECTS SECTION - ALWAYS SHOW ALL PROJECTS ====================
   Widget _buildProjectsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _getProjectSectionTitle(),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-        ),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(_getProjectSectionTitle(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87))])),
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Obx(() {
-            if (homeController.isLoadingProjects.value) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-
-            if (homeController.projectsError.value != null) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Column(
-                  children: [
-                    Text(
-                      homeController.projectsError.value!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () => homeController.fetchProjects(),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            if (homeController.projects.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Text(
-                    'No projects found',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                ),
-              );
-            }
-
-            // ✅ Apply project filters - but category filter nahi lagega, sirf project filters
+            if (homeController.isLoadingProjects.value) return const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator()));
+            if (homeController.projectsError.value != null) return Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Column(children: [Text(homeController.projectsError.value!, style: const TextStyle(color: Colors.red)), const SizedBox(height: 8), ElevatedButton(onPressed: () => homeController.fetchProjects(), child: const Text('Retry'))]));
+            if (homeController.projects.isEmpty) return Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Center(child: Text('No projects found', style: TextStyle(color: Colors.grey.shade600))));
             List<ProjectFeedModel> filteredProjects = homeController.projects;
-            
             switch (selectedProjectFilterIndex) {
-              case 1: // Featured
-                filteredProjects = filteredProjects.where((p) => p.featured).toList();
-                break;
-              case 2: // Fixed Budget
-                filteredProjects = filteredProjects.where((p) => 
-                  p.budgetType == 'FIXED'
-                ).toList();
-                break;
-              case 3: // Hourly
-                filteredProjects = filteredProjects.where((p) => 
-                  p.budgetType == 'HOURLY'
-                ).toList();
-                break;
-              case 4: // New
-                filteredProjects = filteredProjects.where((p) {
-                  if (p.createdAt == null) return false;
-                  final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-                  return p.createdAt!.isAfter(sevenDaysAgo);
-                }).toList();
-                break;
+              case 1: filteredProjects = filteredProjects.where((p) => p.featured).toList(); break;
+              case 2: filteredProjects = filteredProjects.where((p) => p.budgetType == 'FIXED').toList(); break;
+              case 3: filteredProjects = filteredProjects.where((p) => p.budgetType == 'HOURLY').toList(); break;
+              case 4: filteredProjects = filteredProjects.where((p) { if (p.createdAt == null) return false; return p.createdAt!.isAfter(DateTime.now().subtract(const Duration(days: 7))); }).toList(); break;
             }
-
-            if (filteredProjects.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(Icons.folder_off, size: 48, color: Colors.grey.shade400),
-                      const SizedBox(height: 8),
-                      Text(
-                        'No projects match this filter',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            return Column(
-              children: filteredProjects.map((project) => _buildProjectCard(project)).toList(),
-            );
+            if (filteredProjects.isEmpty) return Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Center(child: Column(children: [Icon(Icons.folder_off, size: 48, color: Colors.grey.shade400), const SizedBox(height: 8), Text('No projects match this filter', style: TextStyle(color: Colors.grey.shade600))])));
+            return Column(children: filteredProjects.map((project) => _buildProjectCard(project)).toList());
           }),
         ),
       ],
@@ -1210,17 +801,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1231,141 +812,28 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      project.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
+                    Text(project.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
                     const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Text(
-                          'Client: ${project.displayClientName}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        if (project.isVerified) ...[
-                          const SizedBox(width: 6),
-                          Icon(
-                            Icons.verified,
-                            size: 14,
-                            color: Colors.blue.shade700,
-                          ),
-                        ],
-                      ],
-                    ),
+                    Row(children: [Text('Client: ${project.displayClientName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)), if (project.isVerified) ...[const SizedBox(width: 6), Icon(Icons.verified, size: 14, color: Colors.blue.shade700)]]),
                   ],
                 ),
               ),
-              Row(
-                children: [
-                  if (project.featured)
-                    Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        'FEATURED',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.bookmark_border,
-                      color: Colors.grey.shade600,
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      // Bookmark functionality
-                    },
-                  ),
-                ],
-              ),
+              Row(children: [
+                if (project.featured) Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.blue.withOpacity(0.3))), child: Text('FEATURED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade700))),
+                IconButton(icon: Icon(Icons.bookmark_border, color: Colors.grey.shade600, size: 20), onPressed: () {}),
+              ]),
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              _projectDetail(Icons.attach_money, project.displayBudget),
-              const SizedBox(width: 16),
-              _projectDetail(Icons.schedule, project.duration),
-              const SizedBox(width: 16),
-              _projectDetail(Icons.work_outline, project.experienceLevel),
-            ],
-          ),
+          Row(children: [_projectDetail(Icons.attach_money, project.displayBudget), const SizedBox(width: 16), _projectDetail(Icons.schedule, project.duration), const SizedBox(width: 16), _projectDetail(Icons.work_outline, project.experienceLevel)]),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: project.skills.take(4).map((skill) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  skill,
-                  style: const TextStyle(fontSize: 11, color: Colors.black87),
-                ),
-              );
-            }).toList(),
-          ),
+          Wrap(spacing: 8, runSpacing: 8, children: project.skills.take(4).map((skill) => Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)), child: Text(skill, style: const TextStyle(fontSize: 11, color: Colors.black87)))).toList()),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.people_outline, size: 14, color: Colors.grey.shade500),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${project.proposalsCount} proposals',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(Icons.access_time, size: 14, color: Colors.grey.shade500),
-                  const SizedBox(width: 4),
-                  Text(
-                    project.displayPostedDate,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Get.to(() => ProjectDetailScreen(project: project));
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                ),
-                child: const Text(
-                  'Submit Proposal',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
+              Row(children: [Icon(Icons.people_outline, size: 14, color: Colors.grey.shade500), const SizedBox(width: 4), Text('${project.proposalsCount} proposals', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)), const SizedBox(width: 8), Icon(Icons.access_time, size: 14, color: Colors.grey.shade500), const SizedBox(width: 4), Text(project.displayPostedDate, style: TextStyle(fontSize: 12, color: Colors.grey.shade600))]),
+              ElevatedButton(onPressed: () => Get.to(() => ProjectDetailScreen(project: project)), style: ElevatedButton.styleFrom(backgroundColor: primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)), child: const Text('Submit Proposal', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
             ],
           ),
         ],
@@ -1374,20 +842,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
   }
 
   Widget _projectDetail(IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: Colors.grey.shade600),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: const TextStyle(
-            fontSize: 13,
-            color: Colors.black87,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
+    return Row(children: [Icon(icon, size: 16, color: Colors.grey.shade600), const SizedBox(width: 4), Text(text, style: const TextStyle(fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w500))]);
   }
 
   Widget _buildSkillsMatchCard() {
@@ -1395,85 +850,23 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Skills Match',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '98% Match',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green.shade700,
-                    ),
-                  ),
-                ),
+                const Text('Skills Match', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text('98% Match', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade700))),
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              'Your skills are highly sought after! Increase your visibility:',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-            ),
+            Text('Your skills are highly sought after! Increase your visibility:', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
             const SizedBox(height: 16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _skillChip('Flutter'),
-                _skillChip('Dart'),
-                _skillChip('UI/UX Design'),
-                _skillChip('Firebase'),
-                _skillChip('REST APIs'),
-                _skillChip('Figma'),
-              ],
-            ),
+            Wrap(spacing: 10, runSpacing: 10, children: ['Flutter', 'Dart', 'UI/UX Design', 'Firebase', 'REST APIs', 'Figma'].map((s) => _skillChip(s)).toList()),
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text(
-                  'Boost Profile Visibility',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
+            SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () {}, style: ElevatedButton.styleFrom(backgroundColor: primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)), child: const Text('Boost Profile Visibility', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)))),
           ],
         ),
       ),
@@ -1483,29 +876,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
   Widget _skillChip(String skill) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: primary.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            skill,
-            style: TextStyle(
-              fontSize: 13,
-              color: primary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Icon(
-            Icons.check_circle,
-            size: 14,
-            color: Colors.green,
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: primary.withOpacity(0.08), borderRadius: BorderRadius.circular(20)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [Text(skill, style: TextStyle(fontSize: 13, color: primary, fontWeight: FontWeight.w500)), const SizedBox(width: 4), const Icon(Icons.check_circle, size: 14, color: Colors.green)]),
     );
   }
 }
