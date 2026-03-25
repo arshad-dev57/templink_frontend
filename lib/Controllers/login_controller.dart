@@ -71,7 +71,7 @@ class LoginController extends GetxController {
       print("✅ Saved to SharedPreferences");
 
       // ✅ OneSignal login
-      print("🟡 Initializing OneSignal for user: $userId");
+      // print("🟡 Initializing OneSignal for user: $userId");
       await NotificationService.instance.login(userId);
 
       // ✅ Stabilize hone do
@@ -93,22 +93,22 @@ class LoginController extends GetxController {
       if (result.containsKey('status')) {
         final String status = result['status'].toString();
 
-        if (status == 'subscription_pending') {
-          print("🟡 Subscription still activating, retrying in 10 seconds");
-          Future.delayed(const Duration(seconds: 12), () async {
-            print("🟡 Sending delayed follow-up notification");
-            await NotificationApi.sendLoginSuccessPush(
-              userId: userId,
-              subscriptionId: subId,
-              title: "Welcome to Templink",
-              message: "You're all set up to receive notifications",
-            );
-          });
-        } else if (status == 'sent') {
-          print("✅ Notification sent successfully");
-        } else {
-          print("⚠️ Notification status: $status");
-        }
+        // if (status == 'subscription_pending') {
+        //   print("🟡 Subscription still activating, retrying in 10 seconds");
+        //   Future.delayed(const Duration(seconds: 12), () async {
+        //     print("🟡 Sending delayed follow-up notification");
+        //     await NotificationApi.sendLoginSuccessPush(
+        //       userId: userId,
+        //       subscriptionId: subId,
+        //       title: "Welcome to Templink",
+        //       message: "You're all set up to receive notifications",
+        //     );
+        //   });
+        // } else if (status == 'sent') {
+        //   print("✅ Notification sent successfully");
+        // } else {
+        //   print("⚠️ Notification status: $status");
+        // }
       }
 
       // Navigate based on role
@@ -131,7 +131,6 @@ class LoginController extends GetxController {
     }
   }
 
-  // ==================== HELPER METHODS ====================
 
   static Future<String> getFirstName() async {
     final prefs = await SharedPreferences.getInstance();
@@ -170,7 +169,6 @@ class LoginController extends GetxController {
     return prefs.getString('auth_user_id') ?? '';
   }
 
-  // ==================== LOGOUT ====================
 
   static Future<void> logout() async {
     await NotificationService.instance.logout();

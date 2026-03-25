@@ -177,23 +177,117 @@ final List<Map<String, dynamic>> categories = [
       termsAccepted: widget.termsAccepted,
     );
   }
+Future<void> _pickPhoto() async {
+  // Show options dialog
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.only(
+        topLeft: Radius.circular(20),
+        topRight: Radius.circular(20),
+      ),
+    ),
+    builder: (BuildContext context) {
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Choose Photo',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.photo_library,
+                  color: const Color(0xFF14A800),
+                  size: 28,
+                ),
+              ),
+              title: const Text(
+                'Gallery',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: const Text('Choose from your gallery'),
+              onTap: () async {
+                Navigator.pop(context);
+                final XFile? picked = await _picker.pickImage(
+                  source: ImageSource.gallery,
+                  imageQuality: 80,
+                );
+                _handlePickedImage(picked);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.camera_alt,
+                  color: const Color(0xFF14A800),
+                  size: 28,
+                ),
+              ),
+              title: const Text(
+                'Camera',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: const Text('Take a new photo'),
+              onTap: () async {
+                Navigator.pop(context);
+                final XFile? picked = await _picker.pickImage(
+                  source: ImageSource.camera,
+                  imageQuality: 80,
+                );
+                _handlePickedImage(picked);
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      );
+    },
+  );
+}
 
-  Future<void> _pickPhoto() async {
-    final XFile? picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
-
-    if (picked != null) {
-      setState(() {
-        _selectedPhoto = File(picked.path);
-        _photoError = null;
-        userData['photoUrl'] = picked.path;
-      });
-    }
+// Helper method to handle picked image
+void _handlePickedImage(XFile? picked) {
+  if (picked != null) {
+    setState(() {
+      _selectedPhoto = File(picked.path);
+      _photoError = null;
+      userData['photoUrl'] = picked.path;
+    });
   }
-
-  @override
+}  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -1170,166 +1264,215 @@ final List<Map<String, dynamic>> categories = [
       ),
     );
   }
-
-  // Step 10: Personal Details
-  Widget _buildStep10() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 40),
-            const Text(
-              'A few more details',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+// Step 10: Personal Details
+Widget _buildStep10() {
+  return Padding(
+    padding: const EdgeInsets.all(24),
+    child: SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 40),
+          const Text(
+            'A few more details',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Complete your profile with personal information',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Complete your profile with personal information',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
             ),
-            const SizedBox(height: 32),
+          ),
+          const SizedBox(height: 32),
 
-            // Profile Photo
-            Center(
-              child: Column(
-                children: [
-                  Stack(
-                    children: [
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          shape: BoxShape.circle,
-                          image: _selectedPhoto != null
-                              ? DecorationImage(
-                                  image: FileImage(_selectedPhoto!),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: _selectedPhoto == null
-                            ? const Icon(
-                                Icons.person,
-                                size: 48,
-                                color: Colors.grey,
+          // Profile Photo
+          Center(
+            child: Column(
+              children: [
+                Stack(
+                  children: [
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        shape: BoxShape.circle,
+                        image: _selectedPhoto != null
+                            ? DecorationImage(
+                                image: FileImage(_selectedPhoto!),
+                                fit: BoxFit.cover,
                               )
                             : null,
                       ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: InkWell(
-                          onTap: _pickPhoto,
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF14A800),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                              size: 20,
-                            ),
+                      child: _selectedPhoto == null
+                          ? const Icon(
+                              Icons.person,
+                              size: 48,
+                              color: Colors.grey,
+                            )
+                          : null,
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: InkWell(
+                        onTap: _pickPhoto,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF14A800),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 20,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: _pickPhoto,
-                    child: const Text(
-                      'Upload Photo *',
-                      style: TextStyle(
-                        color: Color(0xFF14A800),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  if (_photoError != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      _photoError!,
-                      style: const TextStyle(color: Colors.red, fontSize: 12),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: _pickPhoto,
+                  child: const Text(
+                    'Upload Photo *',
+                    style: TextStyle(
+                      color: Color(0xFF14A800),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (_photoError != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _photoError!,
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  ),
                 ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            _buildPersonalDetailField(
-              'Date of Birth',
-              userData['dateOfBirth'],
-              (value) => userData['dateOfBirth'] = value,
-              isDate: true,
-            ),
-            const SizedBox(height: 16),
-            _buildPersonalDetailField(
-              'Street Address',
-              userData['streetAddress'],
-              (value) => userData['streetAddress'] = value,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildPersonalDetailField(
-                    'City',
-                    userData['city'],
-                    (value) => userData['city'] = value,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildPersonalDetailField(
-                    'Province/State',
-                    userData['province'],
-                    (value) => userData['province'] = value,
-                  ),
-                ),
               ],
             ),
-            const SizedBox(height: 16),
-            _buildPersonalDetailField(
-              'Phone Number',
-              userData['phoneNumber'],
-              (value) => userData['phoneNumber'] = value,
-              keyboardType: TextInputType.phone,
-            ),
+          ),
 
-            const SizedBox(height: 40),
-            _buildNextButton(
-              isEnabled: _selectedPhoto != null,
-              onPressed: () {
-                if (_selectedPhoto == null) {
-                  setState(() => _photoError = "Profile photo is required");
-                  return;
-                }
-                _goToNextStep();
-              },
-            ),
-            const SizedBox(height: 20),
-          ],
+          const SizedBox(height: 32),
+
+          _buildPersonalDetailField(
+            'Date of Birth *',
+            userData['dateOfBirth'],
+            (value) => userData['dateOfBirth'] = value,
+            isDate: true,
+          ),
+          const SizedBox(height: 16),
+          _buildPersonalDetailField(
+            'Street Address *',
+            userData['streetAddress'],
+            (value) => userData['streetAddress'] = value,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPersonalDetailField(
+                  'City *',
+                  userData['city'],
+                  (value) => userData['city'] = value,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildPersonalDetailField(
+                  'Province/State *',
+                  userData['province'],
+                  (value) => userData['province'] = value,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildPersonalDetailField(
+            'Phone Number *',
+            userData['phoneNumber'],
+            (value) => userData['phoneNumber'] = value,
+            keyboardType: TextInputType.phone,
+          ),
+
+          const SizedBox(height: 40),
+          _buildNextButton(
+            isEnabled: true, // Always enabled to allow validation
+            onPressed: _validateAndProceed,
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    ),
+  );
+}
+void _validateAndProceed() {
+  // Check if all fields are filled
+  List<String> emptyFields = [];
+  
+  if (_selectedPhoto == null) {
+    emptyFields.add("Profile Photo");
+  }
+  if (userData['dateOfBirth'] == null || userData['dateOfBirth'].isEmpty) {
+    emptyFields.add("Date of Birth");
+  }
+  if (userData['streetAddress'] == null || userData['streetAddress'].isEmpty) {
+    emptyFields.add("Street Address");
+  }
+  if (userData['city'] == null || userData['city'].isEmpty) {
+    emptyFields.add("City");
+  }
+  if (userData['province'] == null || userData['province'].isEmpty) {
+    emptyFields.add("Province/State");
+  }
+  if (userData['phoneNumber'] == null || userData['phoneNumber'].isEmpty) {
+    emptyFields.add("Phone Number");
+  }
+  
+  if (emptyFields.isNotEmpty) {
+    // Show snackbar from the TOP
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '⚠️ Please fill in: ${emptyFields.join(", ")}',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+        // This makes it appear from the very top
+        margin: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + 8,
+          left: 16,
+          right: 16,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
         ),
       ),
     );
+    return;
   }
-
-  // Step 11: Review Profile
+  
+  // If all fields are filled, proceed to next step
+  _goToNextStep();
+}  // Step 11: Review Profile
   Widget _buildStep11() {
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -1673,48 +1816,52 @@ final List<Map<String, dynamic>> categories = [
   }
 
   Widget _buildPersonalDetailField(String label, String value, Function(String) onChanged, 
-      {bool isDate = false, TextInputType keyboardType = TextInputType.text}) {
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
-          ),
+    {bool isDate = false, TextInputType keyboardType = TextInputType.text}) {
+  
+  // Check if field is required (has asterisk)
+  bool isRequired = label.contains('*');
+  String displayLabel = label;
+  
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        displayLabel,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey.shade700,
         ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: Colors.grey.shade400,
-              width: 1.5,
-            ),
-            borderRadius: BorderRadius.circular(8),
+      ),
+      const SizedBox(height: 8),
+      Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Colors.grey.shade400,
+            width: 1.5,
           ),
-          child: TextFormField(
-            initialValue: value,
-            keyboardType: keyboardType,
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              border: InputBorder.none,
-              hintText: 'Enter $label',
-              hintStyle: TextStyle(
-                color: Colors.grey.shade500,
-              ),
-              suffixIcon: isDate ? const Icon(Icons.calendar_today, size: 20) : null,
-            ),
-            onChanged: onChanged,
-            readOnly: isDate,
-            onTap: isDate ? () => _selectDate(context) : null,
-          ),
+          borderRadius: BorderRadius.circular(8),
         ),
-      ],
-    );
-  }
+        child: TextFormField(
+          initialValue: value,
+          keyboardType: keyboardType,
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: InputBorder.none,
+            hintText: 'Enter $displayLabel',
+            hintStyle: TextStyle(
+              color: Colors.grey.shade500,
+            ),
+            suffixIcon: isDate ? const Icon(Icons.calendar_today, size: 20) : null,
+          ),
+          onChanged: onChanged,
+          readOnly: isDate,
+          onTap: isDate ? () => _selectDate(context) : null,
+        ),
+      ),
+    ],
+  );
+}
 
   Widget _buildReviewCard({
     required IconData icon,

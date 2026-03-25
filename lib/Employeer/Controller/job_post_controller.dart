@@ -22,6 +22,9 @@ class JobPostController extends GetxController {
   var keyRequirements = ''.obs;
   var qualifications = ''.obs;
   
+  // Subcategories
+  var selectedSubcategories = <String>[].obs;
+  
   // Salary fields
   var minSalary = ''.obs;
   var maxSalary = ''.obs;
@@ -37,6 +40,24 @@ class JobPostController extends GetxController {
   void onInit() {
     super.onInit();
     clearForm();
+  }
+
+  void toggleSubcategory(String subcategory) {
+    if (selectedSubcategories.contains(subcategory)) {
+      selectedSubcategories.remove(subcategory);
+    } else {
+      selectedSubcategories.add(subcategory);
+    }
+  }
+  
+  String getSelectedSubcategoriesText() {
+    if (selectedSubcategories.isEmpty) {
+      return 'Select subcategories';
+    } else if (selectedSubcategories.length == 1) {
+      return selectedSubcategories.first;
+    } else {
+      return '${selectedSubcategories.length} subcategories selected';
+    }
   }
 
   Future<void> postJob() async {
@@ -62,16 +83,16 @@ class JobPostController extends GetxController {
         return;
       }
 
-      // Prepare job data according to backend schema
       final jobData = {
         'title': jobTitle.value,
-        'company': '',
+        'company': company.value.isEmpty ? '' : company.value,
         'workplace': selectedWorkplace.value,
         'location': jobLocation.value,
         'type': selectedJobType.value,
         'about': aboutJob.value,
         'requirements': keyRequirements.value,
         'qualifications': qualifications.value,
+        'subcategories': selectedSubcategories.toList(), // Add subcategories to API request
         // Salary fields are optional, only include if provided
         if (minSalary.value.isNotEmpty) 'minSalary': minSalary.value,
         if (maxSalary.value.isNotEmpty) 'maxSalary': maxSalary.value,
@@ -150,6 +171,7 @@ class JobPostController extends GetxController {
     aboutJob.value = '';
     keyRequirements.value = '';
     qualifications.value = '';
+    selectedSubcategories.clear();
     minSalary.value = '';
     maxSalary.value = '';
     salaryType.value = '';

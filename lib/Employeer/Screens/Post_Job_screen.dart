@@ -10,6 +10,66 @@ class JobPostScreen extends StatelessWidget {
 
   final JobPostController controller = Get.put(JobPostController());
   
+  // Categories data
+  final List<Map<String, dynamic>> categories = [
+    {
+      'name': 'IT & Networking',
+      'subcategories': ['Database Management', 'ERP/CRM', 'Network Security', 'Cloud Computing', 'System Admin', 'DevOps', 'AI/ML Engineering']
+    },
+    {
+      'name': 'Design & Creative',
+      'subcategories': ['UI/UX Design', 'Graphic Design', 'Web Design', 'Logo Design', 'Animation', 'Product Design', 'Industrial Design']
+    },
+    {
+      'name': 'Writing & Translation',
+      'subcategories': ['Content Writing', 'Technical Writing', 'Copywriting', 'Translation', 'Proofreading', 'Grant Writing', 'Editing']
+    },
+    {
+      'name': 'Digital Marketing',
+      'subcategories': ['SEO', 'Social Media', 'Email Marketing', 'PPC Ads', 'Content Marketing', 'Affiliate Marketing', 'Marketing Analytics']
+    },
+    {
+      'name': 'Business & Finance',
+      'subcategories': ['Accounting', 'Financial Analysis', 'Business Planning', 'Market Research', 'Consulting', 'Investment Banking', 'Auditing', 'Risk Management']
+    },
+    {
+      'name': 'Engineering & Architecture',
+      'subcategories': ['Civil Engineering', 'Mechanical Eng', 'Electrical Eng', 'Architecture', 'CAD Design', 'Structural Engineering', 'Project Management']
+    },
+    {
+      'name': 'Healthcare & Medical',
+      'subcategories': ['Nursing', 'Physician', 'Pharmacy', 'Medical Lab Technology', 'Public Health', 'Medical Research', 'Physiotherapy']
+    },
+    {
+      'name': 'Education & Training',
+      'subcategories': ['Teaching', 'Corporate Training', 'Curriculum Development', 'E-learning', 'Tutoring', 'Instructional Design']
+    },
+    {
+      'name': 'Legal & Compliance',
+      'subcategories': ['Corporate Law', 'Legal Research', 'Contract Management', 'Intellectual Property', 'Compliance Officer', 'Paralegal']
+    },
+    {
+      'name': 'Human Resources',
+      'subcategories': ['Recruitment', 'Employee Relations', 'HR Analytics', 'Payroll Management', 'Training & Development']
+    },
+    {
+      'name': 'Project Management',
+      'subcategories': ['Agile Project Management', 'Scrum Master', 'PMO Management', 'Risk Management', 'Operations Management']
+    },
+    {
+      'name': 'Sales & Business Development',
+      'subcategories': ['B2B Sales', 'Account Management', 'Lead Generation', 'CRM Management', 'Retail Sales', 'Strategic Partnerships']
+    },
+    {
+      'name': 'Science & Research',
+      'subcategories': ['Data Analysis', 'Laboratory Research', 'Scientific Writing', 'Biotech', 'Chemistry', 'Physics Research']
+    },
+    {
+      'name': 'Finance & Investment',
+      'subcategories': ['Portfolio Management', 'Financial Planning', 'Equity Research', 'Accounting', 'Investment Analysis', 'Tax Consulting']
+    },
+  ];
+  
   // Text editing controllers
   final TextEditingController _jobTitleController = TextEditingController();
   final TextEditingController _companyController = TextEditingController();
@@ -36,7 +96,6 @@ class JobPostScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Sync UI controllers with Rx variables
     _syncControllersWithRx();
     
     return Scaffold(
@@ -71,10 +130,19 @@ class JobPostScreen extends StatelessWidget {
                 ),
                 
                 const SizedBox(height: 20),
-          
-                // _buildLabel("COMPANY"),
-                // const SizedBox(height: 8),
                 
+                // Company
+                _buildLabel("COMPANY"),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _companyController,
+                  hintText: "Enter company name",
+                  icon: Icons.business,
+                  onChanged: (value) => controller.company.value = value,
+                ),
+                
+                const SizedBox(height: 20),
+           
                 // Workplace Type
                 _buildLabel("WORKPLACE TYPE"),
                 const SizedBox(height: 8),
@@ -116,6 +184,13 @@ class JobPostScreen extends StatelessWidget {
                     icon: Icons.schedule_outlined,
                   ),
                 ),
+                
+                const SizedBox(height: 20),
+                
+                // SUBCATEGORIES FIELD - Click to open bottom sheet
+                _buildLabel("CATEGORIES"),
+                const SizedBox(height: 8),
+                Obx(() => _buildSubcategoryField()),
                 
                 const SizedBox(height: 20),
                 
@@ -180,8 +255,240 @@ class JobPostScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildSubcategoryField() {
+    return GestureDetector(
+      onTap: () => _showSubcategoryBottomSheet(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.category_outlined, color: Colors.grey.shade500, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                controller.getSelectedSubcategoriesText(),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: controller.selectedSubcategories.isEmpty 
+                      ? Colors.grey.shade500 
+                      : Colors.black87,
+                ),
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: Colors.grey.shade400, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSubcategoryBottomSheet() {
+    showModalBottomSheet(
+      context: Get.context!,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return _buildSubcategorySheet();
+      },
+    );
+  }
+
+  Widget _buildSubcategorySheet() {
+    return Container(
+      height: MediaQuery.of(Get.context!).size.height * 0.8,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Select Categories",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Get.back(),
+                ),
+              ],
+            ),
+          ),
+          
+          // Selected count and clear button
+          Obx(() => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "${controller.selectedSubcategories.length} selected",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (controller.selectedSubcategories.isNotEmpty)
+                  TextButton(
+                    onPressed: () {
+                      controller.selectedSubcategories.clear();
+                    },
+                    child: const Text(
+                      "Clear All",
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+              ],
+            ),
+          )),
+          
+          // Categories List with Subcategories
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: categories.length,
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                return _buildCategoryTile(category);
+              },
+            ),
+          ),
+          
+          // Done button
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
+            child: ElevatedButton(
+              onPressed: () => Get.back(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                "Done",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryTile(Map<String, dynamic> category) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Category Header
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            category['name'],
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        
+        // Subcategories Grid
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 2.5,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: category['subcategories'].length,
+          itemBuilder: (context, subIndex) {
+            final subcategory = category['subcategories'][subIndex];
+            return Obx(() => _buildSubcategoryChip(subcategory));
+          },
+        ),
+        
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildSubcategoryChip(String subcategory) {
+    final isSelected = controller.selectedSubcategories.contains(subcategory);
+    
+    return GestureDetector(
+      onTap: () => controller.toggleSubcategory(subcategory),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? primary : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? primary : Colors.grey.shade300,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle : Icons.circle_outlined,
+              size: 16,
+              color: isSelected ? Colors.white : Colors.grey.shade500,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                subcategory,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _syncControllersWithRx() {
-    // Initialize controllers with existing Rx values if any
     _jobTitleController.text = controller.jobTitle.value;
     _companyController.text = controller.company.value;
     _jobLocationController.text = controller.jobLocation.value;
@@ -369,11 +676,11 @@ class JobPostScreen extends StatelessWidget {
                 }),
                 const SizedBox(width: 8),
                 _formatButton(Icons.format_list_numbered, "Numbers", () {
-                  final lines = controller.text.split('\n');
-                  for (int i = 0; i < lines.length; i++) {
-                    lines[i] = "${i + 1}. ${lines[i]}";
+                  final linesList = controller.text.split('\n');
+                  for (int i = 0; i < linesList.length; i++) {
+                    linesList[i] = "${i + 1}. ${linesList[i]}";
                   }
-                  controller.text = lines.join('\n');
+                  controller.text = linesList.join('\n');
                   onChanged(controller.text);
                 }),
               ],
@@ -484,17 +791,14 @@ class JobPostScreen extends StatelessWidget {
   }
 
   void _showPublishConfirmation() {
-    // Update controller values with latest text
     _updateControllerValues();
     
-    // Validate required fields
     if (_jobTitleController.text.isEmpty || 
         _aboutJobController.text.isEmpty) {
       _showValidationDialog();
       return;
     }
     
-    // Show confirmation dialog
     showModalBottomSheet(
       context: Get.context!,
       isScrollControlled: true,
@@ -519,7 +823,6 @@ class JobPostScreen extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Icon
           Container(
             width: 80,
             height: 80,
@@ -536,7 +839,6 @@ class JobPostScreen extends StatelessWidget {
           
           const SizedBox(height: 20),
           
-          // Title
           const Text(
             "Ready to Publish?",
             style: TextStyle(
@@ -548,7 +850,6 @@ class JobPostScreen extends StatelessWidget {
           
           const SizedBox(height: 12),
           
-          // Description
           Text(
             "Your job post will be visible to all candidates. "
             "You can edit or unpublish it anytime.",
@@ -562,7 +863,6 @@ class JobPostScreen extends StatelessWidget {
           
           const SizedBox(height: 30),
           
-          // Job Summary
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -575,11 +875,7 @@ class JobPostScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(
-                      Icons.work_outline,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
+                    const Icon(Icons.work_outline, size: 16, color: Colors.grey),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -600,11 +896,7 @@ class JobPostScreen extends StatelessWidget {
                 
                 Row(
                   children: [
-                    const Icon(
-                      Icons.business_outlined,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
+                    const Icon(Icons.business_outlined, size: 16, color: Colors.grey),
                     const SizedBox(width: 8),
                     Text(
                       _companyController.text.isNotEmpty 
@@ -616,11 +908,7 @@ class JobPostScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    const Icon(
-                      Icons.location_on_outlined,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
+                    const Icon(Icons.location_on_outlined, size: 16, color: Colors.grey),
                     const SizedBox(width: 8),
                     Text(
                       _jobLocationController.text.isNotEmpty 
@@ -650,6 +938,50 @@ class JobPostScreen extends StatelessWidget {
                     ),
                   ],
                 )),
+                
+                // Show selected subcategories
+                Obx(() {
+                  if (controller.selectedSubcategories.isNotEmpty) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 12),
+                        const Divider(),
+                        const SizedBox(height: 12),
+                        const Text(
+                          "Subcategories:",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: controller.selectedSubcategories.map((sub) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                sub,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: primary,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    );
+                  }
+                  return const SizedBox();
+                }),
                 
                 if (_aboutJobController.text.isNotEmpty)
                   Column(
@@ -684,10 +1016,8 @@ class JobPostScreen extends StatelessWidget {
           
           const SizedBox(height: 30),
           
-          // Action buttons
           Row(
             children: [
-              // Cancel button
               Expanded(
                 child: OutlinedButton(
                   onPressed: () {
@@ -707,7 +1037,6 @@ class JobPostScreen extends StatelessWidget {
               
               const SizedBox(width: 16),
               
-              // Publish button
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
@@ -750,11 +1079,7 @@ class JobPostScreen extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 12,
-            color: Colors.grey.shade600,
-          ),
+          Icon(icon, size: 12, color: Colors.grey.shade600),
           const SizedBox(width: 4),
           Text(
             text,
@@ -826,13 +1151,11 @@ class JobPostScreen extends StatelessWidget {
           
           const SizedBox(height: 20),
           
-          // Preview content
           Expanded(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Job title
                   Text(
                     _jobTitleController.text.isNotEmpty 
                         ? _jobTitleController.text 
@@ -846,7 +1169,6 @@ class JobPostScreen extends StatelessWidget {
                   
                   const SizedBox(height: 8),
                   
-                  // Company and location
                   Row(
                     children: [
                       const Icon(Icons.business_outlined, size: 16, color: Colors.grey),
@@ -871,7 +1193,6 @@ class JobPostScreen extends StatelessWidget {
                   
                   const SizedBox(height: 20),
                   
-                  // Job details chips
                   Obx(() => Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -881,9 +1202,50 @@ class JobPostScreen extends StatelessWidget {
                     ],
                   )),
                   
+                  // Show selected subcategories in preview
+                  Obx(() {
+                    if (controller.selectedSubcategories.isNotEmpty) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 20),
+                          const Text(
+                            "Subcategories",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: controller.selectedSubcategories.map((sub) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  sub,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: primary,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      );
+                    }
+                    return const SizedBox();
+                  }),
+                  
                   const SizedBox(height: 30),
                   
-                  // About the Job
                   const Text(
                     "About the Job",
                     style: TextStyle(
@@ -915,7 +1277,6 @@ class JobPostScreen extends StatelessWidget {
                   
                   const SizedBox(height: 20),
                   
-                  // Key Requirements
                   const Text(
                     "Key Requirements",
                     style: TextStyle(
@@ -947,7 +1308,6 @@ class JobPostScreen extends StatelessWidget {
                   
                   const SizedBox(height: 20),
                   
-                  // Qualifications
                   const Text(
                     "Qualifications",
                     style: TextStyle(
@@ -977,13 +1337,11 @@ class JobPostScreen extends StatelessWidget {
                     ),
                   ),
                   
-                  const SizedBox(height: 30),
-                  
-                  // Salary Information
                   if (_minSalaryController.text.isNotEmpty || _maxSalaryController.text.isNotEmpty)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const SizedBox(height: 30),
                         const Text(
                           "Salary",
                           style: TextStyle(
@@ -1010,7 +1368,6 @@ class JobPostScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
                       ],
                     ),
                 ],
@@ -1048,7 +1405,6 @@ class JobPostScreen extends StatelessWidget {
   }
 
   void _updateControllerValues() {
-    // Update controller Rx values with latest text
     controller.jobTitle.value = _jobTitleController.text;
     controller.company.value = _companyController.text;
     controller.jobLocation.value = _jobLocationController.text;
@@ -1062,10 +1418,8 @@ class JobPostScreen extends StatelessWidget {
   }
 
   void _postJob() {
-    // Update controller values with latest text
     _updateControllerValues();
     
-    // Call controller to post job
     controller.postJob().then((_) {
       if (controller.successMessage.value.isNotEmpty) {
         _clearForm();
@@ -1089,7 +1443,6 @@ class JobPostScreen extends StatelessWidget {
     _currencyController.clear();
   }
 
-  // Helper methods
   Widget _buildLabel(String text) {
     return Text(
       text,

@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:templink/Controllers/call_controller.dart';
+import 'package:templink/Controllers/chat_socket_controller.dart';
+import 'package:templink/Controllers/video_call_controller.dart';
 import 'package:templink/Employee/Controllers/Employee_home_controller.dart';
 import 'package:templink/Employee/Screens/Employee_Stats_Screen.dart';
 import 'package:templink/Employee/Screens/Employee_proposals_Screen.dart';
 import 'package:templink/Employee/models/project_model.dart';
+import 'package:templink/Employeer/Screens/Employeer_Dashboard_Screen.dart';
 import 'package:templink/Employeer/Screens/Employeer_Projects_Discovery_Screen.dart';
 import 'package:templink/Employeer/Screens/Employeer_Talent_Discovery_Screen.dart';
 import 'package:templink/Employeer/Screens/Employer_Job_Applications_Screen.dart';
 import 'package:templink/Employeer/Screens/Emplyeer_profile_screen.dart';
+import 'package:templink/Employeer/Screens/employer_hub_dashboard_Screen.dart';
 import 'package:templink/Employeer/Screens/employer_interested_screen.dart';
 import 'package:templink/Employeer/Screens/employer_own_projects_screen.dart';
+import 'package:templink/Employeer/Screens/hired_employees_screen.dart';
 import 'package:templink/Employeer/Screens/project_detail_screen.dart';
 import 'package:templink/Employeer/Screens/project_management_screen.dart';
 import 'package:templink/Employeer/Screens/select_post_type_screen.dart';
@@ -20,8 +26,10 @@ import 'package:templink/Global_Screens/Chat_Users_List_Screen.dart';
 import 'package:templink/Global_Screens/Notification_Screen.dart';
 import 'package:templink/Global_Screens/Settings_Screen.dart';
 import 'package:templink/Global_Screens/login_screen.dart';
+import 'package:templink/Resume_Builder/Screens/Resume_Dashboard_Screen.dart';
 import 'package:templink/Services/Notificaton_Service.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:templink/config/api_config.dart';
 
 class EmployeerHomeScreen extends StatefulWidget {
   const EmployeerHomeScreen({super.key});
@@ -62,16 +70,83 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
   ];
 
   @override
+void initState() {
+  super.initState();
+  _initCallServices(); // ✅ ADD THIS
+}
+
+// ✅ ADD THIS ENTIRE METHOD
+Future<void> _initCallServices() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final token  = prefs.getString('auth_token') ?? '';
+    final userId = prefs.getString('auth_user_id') ?? '';
+
+    if (token.isEmpty || userId.isEmpty) return;
+
+    // ChatSocketController initialization
+    if (!Get.isRegistered<ChatSocketController>()) {
+      Get.put(
+        ChatSocketController(
+          socketBaseUrl: ApiConfig.baseUrl,
+          token: token,
+          myUserId: userId,
+        ),
+        permanent: true,
+      );
+      print('✅ [EmployerHome] ChatSocketController initialized');
+    }
+
+    // CallController initialization
+    if (!Get.isRegistered<CallController>()) {
+      final callCtrl = Get.put(CallController(), permanent: true);
+      callCtrl.init(userId);
+      print('✅ [EmployerHome] CallController initialized for $userId');
+    }
+
+    // ✅ VideoCallController initialization
+    if (!Get.isRegistered<VideoCallController>()) {
+      final videoCtrl = Get.put(VideoCallController(), permanent: true);
+      await videoCtrl.init(userId);
+      print('✅ [EmployerHome] VideoCallController initialized for $userId');
+    } else {
+      print('✅ [EmployerHome] Reusing existing VideoCallController');
+    }
+    
+  } catch (e) {
+    print('❌ [EmployerHome] _initCallServices error: $e');
+  }
+}
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: Colors.white,
-      bottomNavigationBar: _customBottomNavBar(),
-      drawer: _buildDrawer(homeController),
-      body: SafeArea(
-        child: _getCurrentScreen(),
-      ),
-    );
+  key: _scaffoldKey,
+  backgroundColor: Colors.white,
+  bottomNavigationBar: _customBottomNavBar(),
+  drawer: _buildDrawer(homeController),
+  
+  // floatingActionButton: FloatingActionButton(
+
+  //   backgroundColor: Colors.blue,
+  //   child: Icon(Icons.admin_panel_settings, color: Colors.white),
+  //   onPressed: () {
+  //     // Navigate to Employee Dashboard
+  //     Navigator.push(
+  //       context,
+  //       MaterialPageRoute(
+  //         builder: (context) => EmployerHubDashboardScreen(),
+  //       ),
+  //     );
+  //   },
+  // ),
+
+  floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+
+  body: SafeArea(
+    child: _getCurrentScreen(),
+  ),
+);
   }
 
   Widget _getCurrentScreen() {
@@ -177,6 +252,9 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
                 _drawerItem(Icons.assignment_outlined, 'My Stats', () {
                   Get.to(MyStatsScreen());
                 }),
+                //     _drawerItem(Icons.settings_outlined, 'Resume Builder', () {
+                //   Get.to(ResumeDashboardScreen());
+                // }),
                 _drawerItem(Icons.settings_outlined, 'Settings', () {
                   Get.to(() => const SettingsScreen());
                 }),
@@ -229,22 +307,75 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
       ),
     );
   }
-
- Widget _buildLogoutItem() {
+Widget _buildLogoutItem() {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
     child: GestureDetector(
       onTap: () async {
+        // Show loading dialog
+        Get.dialog(
+          const Center(child: CircularProgressIndicator()),
+          barrierDismissible: false,
+        );
 
-        await NotificationService.instance.logout();
+        try {
+          // 1️⃣ Notification service logout
+          await NotificationService.instance.logout();
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('auth_token');
-        await prefs.remove('auth_user');
-        await prefs.remove('auth_role');
-        await prefs.remove('auth_user_id');
+          // 2️⃣ CHAT SOCKET CONTROLLER CLEANUP
+          if (Get.isRegistered<ChatSocketController>()) {
+            print('📴 Disconnecting ChatSocketController...');
+            final socketCtrl = Get.find<ChatSocketController>();
+            socketCtrl.disconnect();
+            Get.delete<ChatSocketController>(force: true);
+            print('✅ ChatSocketController deleted');
+          }
 
-        Get.offAll(() => const LoginScreen());
+          // 3️⃣ CALL CONTROLLER CLEANUP
+          if (Get.isRegistered<CallController>()) {
+            print('📴 Cleaning up CallController...');
+            final callCtrl = Get.find<CallController>();
+            callCtrl.resetForLogout();
+            Get.delete<CallController>(force: true);
+            print('✅ CallController deleted');
+          }
+
+          // ✅ 4️⃣ VIDEO CALL CONTROLLER CLEANUP
+          if (Get.isRegistered<VideoCallController>()) {
+            print('📴 Cleaning up VideoCallController...');
+            final videoCtrl = Get.find<VideoCallController>();
+            videoCtrl.resetForLogout();
+            Get.delete<VideoCallController>(force: true);
+            print('✅ VideoCallController deleted');
+          }
+
+          // 5️⃣ Clear SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('auth_token');
+          await prefs.remove('auth_user');
+          await prefs.remove('auth_role');
+          await prefs.remove('auth_user_id');
+
+          // 6️⃣ Close loading dialog
+          if (Get.isDialogOpen ?? false) Get.back();
+
+          // 7️⃣ Navigate to Login
+          Get.offAll(() => const LoginScreen());
+
+        } catch (e) {
+          print('❌ Logout error: $e');
+          
+          if (Get.isDialogOpen ?? false) Get.back();
+          
+          Get.snackbar(
+            'Error',
+            'Logout failed: ${e.toString()}',
+            snackPosition: SnackPosition.TOP,
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 3),
+          );
+        }
       },
       child: Row(
         children: [

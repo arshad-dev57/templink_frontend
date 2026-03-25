@@ -20,32 +20,6 @@ class SplashController extends GetxController
   }
 
   void _initializeAnimations() {
-  //   animationController = AnimationController(
-  //     vsync: this, // ✅ Fixed (TickerProvider available)
-  //     duration: const Duration(seconds: 2),
-  //   );
-
-  //   alignmentAnimation = Tween<Alignment>(
-  //     begin: Alignment.center,
-  //     end: Alignment.topCenter,
-  //   ).animate(
-  //     CurvedAnimation(
-  //       parent: animationController,
-  //       curve: Curves.easeInOut,
-  //     ),
-  //   );
-
-  //   scaleAnimation = Tween<double>(
-  //     begin: 1.0,
-  //     end: 0.5,
-  //   ).animate(
-  //     CurvedAnimation(
-  //       parent: animationController,
-  //       curve: Curves.easeInOut,
-  //     ),
-  //   );
-
-  //   animationController.forward();
   }
 
   Future<void> _checkAuthAndNavigate() async {

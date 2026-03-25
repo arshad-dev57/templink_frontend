@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
-import '../controllers/call_controller.dart';
+import '../Controllers/call_controller.dart';
 
 class VoiceCallScreen extends StatefulWidget {
   final String remoteUserId;

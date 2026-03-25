@@ -102,90 +102,90 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   'Sign up to find work you love',
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
-                const SizedBox(height: 32),
-                Obx(() {
-                  final loading = controller.isLoading.value;
-                  return SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: OutlinedButton.icon(
-                      onPressed: loading
-                          ? null
-                          : () async {
-                              if (!_agreed) {
-                                Get.snackbar(
-                                  "Error",
-                                  "Please accept terms and conditions",
-                                  backgroundColor: Colors.red,
-                                  colorText: Colors.white,
-                                );
-                                return;
-                              }
-                              final ok = await controller.googleAuth(
-                                role: role,
-                                country: _selectedCountry,
-                                sendEmails: _sendEmails,
-                                termsAccepted: _agreed,
-                              );
-                              if (ok) {
-                                if (widget.isCompany) {
-                                  Get.to(() => EmployerProfileCompleteScreen(
-                                      country: _selectedCountry));
-                                } else {
-                                  Get.to(() => EmployeeProfileCompleteScreen(
-                                    firstName: _firstNameController.text.trim(),
-                                    lastName: _lastNameController.text.trim(),
-                                    email: _emailController.text.trim(),
-                                    password: _passwordController.text,
-                                    country: _selectedCountry,
-                                    sendEmails: _sendEmails,
-                                    termsAccepted: _agreed,
-                                  ));
-                                }
-                              }
-                            },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.black87,
-                        side: const BorderSide(color: Colors.grey, width: 1.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: loading
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Image.asset('assets/google.png',
-                              height: 24, width: 24),
-                      label: Text(
-                        loading ? "Please wait..." : "Continue with Google",
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                  );
-                }),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                        child: Divider(
-                            color: Colors.grey.shade400, thickness: 1)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        "or",
-                        style: TextStyle(
-                            fontSize: 14, color: Colors.grey.shade600),
-                      ),
-                    ),
-                    Expanded(
-                        child: Divider(
-                            color: Colors.grey.shade400, thickness: 1)),
-                  ],
-                ),
+                // const SizedBox(height: 32),
+                // Obx(() {
+                //   final loading = controller.isLoading.value;
+                //   return SizedBox(
+                //     width: double.infinity,
+                //     height: 48,
+                //     child: OutlinedButton.icon(
+                //       onPressed: loading
+                //           ? null
+                //           : () async {
+                //               if (!_agreed) {
+                //                 Get.snackbar(
+                //                   "Error",
+                //                   "Please accept terms and conditions",
+                //                   backgroundColor: Colors.red,
+                //                   colorText: Colors.white,
+                //                 );
+                //                 return;
+                //               }
+                //               final ok = await controller.googleAuth(
+                //                 role: role,
+                //                 country: _selectedCountry,
+                //                 sendEmails: _sendEmails,
+                //                 termsAccepted: _agreed,
+                //               );
+                //               if (ok) {
+                //                 if (widget.isCompany) {
+                //                   Get.to(() => EmployerProfileCompleteScreen(
+                //                       country: _selectedCountry));
+                //                 } else {
+                //                   Get.to(() => EmployeeProfileCompleteScreen(
+                //                     firstName: _firstNameController.text.trim(),
+                //                     lastName: _lastNameController.text.trim(),
+                //                     email: _emailController.text.trim(),
+                //                     password: _passwordController.text,
+                //                     country: _selectedCountry,
+                //                     sendEmails: _sendEmails,
+                //                     termsAccepted: _agreed,
+                //                   ));
+                //                 }
+                //               }
+                //             },
+                //       style: OutlinedButton.styleFrom(
+                //         foregroundColor: Colors.black87,
+                //         side: const BorderSide(color: Colors.grey, width: 1.5),
+                //         shape: RoundedRectangleBorder(
+                //           borderRadius: BorderRadius.circular(8),
+                //         ),
+                //       ),
+                //       icon: loading
+                //           ? const SizedBox(
+                //               height: 18,
+                //               width: 18,
+                //               child: CircularProgressIndicator(strokeWidth: 2),
+                //             )
+                //           : Image.asset('assets/google.png',
+                //               height: 24, width: 24),
+                //       label: Text(
+                //         loading ? "Please wait..." : "Continue with Google",
+                //         style: const TextStyle(
+                //             fontSize: 15, fontWeight: FontWeight.w500),
+                //       ),
+                //     ),
+                //   );
+                // }),
+                // const SizedBox(height: 24),
+                // Row(
+                //   children: [
+                //     Expanded(
+                //         child: Divider(
+                //             color: Colors.grey.shade400, thickness: 1)),
+                //     Padding(
+                //       padding: const EdgeInsets.symmetric(horizontal: 16),
+                //       child: Text(
+                //         "or",
+                //         style: TextStyle(
+                //             fontSize: 14, color: Colors.grey.shade600),
+                //       ),
+                //     ),
+                //     Expanded(
+                //         child: Divider(
+                //             color: Colors.grey.shade400, thickness: 1)),
+                //   ],
+                // ),
                 const SizedBox(height: 24),
                 Row(
                   children: [

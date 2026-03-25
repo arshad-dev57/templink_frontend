@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:templink/Employee/Screens/employee_hub_dashboard_screen.dart';
+import 'package:templink/Global_Screens/All_companies_list_screen.dart';
+import 'package:templink/controllers/video_call_controller.dart';
 import 'package:templink/Employee/Controllers/Employee_home_controller.dart';
 import 'package:templink/Employee/Screens/Employee_Active_Projects.dart';
 import 'package:templink/Employee/Screens/Employee_Job_Detail_Screen.dart';
@@ -19,9 +22,9 @@ import 'package:templink/Global_Screens/login_screen.dart';
 import 'package:templink/Resume_Builder/Screens/Resume_Dashboard_Screen.dart';
 import 'package:templink/Services/Notificaton_Service.dart';
 import 'package:templink/Utils/colors.dart';
-import 'package:templink/config/api_config.dart';               // ← ADD
-import 'package:templink/controllers/call_controller.dart';     // ← ADD
-import 'package:templink/controllers/chat_socket_controller.dart'; // ← ADD
+import 'package:templink/config/api_config.dart';             
+import 'package:templink/Controllers/call_controller.dart';   
+import 'package:templink/Controllers/chat_socket_controller.dart'; 
 
 class EmployeeHomeScreen extends StatefulWidget {
   const EmployeeHomeScreen({super.key});
@@ -68,38 +71,47 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
     _initCallServices();
   }
 
-  Future<void> _initCallServices() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token  = prefs.getString('auth_token') ?? '';
-      final userId = prefs.getString('auth_user_id') ?? '';
+Future<void> _initCallServices() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final token  = prefs.getString('auth_token') ?? '';
+    final userId = prefs.getString('auth_user_id') ?? '';
 
-      if (token.isEmpty || userId.isEmpty) return;
+    if (token.isEmpty || userId.isEmpty) return;
 
-      // ChatSocketController — permanent, ek baar banao
-      if (!Get.isRegistered<ChatSocketController>()) {
-        Get.put(
-          ChatSocketController(
-            socketBaseUrl: ApiConfig.baseUrl,
-            token: token,
-            myUserId: userId,
-          ),
-          permanent: true,
-        );
-        print('✅ [HomeScreen] ChatSocketController initialized');
-      }
-
-      // CallController — permanent, ek baar banao
-      if (!Get.isRegistered<CallController>()) {
-        final callCtrl = Get.put(CallController(), permanent: true);
-        callCtrl.init(userId);
-        print('✅ [HomeScreen] CallController initialized for $userId');
-      }
-    } catch (e) {
-      print('❌ [HomeScreen] _initCallServices error: $e');
+    // ChatSocketController — permanent, ek baar banao
+    if (!Get.isRegistered<ChatSocketController>()) {
+      Get.put(
+        ChatSocketController(
+          socketBaseUrl: ApiConfig.baseUrl,
+          token: token,
+          myUserId: userId,
+        ),
+        permanent: true,
+      );
+      print('✅ [HomeScreen] ChatSocketController initialized');
     }
-  }
 
+    // CallController — permanent, ek baar banao
+    if (!Get.isRegistered<CallController>()) {
+      final callCtrl = Get.put(CallController(), permanent: true);
+      callCtrl.init(userId);
+      print('✅ [HomeScreen] CallController initialized for $userId');
+    }
+
+    // ✅ ADD THIS - VideoCallController initialization (same as ChatUsersListScreen)
+    if (!Get.isRegistered<VideoCallController>()) {
+      final videoCtrl = Get.put(VideoCallController(), permanent: true);
+      await videoCtrl.init(userId); // async — renderers initialize karta hai
+      print('✅ [HomeScreen] VideoCallController initialized for $userId');
+    } else {
+      print('✅ [HomeScreen] Reusing existing VideoCallController');
+    }
+    
+  } catch (e) {
+    print('❌ [HomeScreen] _initCallServices error: $e');
+  }
+} 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,6 +122,24 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
       body: SafeArea(
         child: _getCurrentScreen(),
       ),
+      
+  // floatingActionButton: FloatingActionButton(
+
+  //   backgroundColor: Colors.blue,
+  //   child: Icon(Icons.admin_panel_settings, color: Colors.white),
+  //   onPressed: () {
+  //     // Navigate to Employee Dashboard
+  //     Navigator.push(
+  //       context,
+  //       MaterialPageRoute(
+  //         builder: (context) => CompaniesListScreen(),
+  //       ),
+  //     );
+  //   },
+  // ),
+
+  floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+
     );
   }
 
@@ -192,9 +222,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen>
                 _drawerItem(Icons.bar_chart_outlined, 'My stats', () {
                   Get.to(MyStatsScreen());
                 }),
-                _drawerItem(Icons.bar_chart_outlined, 'Resume Builder', () {
-                  Get.to(ResumeDashboardScreen());
-                }),
+                // _drawerItem(Icons.bar_chart_outlined, 'Resume Builder', () {
+                //   Get.to(ResumeDashboardScreen());
+                // }),
                 _drawerItem(Icons.person_add, 'Hire Requests', () {
                   Get.to(EmployeeRequestsScreen());
                 }),
@@ -265,30 +295,31 @@ Widget _buildLogoutItem() {
           // 1️⃣ Notification service logout
           await NotificationService.instance.logout();
 
-          // 2️⃣ 🔥 CHAT SOCKET CONTROLLER CLEANUP
+          // 2️⃣ CHAT SOCKET CONTROLLER CLEANUP
           if (Get.isRegistered<ChatSocketController>()) {
             print('📴 Disconnecting ChatSocketController...');
             final socketCtrl = Get.find<ChatSocketController>();
-            
-            // Call disconnect method
             socketCtrl.disconnect();
-            
-            // Delete controller with force
             Get.delete<ChatSocketController>(force: true);
             print('✅ ChatSocketController deleted');
           }
 
-          // 3️⃣ 🔥 CALL CONTROLLER CLEANUP
+          // 3️⃣ CALL CONTROLLER CLEANUP
           if (Get.isRegistered<CallController>()) {
             print('📴 Cleaning up CallController...');
             final callCtrl = Get.find<CallController>();
-            
-            // Call resetForLogout method
             callCtrl.resetForLogout();
-            
-            // Delete controller with force
             Get.delete<CallController>(force: true);
             print('✅ CallController deleted');
+          }
+
+          // ✅ ADD THIS - VIDEO CALL CONTROLLER CLEANUP
+          if (Get.isRegistered<VideoCallController>()) {
+            print('📴 Cleaning up VideoCallController...');
+            final videoCtrl = Get.find<VideoCallController>();
+            videoCtrl.resetForLogout(); // Make sure this method exists in your controller
+            Get.delete<VideoCallController>(force: true);
+            print('✅ VideoCallController deleted');
           }
 
           // 4️⃣ Clear SharedPreferences
@@ -298,9 +329,6 @@ Widget _buildLogoutItem() {
           await prefs.remove('auth_role');
           await prefs.remove('auth_user_id');
           
-          // Optional: Clear all preferences
-          // await prefs.clear();
-
           // 5️⃣ Close loading dialog
           if (Get.isDialogOpen ?? false) Get.back();
 
