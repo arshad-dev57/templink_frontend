@@ -1,13 +1,27 @@
+import 'dart:io';
+
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/config/api_config.dart';
 import 'package:flutter/material.dart';
 
 class EmployeeProfileController extends GetxController {
   // Observables
+    var isSavingPortfolio = false.obs;
+  var isPortfolioDialogOpen = false.obs;
+  
+  // Portfolio dialog controllers
+  final portfolioTitleController = TextEditingController();
+  final portfolioDescriptionController = TextEditingController();
+  var selectedPortfolioImages = <File>[].obs;
+  var existingPortfolioImages = <Map<String, dynamic>>[].obs;
+  var editingPortfolioId = ''.obs;
   var isLoading = false.obs;
+  var isAddingPortfolio = false.obs;
   var isUploading = false.obs;
   var profile = Rx<Map<String, dynamic>>({});
   var errorMessage = ''.obs;
@@ -122,7 +136,7 @@ class EmployeeProfileController extends GetxController {
       final token = prefs.getString("auth_token");
 
       final response = await http.put(
-        Uri.parse('$baseUrl/api/employee/profile'),
+        Uri.parse('$baseUrl/api/employee-profile/profile'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -239,6 +253,216 @@ class EmployeeProfileController extends GetxController {
       isLoading.value = false;
     }
   }
+// ADD PORTFOLIO PROJECT - FIXED VERSION
+Future<bool> addPortfolioProject({
+  required String title,
+  required String description,
+  required List<String> imagePaths,
+}) async {
+  try {
+    print("\n🔵 ========== ADD PORTFOLIO PROJECT STARTED ==========");
+    isAddingPortfolio.value = true;
+    
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("auth_token");
+
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/api/employee-profile/portfolio'),
+    );
+    
+    request.headers['Authorization'] = 'Bearer $token';
+    request.fields['title'] = title;
+    request.fields['description'] = description;
+    
+    // ✅ FIX: Add images with correct MIME type
+    for (int i = 0; i < imagePaths.length; i++) {
+      final filePath = imagePaths[i];
+      final file = File(filePath);
+      
+      // ✅ Get file extension
+      final extension = filePath.split('.').last.toLowerCase();
+      
+      // ✅ Set correct MIME type based on extension
+      String mimeType;
+      switch (extension) {
+        case 'jpg':
+        case 'jpeg':
+          mimeType = 'image/jpeg';
+          break;
+        case 'png':
+          mimeType = 'image/png';
+          break;
+        case 'gif':
+          mimeType = 'image/gif';
+          break;
+        case 'webp':
+          mimeType = 'image/webp';
+          break;
+        default:
+          mimeType = 'image/jpeg';
+      }
+      
+      print("📸 Adding file $i: $filePath");
+      print("   - Extension: $extension");
+      print("   - MIME Type: $mimeType");
+      
+      // ✅ Create MultipartFile with explicit content type
+      final multipartFile = await http.MultipartFile.fromPath(
+        'images',
+        filePath,
+        filename: 'portfolio_${DateTime.now().millisecondsSinceEpoch}_$i.$extension',
+        contentType: MediaType.parse(mimeType), // ✅ CRITICAL: Set content type
+      );
+      
+      request.files.add(multipartFile);
+      print("   ✅ Image $i added with MIME: $mimeType");
+    }
+
+    print("📡 Sending request with ${request.files.length} files...");
+    var response = await request.send().timeout(const Duration(seconds: 60));
+    var responseData = await response.stream.bytesToString();
+    var jsonResponse = jsonDecode(responseData);
+
+    print("📡 Response status: ${response.statusCode}");
+    print("📡 Response body: $responseData");
+
+    if (response.statusCode == 201 && jsonResponse['success'] == true) {
+      print("✅ Portfolio project added successfully");
+      await fetchProfile();
+      
+      Get.snackbar(
+        'Success',
+        'Portfolio project added successfully',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+      return true;
+    } else {
+      Get.snackbar(
+        'Error',
+        jsonResponse['message'] ?? 'Failed to add project',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return false;
+    }
+  } catch (e) {
+    print("❌ Error: $e");
+    Get.snackbar('Error', e.toString(), backgroundColor: Colors.red);
+    return false;
+  } finally {
+    isAddingPortfolio.value = false;
+  }
+}
+// UPDATE PORTFOLIO PROJECT
+Future<bool> updatePortfolioProject({
+  required String projectId,
+  required String title,
+  required String description,
+  required List<String> newImagePaths,
+  required List<Map<String, dynamic>> existingImages,
+}) async {
+  try {
+    isLoading.value = true;
+    
+    print("\n🟡 ===== UPDATE PORTFOLIO PROJECT STARTED =====");
+    
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("auth_token");
+
+    var request = http.MultipartRequest(
+      'PUT',
+      Uri.parse('$baseUrl/api/employee-profile/portfolio/$projectId'),
+    );
+    
+    request.headers['Authorization'] = 'Bearer $token';
+    request.fields['title'] = title;
+    request.fields['description'] = description;
+    request.fields['existingImages'] = jsonEncode(existingImages);
+    
+    // Add new images
+    for (int i = 0; i < newImagePaths.length; i++) {
+      final file = await http.MultipartFile.fromPath(
+        'images',
+        newImagePaths[i],
+        filename: 'portfolio_${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
+      );
+      request.files.add(file);
+    }
+
+    var response = await request.send();
+    var responseData = await response.stream.bytesToString();
+    var jsonResponse = jsonDecode(responseData);
+
+    if (response.statusCode == 200 && jsonResponse['success'] == true) {
+      print("✅ Portfolio project updated successfully");
+      await fetchProfile();
+      
+      Get.snackbar(
+        'Success',
+        'Portfolio project updated successfully',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+      return true;
+    } else {
+      Get.snackbar('Error', jsonResponse['message'] ?? 'Failed to update project');
+      return false;
+    }
+  } catch (e) {
+    print("❌ Error updating portfolio project: $e");
+    Get.snackbar('Error', e.toString());
+    return false;
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+// DELETE PORTFOLIO PROJECT
+Future<bool> deletePortfolioProject(String projectId) async {
+  try {
+    isLoading.value = true;
+    
+    print("\n🟡 ===== DELETE PORTFOLIO PROJECT STARTED =====");
+    
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("auth_token");
+
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/employee-profile/portfolio/$projectId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    final jsonResponse = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && jsonResponse['success'] == true) {
+      print("✅ Portfolio project deleted successfully");
+      await fetchProfile();
+      
+      Get.snackbar(
+        'Success',
+        'Portfolio project deleted successfully',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+      return true;
+    } else {
+      Get.snackbar('Error', jsonResponse['message'] ?? 'Failed to delete project');
+      return false;
+    }
+  } catch (e) {
+    print("❌ Error deleting portfolio project: $e");
+    Get.snackbar('Error', e.toString());
+    return false;
+  } finally {
+    isLoading.value = false;
+  }
+}
+
 
   // ==================== DELETE WORK EXPERIENCE ====================
   Future<bool> deleteWorkExperience(String experienceId) async {

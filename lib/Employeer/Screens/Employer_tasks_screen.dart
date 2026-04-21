@@ -1,6 +1,6 @@
-// lib/Employer/Screens/employer_tasks_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:templink/Employeer/Controller/employer_task_controller.dart';
 import '../../Utils/colors.dart';
 import 'employer_create_task_screen.dart';
 import 'employer_task_detail_screen.dart';
@@ -16,157 +16,7 @@ class EmployerTasksScreen extends StatefulWidget {
 class _EmployerTasksScreenState extends State<EmployerTasksScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String selectedFilter = 'All';
-
-  // Tasks data
-  final List<Map<String, dynamic>> allTasks = [
-    {
-      'id': 'T001',
-      'title': 'Design Homepage UI',
-      'description': 'Create modern homepage design with Figma',
-      'assignedTo': 'Sarah Smith',
-      'assignedToId': '002',
-      'assignedBy': 'John Manager',
-      'department': 'Design',
-      'priority': 'high',
-      'status': 'in_progress',
-      'dueDate': '2024-12-25',
-      'createdDate': '2024-12-20',
-      'estimatedHours': 8,
-      'loggedHours': 3.5,
-      'attachments': 2,
-      'comments': 5,
-    },
-    {
-      'id': 'T002',
-      'title': 'API Integration',
-      'description': 'Integrate payment gateway API',
-      'assignedTo': 'John Doe',
-      'assignedToId': '001',
-      'assignedBy': 'John Manager',
-      'department': 'Development',
-      'priority': 'urgent',
-      'status': 'pending',
-      'dueDate': '2024-12-23',
-      'createdDate': '2024-12-19',
-      'estimatedHours': 16,
-      'loggedHours': 0,
-      'attachments': 1,
-      'comments': 2,
-    },
-    {
-      'id': 'T003',
-      'title': 'Bug Fixing',
-      'description': 'Fix login page bugs on production',
-      'assignedTo': 'Mike Johnson',
-      'assignedToId': '003',
-      'assignedBy': 'John Manager',
-      'department': 'Development',
-      'priority': 'high',
-      'status': 'review',
-      'dueDate': '2024-12-22',
-      'createdDate': '2024-12-18',
-      'estimatedHours': 4,
-      'loggedHours': 4,
-      'attachments': 0,
-      'comments': 3,
-    },
-    {
-      'id': 'T004',
-      'title': 'Client Meeting',
-      'description': 'Weekly sync with client',
-      'assignedTo': 'Emily Davis',
-      'assignedToId': '004',
-      'assignedBy': 'John Manager',
-      'department': 'Management',
-      'priority': 'medium',
-      'status': 'completed',
-      'dueDate': '2024-12-21',
-      'createdDate': '2024-12-15',
-      'estimatedHours': 2,
-      'loggedHours': 2,
-      'attachments': 0,
-      'comments': 1,
-    },
-    {
-      'id': 'T005',
-      'title': 'Database Optimization',
-      'description': 'Optimize slow queries',
-      'assignedTo': 'Ali Hassan',
-      'assignedToId': '005',
-      'assignedBy': 'John Manager',
-      'department': 'Development',
-      'priority': 'high',
-      'status': 'in_progress',
-      'dueDate': '2024-12-26',
-      'createdDate': '2024-12-20',
-      'estimatedHours': 12,
-      'loggedHours': 5,
-      'attachments': 3,
-      'comments': 4,
-    },
-  ];
-
-  // Employees list for reports section
-  final List<Map<String, dynamic>> employees = [
-    {
-      'name': 'John Doe',
-      'initials': 'JD',
-      'department': 'Development',
-      'completed': 12,
-      'pending': 4,
-      'performance': 85,
-    },
-    {
-      'name': 'Sarah Smith',
-      'initials': 'SS',
-      'department': 'Design',
-      'completed': 8,
-      'pending': 6,
-      'performance': 75,
-    },
-    {
-      'name': 'Mike Johnson',
-      'initials': 'MJ',
-      'department': 'Development',
-      'completed': 10,
-      'pending': 3,
-      'performance': 90,
-    },
-    {
-      'name': 'Emily Davis',
-      'initials': 'ED',
-      'department': 'Management',
-      'completed': 5,
-      'pending': 2,
-      'performance': 100,
-    },
-    {
-      'name': 'Ali Hassan',
-      'initials': 'AH',
-      'department': 'Development',
-      'completed': 7,
-      'pending': 5,
-      'performance': 70,
-    },
-  ];
-
-  // Summary stats
-  final Map<String, dynamic> taskStats = {
-    'total': 24,
-    'pending': 8,
-    'inProgress': 10,
-    'completed': 6,
-    'overdue': 3,
-  };
-
-  // Department wise tasks
-  final List<Map<String, dynamic>> departmentTasks = [
-    {'dept': 'Development', 'total': 12, 'completed': 5, 'pending': 7},
-    {'dept': 'Design', 'total': 6, 'completed': 2, 'pending': 4},
-    {'dept': 'Management', 'total': 4, 'completed': 1, 'pending': 3},
-    {'dept': 'Marketing', 'total': 2, 'completed': 0, 'pending': 2},
-  ];
+  final TaskController controller = Get.put(TaskController());
 
   @override
   void initState() {
@@ -213,37 +63,47 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
           ),
         ],
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildOverviewTab(),
-          _buildAllTasksTab(),
-          _buildReportsTab(),
-        ],
-      ),
+      body: Obx(() {
+        if (controller.isLoading.value && controller.allTasks.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        return TabBarView(
+          controller: _tabController,
+          children: [
+            _buildOverviewTab(),
+            _buildAllTasksTab(),
+            _buildReportsTab(),
+          ],
+        );
+      }),
     );
   }
 
   // ============== OVERVIEW TAB ==============
   Widget _buildOverviewTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildStatsCards(),
-          const SizedBox(height: 24),
-          _buildTaskStatusChart(),
-          const SizedBox(height: 24),
-          _buildDepartmentProgress(),
-          const SizedBox(height: 24),
-          _buildUpcomingDeadlines(),
-        ],
+    return RefreshIndicator(
+      onRefresh: () => controller.fetchTasks(),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildStatsCards(),
+            const SizedBox(height: 24),
+            _buildTaskStatusChart(),
+            const SizedBox(height: 24),
+            _buildDepartmentProgress(),
+            const SizedBox(height: 24),
+            _buildUpcomingDeadlines(),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildStatsCards() {
+    final stats = controller.taskStats.value;
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -252,10 +112,10 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
       mainAxisSpacing: 12,
       childAspectRatio: 1.5,
       children: [
-        _buildStatCard('Total Tasks', '${taskStats['total']}', Icons.assignment, primary),
-        _buildStatCard('Pending', '${taskStats['pending']}', Icons.pending, Colors.orange),
-        _buildStatCard('In Progress', '${taskStats['inProgress']}', Icons.autorenew, Colors.blue),
-        _buildStatCard('Completed', '${taskStats['completed']}', Icons.check_circle, Colors.green),
+        _buildStatCard('Total Tasks', '${stats['total']}', Icons.assignment, primary),
+        _buildStatCard('Pending', '${stats['pending']}', Icons.pending, Colors.orange),
+        _buildStatCard('In Progress', '${stats['inProgress']}', Icons.autorenew, Colors.blue),
+        _buildStatCard('Completed', '${stats['completed']}', Icons.check_circle, Colors.green),
       ],
     );
   }
@@ -306,6 +166,12 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
   }
 
   Widget _buildTaskStatusChart() {
+    final stats = controller.taskStats.value;
+    final total = stats['total'] as int;
+    final completed = stats['completed'] as int;
+    final overdue = stats['overdue'] as int;
+    final percentage = total > 0 ? (completed / total * 100).toStringAsFixed(0) : '0';
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -333,16 +199,16 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatusIndicator('Pending', taskStats['pending'], Colors.orange),
-              _buildStatusIndicator('In Progress', taskStats['inProgress'], Colors.blue),
-              _buildStatusIndicator('Completed', taskStats['completed'], Colors.green),
+              _buildStatusIndicator('Pending', stats['pending'], Colors.orange),
+              _buildStatusIndicator('In Progress', stats['inProgress'], Colors.blue),
+              _buildStatusIndicator('Completed', stats['completed'], Colors.green),
             ],
           ),
           const SizedBox(height: 20),
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
-              value: taskStats['completed'] / taskStats['total'],
+              value: total > 0 ? completed / total : 0,
               minHeight: 10,
               backgroundColor: Colors.grey[200],
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
@@ -353,14 +219,14 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${((taskStats['completed'] / taskStats['total']) * 100).toStringAsFixed(0)}% Completed',
+                '$percentage% Completed',
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 12,
                 ),
               ),
               Text(
-                '${taskStats['overdue']} Overdue',
+                '$overdue Overdue',
                 style: const TextStyle(
                   color: Colors.red,
                   fontSize: 12,
@@ -406,6 +272,10 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
   }
 
   Widget _buildDepartmentProgress() {
+    if (controller.departmentTasks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -430,7 +300,7 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
             ),
           ),
           const SizedBox(height: 16),
-          ...departmentTasks.map((dept) => Padding(
+          ...controller.departmentTasks.map((dept) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Column(
               children: [
@@ -457,11 +327,11 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: LinearProgressIndicator(
-                    value: dept['completed'] / dept['total'],
+                    value: dept['total'] > 0 ? dept['completed'] / dept['total'] : 0,
                     minHeight: 6,
                     backgroundColor: Colors.grey[200],
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      dept['completed'] / dept['total'] > 0.7
+                      dept['total'] > 0 && dept['completed'] / dept['total'] > 0.7
                           ? Colors.green
                           : Colors.orange,
                     ),
@@ -476,11 +346,22 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
   }
 
   Widget _buildUpcomingDeadlines() {
-    final upcomingTasks = allTasks
+    final upcomingTasks = controller.allTasks
         .where((t) => t['status'] != 'completed')
         .toList()
         .take(3)
         .toList();
+
+    if (upcomingTasks.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(child: Text('No pending tasks')),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -524,7 +405,7 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
   }
 
   Widget _buildDeadlineItem(Map<String, dynamic> task) {
-    final dueDate = DateTime.parse(task['dueDate']);
+    final dueDate = DateTime.parse('${task['dueDate']}');
     final daysLeft = dueDate.difference(DateTime.now()).inDays;
     
     return Container(
@@ -539,12 +420,12 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _getPriorityColor(task['priority']).withOpacity(0.1),
+              color: controller.getPriorityColor(task['priority']).withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               Icons.task_alt,
-              color: _getPriorityColor(task['priority']),
+              color: controller.getPriorityColor(task['priority']),
               size: 18,
             ),
           ),
@@ -612,9 +493,9 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: allTasks.length,
+            itemCount: controller.filteredTasks.length,
             itemBuilder: (context, index) {
-              return _buildTaskCard(allTasks[index]);
+              return _buildTaskCard(controller.filteredTasks[index]);
             },
           ),
         ),
@@ -630,14 +511,12 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
       color: Colors.white,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: Row(
+        child: Obx(() => Row(
           children: filters.map((filter) {
-            final isSelected = filter == selectedFilter;
+            final isSelected = controller.selectedFilter.value == filter;
             return GestureDetector(
               onTap: () {
-                setState(() {
-                  selectedFilter = filter;
-                });
+                controller.applyFilter(filter);
               },
               child: Container(
                 margin: const EdgeInsets.only(right: 8),
@@ -660,7 +539,7 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
               ),
             );
           }).toList(),
-        ),
+        )),
       ),
     );
   }
@@ -694,12 +573,12 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: _getPriorityColor(task['priority']).withOpacity(0.1),
+                      color: controller.getPriorityColor(task['priority']).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      _getPriorityIcon(task['priority']),
-                      color: _getPriorityColor(task['priority']),
+                      controller.getPriorityIcon(task['priority']),
+                      color: controller.getPriorityColor(task['priority']),
                       size: 18,
                     ),
                   ),
@@ -731,13 +610,13 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(task['status']).withOpacity(0.1),
+                      color: controller.getStatusColor(task['status']).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      _getStatusText(task['status']),
+                      controller.getStatusText(task['status']),
                       style: TextStyle(
-                        color: _getStatusColor(task['status']),
+                        color: controller.getStatusColor(task['status']),
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
@@ -764,13 +643,13 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: _getPriorityColor(task['priority']).withOpacity(0.1),
+                      color: controller.getPriorityColor(task['priority']).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       task['priority'].toUpperCase(),
                       style: TextStyle(
-                        color: _getPriorityColor(task['priority']),
+                        color: controller.getPriorityColor(task['priority']),
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                       ),
@@ -819,21 +698,37 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
 
   // ============== REPORTS TAB ==============
   Widget _buildReportsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildEmployeePerformance(),
-          const SizedBox(height: 20),
-          _buildTaskCompletionRate(),
-          const SizedBox(height: 20),
-          _buildRecentReports(),
-        ],
+    return RefreshIndicator(
+      onRefresh: () async {
+        await controller.fetchTasks();
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildEmployeePerformance(),
+            const SizedBox(height: 20),
+            _buildTaskCompletionRate(),
+            const SizedBox(height: 20),
+            _buildRecentReports(),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildEmployeePerformance() {
+    if (controller.employees.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(child: Text('No employees data')),
+      );
+    }
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -869,7 +764,7 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
             ],
           ),
           const SizedBox(height: 16),
-          ...employees.take(3).map((e) => Padding(
+          ...controller.employees.take(3).map((e) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Row(
               children: [
@@ -930,6 +825,11 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
   }
 
   Widget _buildTaskCompletionRate() {
+    final stats = controller.taskStats.value;
+    final total = stats['total'] as int;
+    final completed = stats['completed'] as int;
+    final percentage = total > 0 ? (completed / total * 100).toStringAsFixed(0) : '0';
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -957,9 +857,9 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildCompletionStat('This Week', '12/18', '67%', Colors.orange),
-              _buildCompletionStat('This Month', '45/60', '75%', Colors.green),
-              _buildCompletionStat('Average', '85/120', '71%', Colors.blue),
+              _buildCompletionStat('Total', '$total', '$percentage%', Colors.blue),
+              _buildCompletionStat('Completed', '$completed', '${(completed / (total > 0 ? total : 1) * 100).toStringAsFixed(0)}%', Colors.green),
+              _buildCompletionStat('Pending', '${stats['pending']}', '${(stats['pending'] / (total > 0 ? total : 1) * 100).toStringAsFixed(0)}%', Colors.orange),
             ],
           ),
         ],
@@ -967,7 +867,7 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
     );
   }
 
-  Widget _buildCompletionStat(String label, String tasks, String percentage, Color color) {
+  Widget _buildCompletionStat(String label, String value, String percentage, Color color) {
     return Column(
       children: [
         Text(
@@ -980,7 +880,7 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
         ),
         const SizedBox(height: 2),
         Text(
-          tasks,
+          value,
           style: TextStyle(
             color: Colors.grey[600],
             fontSize: 11,
@@ -1033,7 +933,7 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
               child: const Icon(Icons.pie_chart, color: Colors.blue, size: 18),
             ),
             title: const Text('Weekly Task Summary'),
-            subtitle: const Text('Dec 15 - Dec 21, 2024'),
+            subtitle: Text('${DateTime.now().subtract(const Duration(days: 7)).day} - ${DateTime.now().day}, ${DateTime.now().year}'),
             trailing: const Icon(Icons.download_outlined),
             onTap: () {},
           ),
@@ -1048,69 +948,12 @@ class _EmployerTasksScreenState extends State<EmployerTasksScreen>
               child: const Icon(Icons.assessment, color: Colors.green, size: 18),
             ),
             title: const Text('Employee Performance'),
-            subtitle: const Text('December 2024'),
+            subtitle: Text('${DateTime.now().month}/${DateTime.now().year}'),
             trailing: const Icon(Icons.download_outlined),
             onTap: () {},
           ),
         ],
       ),
     );
-  }
-
-  // Helper methods
-  Color _getPriorityColor(String priority) {
-    switch (priority) {
-      case 'urgent':
-        return Colors.red;
-      case 'high':
-        return Colors.orange;
-      case 'medium':
-        return Colors.blue;
-      default:
-        return Colors.green;
-    }
-  }
-
-  IconData _getPriorityIcon(String priority) {
-    switch (priority) {
-      case 'urgent':
-        return Icons.priority_high;
-      case 'high':
-        return Icons.trending_up;
-      case 'medium':
-        return Icons.remove;
-      default:
-        return Icons.trending_down;
-    }
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return Colors.orange;
-      case 'in_progress':
-        return Colors.blue;
-      case 'review':
-        return Colors.purple;
-      case 'completed':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'pending':
-        return 'PENDING';
-      case 'in_progress':
-        return 'IN PROGRESS';
-      case 'review':
-        return 'REVIEW';
-      case 'completed':
-        return 'DONE';
-      default:
-        return status.toUpperCase();
-    }
   }
 }

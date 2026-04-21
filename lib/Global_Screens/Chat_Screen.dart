@@ -1054,11 +1054,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-      // actions: [
-      //   IconButton(onPressed: _startVoiceCall, icon: Icon(Icons.phone_rounded, color: primary), tooltip: 'Voice Call'),
-      //   IconButton(onPressed: _startVideoCall, icon: Icon(Icons.videocam_rounded, color: primary), tooltip: 'Video Call'),
+      actions: [
+        IconButton(onPressed: _startVoiceCall, icon: Icon(Icons.phone_rounded, color: primary), tooltip: 'Voice Call'),
+        IconButton(onPressed: _startVideoCall, icon: Icon(Icons.videocam_rounded, color: primary), tooltip: 'Video Call'),
       //   IconButton(onPressed: () {}, icon: Icon(Icons.more_vert, color: primary)),
-      // ],
+      ],
     );
   }
 

@@ -1,31 +1,16 @@
-// lib/Employer/Screens/employer_create_task_screen.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:templink/Employeer/Controller/employer_task_controller.dart';
 import '../../Utils/colors.dart';
 
-class EmployerCreateTaskScreen extends StatefulWidget {
+class EmployerCreateTaskScreen extends StatelessWidget {
   const EmployerCreateTaskScreen({Key? key}) : super(key: key);
 
   @override
-  State<EmployerCreateTaskScreen> createState() => _EmployerCreateTaskScreenState();
-}
-
-class _EmployerCreateTaskScreenState extends State<EmployerCreateTaskScreen> {
-  final _formKey = GlobalKey<FormState>();
-  String selectedPriority = 'medium';
-  DateTime selectedDate = DateTime.now().add(const Duration(days: 7));
-  String? selectedEmployee;
-
-  // Employees list
-  final List<Map<String, dynamic>> employees = [
-    {'name': 'John Doe', 'id': '001', 'department': 'Development'},
-    {'name': 'Sarah Smith', 'id': '002', 'department': 'Design'},
-    {'name': 'Mike Johnson', 'id': '003', 'department': 'Development'},
-    {'name': 'Emily Davis', 'id': '004', 'department': 'Management'},
-    {'name': 'Ali Hassan', 'id': '005', 'department': 'Development'},
-  ];
-
-  @override
   Widget build(BuildContext context) {
+    final TaskController controller = Get.find<TaskController>();
+    final _formKey = GlobalKey<FormState>();
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -47,112 +32,133 @@ class _EmployerCreateTaskScreenState extends State<EmployerCreateTaskScreen> {
               // Task Title
               const Text(
                 'Task Title',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               TextFormField(
+                onChanged: (val) => controller.taskTitle.value = val,
                 decoration: InputDecoration(
                   hintText: 'Enter task title',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter task title';
-                  }
-                  return null;
-                },
+                validator: (v) =>
+                    v?.isEmpty ?? true ? 'Please enter task title' : null,
               ),
-              
+
               const SizedBox(height: 20),
               
               // Description
               const Text(
                 'Description',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               TextFormField(
                 maxLines: 4,
+                onChanged: (val) => controller.taskDescription.value = val,
                 decoration: InputDecoration(
                   hintText: 'Enter task description',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
                 ),
               ),
-              
+
               const SizedBox(height: 20),
               
-              // Assign to
+              // Assign To (Employee only - no job selection)
               const Text(
                 'Assign To',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: selectedEmployee,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-                hint: const Text('Select employee'),
-                items: employees.map<DropdownMenuItem<String>>((emp) {
-                  return DropdownMenuItem<String>(
-                    value: emp['id'] as String, // Explicitly cast to String
-                    child: Text('${emp['name']} (${emp['department']})'),
+              Obx(() {
+                if (controller.employeesList.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: primary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Loading employees...',
+                          style: TextStyle(color: Colors.grey[500]),
+                        ),
+                      ],
+                    ),
                   );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedEmployee = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) {
-                    return 'Please select an employee';
-                  }
-                  return null;
-                },
-              ),
-              
+                }
+
+                return DropdownButtonFormField<String>(
+                  value: controller.selectedEmployeeId.value.isEmpty
+                      ? null
+                      : controller.selectedEmployeeId.value,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  hint: const Text('Select employee'),
+                  items: controller.employeesList
+                      .map<DropdownMenuItem<String>>((emp) {
+                    return DropdownMenuItem<String>(
+                      value: emp['id'],
+                      child: Text('${emp['name']} (${emp['department']})'),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    controller.selectedEmployeeId.value = val ?? '';
+                    // Also store employee name if needed
+                    final selectedEmp = controller.employeesList.firstWhere(
+                      (emp) => emp['id'] == val,
+                      orElse: () => {},
+                    );
+                    controller.selectedEmployeeName.value = selectedEmp['name'] ?? '';
+                  },
+                  validator: (v) => (v == null || v.isEmpty)
+                      ? 'Please select an employee'
+                      : null,
+                );
+              }),
+
               const SizedBox(height: 20),
               
               // Priority
               const Text(
                 'Priority',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _buildPriorityChip('Low', 'low', Colors.green),
+                  _buildPriorityChip('Low', 'low', Colors.green, controller),
                   const SizedBox(width: 8),
-                  _buildPriorityChip('Medium', 'medium', Colors.blue),
+                  _buildPriorityChip(
+                      'Medium', 'medium', Colors.blue, controller),
                   const SizedBox(width: 8),
-                  _buildPriorityChip('High', 'high', Colors.orange),
+                  _buildPriorityChip(
+                      'High', 'high', Colors.orange, controller),
                   const SizedBox(width: 8),
-                  _buildPriorityChip('Urgent', 'urgent', Colors.red),
+                  _buildPriorityChip(
+                      'Urgent', 'urgent', Colors.red, controller),
                 ],
               ),
               
@@ -161,99 +167,67 @@ class _EmployerCreateTaskScreenState extends State<EmployerCreateTaskScreen> {
               // Due Date
               const Text(
                 'Due Date',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
-              InkWell(
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                  );
-                  if (picked != null) {
-                    setState(() {
-                      selectedDate = picked;
-                    });
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
-                        style: const TextStyle(fontSize: 14),
+              Obx(() => InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: controller.selectedDueDate.value,
+                        firstDate: DateTime.now(),
+                        lastDate:
+                            DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null)
+                        controller.selectedDueDate.value = picked;
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[300]!),
                       ),
-                      Icon(Icons.calendar_today, color: Colors.grey[400], size: 18),
-                    ],
-                  ),
-                ),
-              ),
-              
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${controller.selectedDueDate.value.day}/${controller.selectedDueDate.value.month}/${controller.selectedDueDate.value.year}',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          Icon(Icons.calendar_today,
+                              color: Colors.grey[400], size: 18),
+                        ],
+                      ),
+                    ),
+                  )),
+
               const SizedBox(height: 20),
-              
+
               // Estimated Hours
               const Text(
                 'Estimated Hours',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               TextFormField(
                 keyboardType: TextInputType.number,
+                onChanged: (val) =>
+                    controller.estimatedHours.value =
+                        double.tryParse(val) ?? 0,
                 decoration: InputDecoration(
                   hintText: 'Enter hours',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
                   suffixText: 'hours',
                 ),
               ),
-              
-              const SizedBox(height: 20),
-              
-              // Attachments
-              const Text(
-                'Attachments',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[300]!, style: BorderStyle.none),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.cloud_upload_outlined, size: 40, color: Colors.grey[400]),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Drag & drop files or click to browse',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
+
+              const SizedBox(height: 30),
             ],
           ),
         ),
@@ -275,14 +249,13 @@ class _EmployerCreateTaskScreenState extends State<EmployerCreateTaskScreen> {
             Expanded(
               child: OutlinedButton(
                 onPressed: () {
+                  controller.clearCreateTaskForm();
                   Navigator.pop(context);
                 },
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.grey[700],
                   side: BorderSide(color: Colors.grey[300]!),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: const Text('Cancel'),
@@ -290,29 +263,49 @@ class _EmployerCreateTaskScreenState extends State<EmployerCreateTaskScreen> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    // Save task logic here
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Task created successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    Navigator.pop(context);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text('Create Task'),
-              ),
+              child: Obx(() => ElevatedButton(
+                    onPressed: controller.isCreating.value
+                        ? null
+                        : () async {
+                            print('Creating task with:');
+                            print('Title: ${controller.taskTitle.value}');
+                            print(
+                                'Description: ${controller.taskDescription.value}');
+                            print(
+                                'EmployeeId: ${controller.selectedEmployeeId.value}');
+                            print(
+                                'Priority: ${controller.selectedPriority.value}');
+                            print(
+                                'DueDate: ${controller.selectedDueDate.value}');
+                            print(
+                                'Hours: ${controller.estimatedHours.value}');
+
+                            if (_formKey.currentState!.validate()) {
+                              final success = await controller.createTask();
+                              if (success) {
+                                controller.clearCreateTaskForm();
+                                Navigator.pop(context);
+                              }
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primary,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: controller.isCreating.value
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text(
+                            'Create Task',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                  )),
             ),
           ],
         ),
@@ -320,35 +313,39 @@ class _EmployerCreateTaskScreenState extends State<EmployerCreateTaskScreen> {
     );
   }
 
-  Widget _buildPriorityChip(String label, String value, Color color) {
-    final isSelected = selectedPriority == value;
+  Widget _buildPriorityChip(
+      String label, String value, Color color, TaskController controller) {
     return Expanded(
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            selectedPriority = value;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected ? color : Colors.grey[300]!,
+      child: Obx(() => InkWell(
+            onTap: () => controller.selectedPriority.value = value,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: controller.selectedPriority.value == value
+                    ? color.withOpacity(0.1)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: controller.selectedPriority.value == value
+                      ? color
+                      : Colors.grey[300]!,
+                ),
+              ),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: controller.selectedPriority.value == value
+                      ? color
+                      : Colors.grey[600],
+                  fontWeight: controller.selectedPriority.value == value
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                  fontSize: 12,
+                ),
+              ),
             ),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? color : Colors.grey[600],
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ),
+          )),
     );
   }
 }

@@ -1,10 +1,10 @@
-// screens/employer_dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:templink/Employee/Controllers/employee_leave_controller.dart';
 import 'package:templink/Employee/Screens/employee_leave_screen.dart';
 import 'package:templink/Employeer/Controller/employer_attandance_dashboard_controller.dart';
+import 'package:templink/Employeer/Controller/employer_task_controller.dart';
 import 'package:templink/Employeer/Screens/Employer_Job_Applications_Screen.dart';
 import 'package:templink/Employeer/Screens/Employer_my_jobs_screens.dart';
 import 'package:templink/Employeer/Screens/Employer_tasks_screen.dart';
@@ -29,6 +29,7 @@ class _EmployerHubDashboardScreenState
   
   // Controllers
   final EmployerAttendanceDashboardController dashboardController = Get.put(EmployerAttendanceDashboardController());
+  final TaskController taskController = Get.put(TaskController());
 
   // Today's leave requests
   final List<Map<String, dynamic>> todayLeaves = [
@@ -371,6 +372,13 @@ class _EmployerHubDashboardScreenState
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Initialize task controller for employer
+    taskController.initForEmployer();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FB),
@@ -379,7 +387,7 @@ class _EmployerHubDashboardScreenState
         onRefresh: () async {
           await Future.wait([
             dashboardController.refreshAllStats(),
-            // dashboardController.refreshAttendance(),
+            taskController.fetchTasks(),
           ]);
         },
         child: SingleChildScrollView(
@@ -395,7 +403,7 @@ class _EmployerHubDashboardScreenState
               const SizedBox(height: 24),
               _buildOfficeTiming(context),
               const SizedBox(height: 24),
-              _buildTodayAttendance(context), // 👈 Updated with real data
+              _buildTodayAttendance(context),
               const SizedBox(height: 24),
               _buildTodayLeaves(),
               const SizedBox(height: 24),
@@ -810,7 +818,7 @@ class _EmployerHubDashboardScreenState
     );
   }
 
-  // ==================== UPDATED TODAY'S ATTENDANCE SECTION ====================
+  // ==================== TODAY'S ATTENDANCE SECTION ====================
   Widget _buildTodayAttendance(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1072,228 +1080,219 @@ class _EmployerHubDashboardScreenState
         ],
       ),
     );
-  }// ==================== TODAY'S LEAVES SECTION WITH EMPTY STATE ====================
-Widget _buildTodayLeaves() {
-  return Obx(() {
-    // Leave controller ko Get karo
-    final leaveController = Get.put(EmployeeLeaveController());
-    
-    // Sirf pending leaves filter karo jo aaj ki hain
-    final todayLeaves = leaveController.todayPendingLeaves;
+  }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with count
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    "Today's Leaves",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (todayLeaves.isNotEmpty) // ✅ Sirf tab count dikhao jab kuch ho
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
+  // ==================== TODAY'S LEAVES SECTION ====================
+  Widget _buildTodayLeaves() {
+    return Obx(() {
+      final leaveController = Get.put(EmployeeLeaveController());
+      final todayLeaves = leaveController.todayPendingLeaves;
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      "Today's Leaves",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
-                      child: Text(
-                        '${todayLeaves.length}',
-                        style: const TextStyle(
-                          color: Colors.orange,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                    ),
+                    const SizedBox(width: 8),
+                    if (todayLeaves.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${todayLeaves.length}',
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            
+            if (todayLeaves.isEmpty)
+              _buildEmptyLeavesState()
+            else
+              Column(
+                children: todayLeaves.map((leave) => _buildLeaveCard(leave)).toList(),
               ),
-           
-            ],
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildEmptyLeavesState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.beach_access,
+            size: 48,
+            color: Colors.grey[300],
           ),
           const SizedBox(height: 12),
-          
-          // ✅ Empty State ya List
-          if (todayLeaves.isEmpty)
-            _buildEmptyLeavesState()
-          else
-            Column(
-              children: todayLeaves.map((leave) => _buildLeaveCard(leave)).toList(),
+          Text(
+            'No leave requests for today',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
+              fontWeight: FontWeight.w500,
             ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'All clear! No one is on leave today',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[400],
+            ),
+          ),
         ],
       ),
     );
-  });
-}
+  }
 
-// ==================== EMPTY STATE WIDGET ====================
-Widget _buildEmptyLeavesState() {
-  return Container(
-    padding: const EdgeInsets.symmetric(vertical: 24),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.03),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    ),
-    child: Column(
-      children: [
-        Icon(
-          Icons.beach_access,
-          size: 48,
-          color: Colors.grey[300],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'No leave requests for today',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[500],
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'All clear! No one is on leave today',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[400],
-          ),
-        ),
-      ],
-    ),
-  );
-}
+  Widget _buildLeaveCard(Map<String, dynamic> leave) {
+    Color typeColor = leave['type'] == 'Annual Leave'
+        ? Colors.blue
+        : leave['type'] == 'Sick Leave'
+            ? Colors.green
+            : leave['type'] == 'Casual Leave'
+                ? Colors.orange
+                : Colors.purple;
 
-// ==================== LEAVE CARD ====================
-Widget _buildLeaveCard(Map<String, dynamic> leave) {
-  Color typeColor = leave['type'] == 'Annual Leave'
-      ? Colors.blue
-      : leave['type'] == 'Sick Leave'
-          ? Colors.green
-          : leave['type'] == 'Casual Leave'
-              ? Colors.orange
-              : Colors.purple;
-
-  return Container(
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.03),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        // Avatar with type color
-        CircleAvatar(
-          radius: 24,
-          backgroundColor: typeColor.withOpacity(0.1),
-          child: Icon(
-            leave['type'] == 'Annual Leave'
-                ? Icons.beach_access
-                : leave['type'] == 'Sick Leave'
-                    ? Icons.local_hospital
-                    : Icons.access_time,
-            color: typeColor,
-            size: 20,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        ),
-        const SizedBox(width: 12),
-        
-        // Leave Details
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                leave['type'] ?? 'Leave Request',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _formatDateRange(leave['fromDate'], leave['toDate']),
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Reason: ${leave['reason'] ?? 'Not specified'}',
-                style: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 11,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        
-        // Status Badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Text(
-            'PENDING',
-            style: TextStyle(
-              color: Colors.orange,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+        ],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: typeColor.withOpacity(0.1),
+            child: Icon(
+              leave['type'] == 'Annual Leave'
+                  ? Icons.beach_access
+                  : leave['type'] == 'Sick Leave'
+                      ? Icons.local_hospital
+                      : Icons.access_time,
+              color: typeColor,
+              size: 20,
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
-
-
-String _formatDateRange(String? from, String? to) {
-  if (from == null || to == null) return '';
-  try {
-    final fromDate = DateTime.parse(from);
-    final toDate = DateTime.parse(to);
-    final dateFormat = DateFormat('MMM dd');
-    
-    if (fromDate.day == toDate.day) {
-      return dateFormat.format(fromDate);
-    }
-    return '${dateFormat.format(fromDate)} - ${dateFormat.format(toDate)}';
-  } catch (e) {
-    return '$from - $to';
+          const SizedBox(width: 12),
+          
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  leave['type'] ?? 'Leave Request',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _formatDateRange(leave['fromDate'], leave['toDate']),
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Reason: ${leave['reason'] ?? 'Not specified'}',
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'PENDING',
+              style: TextStyle(
+                color: Colors.orange,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
-}
+
+  String _formatDateRange(String? from, String? to) {
+    if (from == null || to == null) return '';
+    try {
+      final fromDate = DateTime.parse(from);
+      final toDate = DateTime.parse(to);
+      final dateFormat = DateFormat('MMM dd');
+      
+      if (fromDate.day == toDate.day) {
+        return dateFormat.format(fromDate);
+      }
+      return '${dateFormat.format(fromDate)} - ${dateFormat.format(toDate)}';
+    } catch (e) {
+      return '$from - $to';
+    }
+  }
+
   Widget _buildQuickActions(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1309,11 +1308,10 @@ String _formatDateRange(String? from, String? to) {
                   Colors.orange, onTap: () {
                 Get.to(EmployerAttendanceScreen());
               }),
-               _actionBtn(Icons.timer, 'Timesheet',
+              _actionBtn(Icons.timer, 'Timesheet',
                   const Color.fromARGB(255, 152, 142, 181), onTap: () {
                 Get.to(EmployerTimesheetApprovalScreen());
               }),
-            
               _actionBtn(Icons.check_circle_outline_rounded, 'Leave Approvals',
                   Colors.green, onTap: () {
                 Get.to(EmployerLeaveApprovalScreen());
@@ -1324,7 +1322,6 @@ String _formatDateRange(String? from, String? to) {
               }),
             ],
           ),
-       
         ],
       ),
     );
@@ -1355,6 +1352,7 @@ String _formatDateRange(String? from, String? to) {
     );
   }
 
+  // ==================== DYNAMIC TASK SUMMARY ====================
   Widget _buildTaskSummary(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1419,45 +1417,98 @@ String _formatDateRange(String? from, String? to) {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildTaskStat('Pending', '8', Colors.orange),
-                    _buildTaskStat('In Progress', '10', Colors.blue),
-                    _buildTaskStat('Completed', '6', Colors.green),
-                  ],
-                ),
+                
+                // Dynamic Task Stats
+                Obx(() {
+                  final stats = taskController.summaryStats;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildTaskStat('Pending', '${stats['pending']}', Colors.orange),
+                      _buildTaskStat('In Progress', '${stats['inProgress']}', Colors.blue),
+                      _buildTaskStat('Completed', '${stats['completed']}', Colors.green),
+                    ],
+                  );
+                }),
+                
                 const SizedBox(height: 12),
                 const Divider(),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '3 tasks due this week',
-                      style: TextStyle(
-                        color: Colors.red[400],
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        '2 Overdue',
+                
+                // Dynamic Upcoming & Overdue Tasks
+                Obx(() {
+                  final now = DateTime.now();
+                  final tasks = taskController.allTasks;
+                  
+                  // Tasks due this week (next 7 days)
+                  final dueThisWeek = tasks.where((t) {
+                    if (t['status'] == 'completed' || t['status'] == 'cancelled') return false;
+                    try {
+                      final dueDate = DateTime.parse('${t['dueDate']}');
+                      final daysDiff = dueDate.difference(now).inDays;
+                      return daysDiff >= 0 && daysDiff <= 7;
+                    } catch (e) {
+                      return false;
+                    }
+                  }).length;
+                  
+                  // Overdue tasks
+                  final overdueTasks = tasks.where((t) {
+                    if (t['status'] == 'completed' || t['status'] == 'cancelled') return false;
+                    try {
+                      final dueDate = DateTime.parse('${t['dueDate']}');
+                      return dueDate.isBefore(now);
+                    } catch (e) {
+                      return false;
+                    }
+                  }).length;
+                  
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '$dueThisWeek tasks due this week',
                         style: TextStyle(
-                          color: Colors.orange,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                          color: dueThisWeek > 0 ? Colors.red[400] : Colors.grey[600],
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      if (overdueTasks > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$overdueTasks Overdue',
+                            style: const TextStyle(
+                              color: Colors.orange,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'All on track',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
               ],
             ),
           ),
@@ -1495,67 +1546,7 @@ String _formatDateRange(String? from, String? to) {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildSectionLabel('Recent Activity'),
-              _buildViewAllButton(() {}),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              children: List.generate(recentActivities.length, (i) {
-                final a = recentActivities[i];
-                final isLast = i == recentActivities.length - 1;
-                return Column(children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    child: Row(children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: (a['color'] as Color).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(a['icon'] as IconData,
-                            color: a['color'] as Color, size: 18),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(a['message'],
-                            style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w500)),
-                      ),
-                      Text(a['time'],
-                          style: TextStyle(
-                              color: Colors.grey[400], fontSize: 10)),
-                    ]),
-                  ),
-                  if (!isLast)
-                    Divider(
-                      height: 1,
-                      indent: 62,
-                      endIndent: 14,
-                      color: Colors.grey.withOpacity(0.08),
-                    ),
-                ]);
-              }),
-            ),
-          ),
+       
         ],
       ),
     );

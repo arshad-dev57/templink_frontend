@@ -1,10 +1,10 @@
-// lib/Employee/Screens/employee_dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:templink/Employee/Controllers/employee_attendance_controller.dart';
 import 'package:templink/Employee/Screens/employee_leave_screen.dart';
 import 'package:templink/Employee/Screens/employee_tasks_screen.dart';
 import 'package:templink/Employee/Screens/employee_timesheet_screen.dart';
+import 'package:templink/Employeer/Controller/employer_task_controller.dart';
 import '../../Utils/colors.dart';
 import '../Screens/employee_profile_screen.dart';
 
@@ -17,6 +17,7 @@ class EmployeeHubDashboardScreen extends StatefulWidget {
 
 class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
   final EmployeeAttendanceController attendanceController = Get.put(EmployeeAttendanceController());
+  final TaskController taskController = Get.put(TaskController());
   
   // Dummy data for UI (will be replaced with controller data)
   final Map<String, dynamic> employeeData = {
@@ -47,33 +48,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
     'breakTime': '45 min',
   };
 
-  final List<Map<String, dynamic>> activeTasks = [
-    {
-      'title': 'Design Homepage UI',
-      'project': 'E-commerce App',
-      'deadline': 'Dec 25, 2024',
-      'progress': 0.65,
-      'priority': 'high',
-      'status': 'in_progress',
-    },
-    {
-      'title': 'API Integration',
-      'project': 'Payment Gateway',
-      'deadline': 'Dec 23, 2024',
-      'progress': 0.30,
-      'priority': 'urgent',
-      'status': 'in_progress',
-    },
-    {
-      'title': 'Bug Fixing',
-      'project': 'Login Module',
-      'deadline': 'Dec 22, 2024',
-      'progress': 0.90,
-      'priority': 'high',
-      'status': 'review',
-    },
-  ];
-
   final List<Map<String, dynamic>> appliedJobs = [
     {
       'title': 'Senior Flutter Developer',
@@ -103,19 +77,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
       'amount': '\$600',
       'date': 'Dec 18, 2024',
       'status': 'pending',
-    },
-  ];
-
-  final List<Map<String, dynamic>> upcomingDeadlines = [
-    {
-      'task': 'API Integration',
-      'dueDate': 'Dec 23, 2024',
-      'daysLeft': 2,
-    },
-    {
-      'task': 'Design Homepage',
-      'dueDate': 'Dec 25, 2024',
-      'daysLeft': 4,
     },
   ];
 
@@ -158,32 +119,44 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Initialize task controller for employee
+    taskController.initForEmployee();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: _buildAppBar(),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildEmployeeHeader(),
-            const SizedBox(height: 20),
-            _buildQuickActions(),
-            const SizedBox(height: 20),
-            _buildTodayStatus(),
-            const SizedBox(height: 20),
-          
-            _buildActiveTasks(),
-            const SizedBox(height: 20),
-         
-          
-            _buildUpcomingDeadlines(),
-            const SizedBox(height: 20),
-          
-          ],
-        ),
-      ),
+      body: Obx(() {
+        if (taskController.isLoading.value && taskController.employeeTasks.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        return RefreshIndicator(
+          onRefresh: () => taskController.fetchEmployeeTasks(),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildEmployeeHeader(),
+                const SizedBox(height: 20),
+                _buildQuickActions(),
+                const SizedBox(height: 20),
+                _buildTodayStatus(),
+                const SizedBox(height: 20),
+                _buildActiveTasks(),
+                const SizedBox(height: 20),
+                _buildUpcomingDeadlines(),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        );
+      }),
     );
   }
 
@@ -378,6 +351,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
       ),
     );
   }
+  
   // Today's Status with Complete Logic
   Widget _buildTodayStatus() {
     return Padding(
@@ -400,7 +374,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
         bool isBeforeOfficeHours = now.isBefore(officeStart);
         bool isAfterOfficeHours = now.isAfter(officeEnd);
         bool isWithinCheckInWindow = now.isAfter(checkInStart) && now.isBefore(checkInDeadline);
-       bool isWithinCheckOutWindow = attendanceController.canCheckOut();
+        bool isWithinCheckOutWindow = attendanceController.canCheckOut();
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -733,7 +707,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
               
               const SizedBox(height: 16),
               
-              // Current Task
+              // Current Task - Now dynamic from tasks
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -755,33 +729,46 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
                               fontSize: 11,
                             ),
                           ),
-                          Text(
-                            todayStatus['currentTask'],
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
+                          Obx(() {
+                            final activeTasks = taskController.employeeTasks
+                                .where((t) => t['status'] == 'in_progress')
+                                .toList();
+                            if (activeTasks.isNotEmpty) {
+                              final currentTask = activeTasks.first;
+                              final progress = currentTask['estimatedHours'] > 0
+                                  ? currentTask['loggedHours'] / currentTask['estimatedHours']
+                                  : 0;
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    currentTask['title'],
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  LinearProgressIndicator(
+                                    value: progress.clamp(0.0, 1.0),
+                                    minHeight: 4,
+                                    backgroundColor: Colors.white.withOpacity(0.3),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                ],
+                              );
+                            } else {
+                              return Text(
+                                'No active task',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
+                                  fontSize: 12,
+                                ),
+                              );
+                            }
+                          }),
                         ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${(todayStatus['taskProgress'] * 100).toInt()}%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
                       ),
                     ),
                   ],
@@ -869,8 +856,14 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
     );
   }
 
-  // Active Tasks
+  // Active Tasks - Now dynamic from TaskController
   Widget _buildActiveTasks() {
+    // Get active tasks (pending and in_progress) and limit to 3
+    final activeTasks = taskController.employeeTasks
+        .where((t) => t['status'] == 'pending' || t['status'] == 'in_progress')
+        .take(3)
+        .toList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -906,7 +899,22 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          ...activeTasks.map((task) => _buildTaskItem(task)),
+          if (activeTasks.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  'No active tasks',
+                  style: TextStyle(color: Colors.grey[500]),
+                ),
+              ),
+            )
+          else
+            ...activeTasks.map((task) => _buildTaskItem(task)),
         ],
       ),
     );
@@ -917,7 +925,13 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
         ? Colors.red
         : task['priority'] == 'high'
             ? Colors.orange
-            : Colors.blue;
+            : task['priority'] == 'medium'
+                ? Colors.blue
+                : Colors.green;
+    
+    final progress = task['estimatedHours'] > 0
+        ? task['loggedHours'] / task['estimatedHours']
+        : 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -950,7 +964,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      task['project'],
+                      task['department'],
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 11,
@@ -985,7 +999,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
                   Icon(Icons.calendar_today, size: 12, color: Colors.grey[400]),
                   const SizedBox(width: 4),
                   Text(
-                    'Due: ${task['deadline']}',
+                    'Due: ${task['dueDate']}',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey[600],
@@ -996,7 +1010,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
               Row(
                 children: [
                   Text(
-                    '${(task['progress'] * 100).toInt()}%',
+                    '${(progress * 100).toInt()}%',
                     style: TextStyle(
                       color: primary,
                       fontWeight: FontWeight.bold,
@@ -1007,7 +1021,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
                   SizedBox(
                     width: 80,
                     child: LinearProgressIndicator(
-                      value: task['progress'],
+                      value: progress.clamp(0.0, 1.0),
                       minHeight: 4,
                       backgroundColor: Colors.grey[200],
                       valueColor: AlwaysStoppedAnimation<Color>(primary),
@@ -1022,8 +1036,16 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
     );
   }
 
-  // Upcoming Deadlines
+  // Upcoming Deadlines - Now dynamic from TaskController
   Widget _buildUpcomingDeadlines() {
+    // Get upcoming deadlines (pending and in_progress tasks) and limit to 3
+    final now = DateTime.now();
+    final upcomingTasks = taskController.employeeTasks
+        .where((t) => t['status'] != 'completed' && t['status'] != 'cancelled')
+        .toList()
+        .take(3)
+        .toList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
@@ -1056,175 +1078,86 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            ...upcomingDeadlines.map((deadline) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${deadline['daysLeft']}',
-                        style: TextStyle(
-                          color: deadline['daysLeft'] < 3 ? Colors.red : Colors.orange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
+            if (upcomingTasks.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Center(
+                  child: Text(
+                    'No upcoming deadlines',
+                    style: TextStyle(color: Colors.grey[500]),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          deadline['task'],
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                        Text(
-                          'Due: ${deadline['dueDate']}',
-                          style: TextStyle(
-                            color: Colors.grey[500],
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: deadline['daysLeft'] < 3
-                          ? Colors.red.withOpacity(0.1)
-                          : Colors.orange.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${deadline['daysLeft']} days left',
-                      style: TextStyle(
-                        color: deadline['daysLeft'] < 3 ? Colors.red : Colors.orange,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Recent Activity
-  Widget _buildRecentActivity() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Recent Activity',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
                 ),
-              ],
-            ),
-            child: Column(
-              children: List.generate(recentActivities.length, (index) {
-                final activity = recentActivities[index];
-                final isLast = index == recentActivities.length - 1;
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: (activity['color'] as Color).withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              activity['icon'] as IconData,
-                              color: activity['color'] as Color,
-                              size: 18,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  activity['action'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  activity['description'],
-                                  style: TextStyle(
-                                    color: Colors.grey[500],
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            activity['time'],
+              )
+            else
+              ...upcomingTasks.map((task) {
+                final dueDate = DateTime.parse(task['dueDate']);
+                final daysLeft = dueDate.difference(now).inDays;
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: (daysLeft < 3 ? Colors.red : Colors.orange).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            daysLeft.toString(),
                             style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 10,
+                              color: daysLeft < 3 ? Colors.red : Colors.orange,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                    if (!isLast)
-                      Divider(
-                        height: 1,
-                        indent: 70,
-                        endIndent: 16,
-                        color: Colors.grey.withOpacity(0.1),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              task['title'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              'Due: ${task['dueDate']}',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                  ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (daysLeft < 3 ? Colors.red : Colors.orange).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '$daysLeft days left',
+                          style: TextStyle(
+                            color: daysLeft < 3 ? Colors.red : Colors.orange,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               }),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1240,8 +1173,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeHubDashboardScreen> {
         break;
       case 'Leave':
         Get.to(() => const EmployeeLeaveScreen());
-      
-      
         break;
       case 'Profile':
         Get.to(() => const EmployeeProfileScreen());

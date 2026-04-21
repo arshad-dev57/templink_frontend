@@ -31,7 +31,6 @@ class ResumeData {
   List<String> tools = [];
   List<String> keyMetrics = [];
 
-  // ✅ ADD THIS toJson METHOD
   Map<String, dynamic> toJson() {
     return {
       'fullName': fullName,
@@ -241,8 +240,8 @@ class ResumeController extends GetxController {
   // API related
   var isLoading = false.obs;
   var savedResumes = <ResumesModel>[].obs;
+  var selectedResume = Rxn<ResumesModel>(); // Added this
   
-  // ⚠️ IMPORTANT: Change this to your actual backend URL
   final String baseUrl = ApiConfig.baseUrl;
 
   void setSelectedTemplate(String id, Color accent) {
@@ -544,95 +543,119 @@ class ResumeController extends GetxController {
   // API METHODS
   // ============================================
 
-  // Headers with auth token
- Future<Map<String, String>> _getHeaders() async {
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('auth_token');
-  
-  return {
-    'Accept': 'application/json',  // ✅ Add this
-    'Authorization': 'Bearer $token',
-  };
-}Future<bool> uploadResume({
-  required String fileName,
-  required Uint8List pdfBytes,
-}) async {
-  try {
-    isLoading.value = true;
-
-    print('📤 Starting upload to: $baseUrl/api/resume');
-    
+  Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     
-    var request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl/api/resume'),
-    );
-    
-    // ✅ FIX 1: Add Accept header like working project code
-    request.headers.addAll({
+    return {
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
-    });
-    
-    // ✅ FIX 2: Add file with proper content type (like project code)
-    final file = http.MultipartFile.fromBytes(
-      'resume',  // Field name should match backend
-      pdfBytes,
-      filename: fileName,
-      contentType: MediaType('application', 'pdf'), // Explicit PDF content type
-    );
-    
-    request.files.add(file);
-    
-    print('📤 Headers: ${request.headers}');
-    print('📤 Files: ${request.files.length}');
-    
-    // ✅ FIX 3: Add timeout like project code
-    final streamedResponse = await request.send().timeout(
-      const Duration(seconds: 60),
-      onTimeout: () => throw Exception('Connection timeout'),
-    );
+    };
+  }
 
-    final response = await http.Response.fromStream(streamedResponse);
+  // ============================================
+  // UPLOAD RESUME
+  // ============================================
+  Future<bool> uploadResume({
+    required String fileName,
+    required Uint8List pdfBytes,
+  }) async {
+    try {
+      isLoading.value = true;
 
-    print('📥 Response status: ${response.statusCode}');
-    print('📥 Response body: ${response.body}');
-    
-    if (response.statusCode == 201) {
-      Get.snackbar(
-        '✅ Success',
-        'Resume saved to your account',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
+      print('📤 Starting upload to: $baseUrl/api/resume');
+      
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/api/resume'),
       );
       
-      // Refresh the list
-      await fetchUserResumes();
+      request.headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
       
-      return true;
-    } else {
-      print('❌ Upload failed: ${response.statusCode}');
-      print('❌ Response body: ${response.body}');
+      final file = http.MultipartFile.fromBytes(
+        'resume',
+        pdfBytes,
+        filename: fileName,
+        contentType: MediaType('application', 'pdf'),
+      );
       
-      // Try to parse error message
-      try {
-        final errorData = jsonDecode(response.body);
+      request.files.add(file);
+      
+      print('📤 Headers: ${request.headers}');
+      print('📤 Files: ${request.files.length}');
+      
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 60),
+        onTimeout: () => throw Exception('Connection timeout'),
+      );
+
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print('📥 Response status: ${response.statusCode}');
+      print('📥 Response body: ${response.body}');
+      
+      if (response.statusCode == 201) {
         Get.snackbar(
-          '❌ Error',
-          errorData['message'] ?? 'Failed to upload resume',
-          backgroundColor: Colors.red,
+          '✅ Success',
+          'Resume saved to your account',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
+        );
+        
+        await fetchUserResumes();
+        
+        return true;
+      } else {
+        print('❌ Upload failed: ${response.statusCode}');
+        
+        try {
+          final errorData = jsonDecode(response.body);
+          Get.snackbar(
+            '❌ Error',
+            errorData['message'] ?? 'Failed to upload resume',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 3),
+          );
+        } catch (_) {
+          Get.snackbar(
+            '❌ Error',
+            'Server error (${response.statusCode})',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 3),
+          );
+        }
+        
+        return false;
+      }
+      
+    } catch (e) {
+      print('❌ Upload error: $e');
+      
+      if (e.toString().contains('timeout')) {
+        Get.snackbar(
+          '🔌 Connection Error',
+          'Request timeout. Please try again.',
+          backgroundColor: Colors.orange,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
           duration: const Duration(seconds: 3),
         );
-      } catch (_) {
+      } else {
         Get.snackbar(
           '❌ Error',
-          'Server error (${response.statusCode})',
+          'Failed to upload: ${e.toString()}',
           backgroundColor: Colors.red,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
@@ -641,36 +664,12 @@ class ResumeController extends GetxController {
       }
       
       return false;
+    } finally {
+      isLoading.value = false;
     }
-    
-  } catch (e) {
-    print('❌ Upload error: $e');
-    
-    if (e.toString().contains('timeout')) {
-      Get.snackbar(
-        '🔌 Connection Error',
-        'Request timeout. Please try again.',
-        backgroundColor: Colors.orange,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 3),
-      );
-    } else {
-      Get.snackbar(
-        '❌ Error',
-        'Failed to upload: ${e.toString()}',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 3),
-      );
-    }
-    
-    return false;
-  } finally {
-    isLoading.value = false;
   }
-} // ============================================
+
+  // ============================================
   // FETCH USER RESUMES
   // ============================================
   Future<void> fetchUserResumes() async {
@@ -688,12 +687,95 @@ class ResumeController extends GetxController {
         savedResumes.value = (data as List)
             .map((json) => ResumesModel.fromJson(json))
             .toList();
+        
+        // After fetching resumes, also fetch selected resume
+        await fetchSelectedResume();
       } else {
         throw Exception('Failed to fetch resumes');
       }
       
     } catch (e) {
-      print('Fetch error: $e');
+      print('Fetch resumes error: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // ============================================
+  // FETCH SELECTED RESUME (NEW)
+  // ============================================
+  Future<void> fetchSelectedResume() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/resume/selected'),
+        headers: headers,
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['data'] != null) {
+          selectedResume.value = ResumesModel.fromJson(data['data']);
+        } else {
+          selectedResume.value = null;
+        }
+      }
+    } catch (e) {
+      print('Fetch selected resume error: $e');
+    }
+  }
+
+  // ============================================
+  // SELECT RESUME (NEW)
+  // ============================================
+  Future<bool> selectResume(String resumeId) async {
+    try {
+      isLoading.value = true;
+      
+      final headers = await _getHeaders();
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/resume/select/$resumeId'),
+        headers: headers,
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        selectedResume.value = ResumesModel.fromJson(data['data']);
+        
+        Get.snackbar(
+          '✅ Success',
+          'Resume selected successfully',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
+        );
+        
+        return true;
+      } else {
+        final error = jsonDecode(response.body);
+        Get.snackbar(
+          '❌ Error',
+          error['message'] ?? 'Failed to select resume',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
+        );
+        return false;
+      }
+      
+    } catch (e) {
+      print('Select resume error: $e');
+      Get.snackbar(
+        '❌ Error',
+        'Failed to select resume: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+      );
+      return false;
     } finally {
       isLoading.value = false;
     }
@@ -715,6 +797,11 @@ class ResumeController extends GetxController {
       if (response.statusCode == 200) {
         // Remove from local list
         savedResumes.removeWhere((r) => r.id == resumeId);
+        
+        // If deleted resume was selected, clear selected
+        if (selectedResume.value?.id == resumeId) {
+          selectedResume.value = null;
+        }
         
         Get.snackbar(
           '✅ Deleted',
@@ -762,6 +849,7 @@ class ResumeController extends GetxController {
       );
       
       if (response.statusCode == 200) {
+        await fetchUserResumes();
         return true;
       } else {
         throw Exception('Failed to set default resume');
@@ -775,10 +863,36 @@ class ResumeController extends GetxController {
     }
   }
 
+  // ============================================
+  // HELPER METHODS
+  // ============================================
   String getResumeUrl(String fileUrl) {
     if (fileUrl.startsWith('http')) {
       return fileUrl;
     }
     return '$baseUrl/$fileUrl';
+  }
+
+  String formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  String formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inDays > 30) {
+      return 'Uploaded on ${date.day}/${date.month}/${date.year}';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hours ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minutes ago';
+    } else {
+      return 'Just now';
+    }
   }
 }
