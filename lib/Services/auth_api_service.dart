@@ -17,8 +17,6 @@ class AuthApi {
         "password": password,
       }),
     );
-
-    // ✅ Always print raw body + status (debug)
     print("LOGIN status: ${res.statusCode}");
     print("LOGIN body: ${res.body}");
 

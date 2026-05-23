@@ -5,807 +5,998 @@ import 'package:templink/Employee/Screens/employee_application_detail.dart';
 import 'package:templink/Employee/models/job_application_model.dart';
 import 'package:templink/Utils/colors.dart';
 
+// ─── Design tokens (matches projects screen) ─────────────────────────────────
+const _bg      = Color(0xFFF7F8FA);
+const _surface = Colors.white;
+const _border  = Color(0xFFE5E7EB);
+const _text1   = Color(0xFF111827);
+const _text2   = Color(0xFF6B7280);
+const _text3   = Color(0xFF9CA3AF);
+const _red     = Color(0xFFDC2626);
+const _green   = Color(0xFF16A34A);
+const _amber   = Color(0xFFD97706);
+const _r       = 10.0;
+
 class EmployeeAppliedJobsScreen extends StatelessWidget {
-  final JobApplicationController controller = Get.put(JobApplicationController());
+  final VoidCallback? onBackPressed;
+  final bool showSidebar;
+  final Function(EmployeeApplication)? onApplicationTap;
 
-  EmployeeAppliedJobsScreen({super.key});
+  final JobApplicationController controller =
+      Get.put(JobApplicationController());
 
-  // Status tabs ke liye list
-  final List<Map<String, dynamic>> statusTabs = [
-    {'label': 'All', 'value': 'all', 'icon': Icons.all_inbox},
-    {'label': 'Pending', 'value': 'pending', 'icon': Icons.pending_actions},
-    {'label': 'Reviewed', 'value': 'reviewed', 'icon': Icons.visibility},
-    {'label': 'Shortlisted', 'value': 'shortlisted', 'icon': Icons.star},
-    {'label': 'Rejected', 'value': 'rejected', 'icon': Icons.cancel},
+  EmployeeAppliedJobsScreen({
+    super.key,
+    this.onBackPressed,
+    this.showSidebar = true,
+    this.onApplicationTap,
+  });
+
+  static const _tabs = [
+    _TabMeta('All',         'all',         Icons.layers_outlined),
+    _TabMeta('Pending',     'pending',     Icons.hourglass_top_outlined),
+    _TabMeta('Reviewed',    'reviewed',    Icons.visibility_outlined),
+    _TabMeta('Shortlisted', 'shortlisted', Icons.star_outline_rounded),
+    _TabMeta('Rejected',    'rejected',    Icons.do_not_disturb_alt_outlined),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text(
-          'Applied Jobs',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
+      backgroundColor: _bg,
+      appBar: _buildAppBar(),
+      body: Obx(() {
+        // Loading
+        if (controller.isLoadingApplications.value &&
+            controller.myApplications.isEmpty) {
+          return _LoadingList();
+        }
+        // Error
+        if (controller.errorMessage.isNotEmpty) {
+          return _ErrorState(
+            message: controller.errorMessage.value,
+            onRetry: controller.refreshApplications,
+          );
+        }
+        // Empty
+        if (controller.myApplications.isEmpty) {
+          return _EmptyState(onBrowse: () => Get.back());
+        }
+
+        return RefreshIndicator(
+          onRefresh: controller.refreshApplications,
+          color: primary,
+          displacement: 20,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              // ── Status filter bar ──────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Obx(() => _FilterBar(
+                      tabs: _tabs,
+                      selected: controller.selectedStatus.value,
+                      onTap: controller.filterByStatus,
+                      counts: _buildCounts(),
+                    )),
+              ),
+
+              // ── Summary strip ──────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Obx(() => _SummaryStrip(
+                      total: controller.myApplications.length,
+                      filtered: controller.filteredApplications.length,
+                      selected: controller.selectedStatus.value,
+                    )),
+              ),
+
+              // ── List / empty-filter ────────────────────────────────────
+              Obx(() {
+                if (controller.filteredApplications.isEmpty) {
+                  return SliverFillRemaining(
+                    child: _NoFilterResult(
+                      status: controller.selectedStatus.value,
+                      onClear: () => controller.filterByStatus('all'),
+                    ),
+                  );
+                }
+                return SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => _ApplicationCard(
+                        app: controller.filteredApplications[i],
+                        controller: controller,
+                        onTap: () {
+                          if (onApplicationTap != null) {
+                            onApplicationTap!(
+                                controller.filteredApplications[i]);
+                          } else {
+                            Get.to(() => EmployeeApplicationDetailScreen(
+                                application:
+                                    controller.filteredApplications[i]));
+                          }
+                        },
+                      ),
+                      childCount: controller.filteredApplications.length,
+                    ),
+                  ),
+                );
+              }),
+            ],
           ),
-        ),
-        backgroundColor: primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          // Refresh button
-          Obx(
-            () => IconButton(
+        );
+      }),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: _surface,
+      foregroundColor: _text1,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      titleSpacing: 0,
+      leading: onBackPressed != null
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new,
+                  size: 17, color: _text2),
+              onPressed: onBackPressed)
+          : null,
+      title: const Text(
+        'Applied Jobs',
+        style: TextStyle(
+            fontSize: 16, fontWeight: FontWeight.w600, color: _text1),
+      ),
+      bottom: const PreferredSize(
+        preferredSize: Size.fromHeight(1),
+        child: Divider(height: 1, color: _border),
+      ),
+      actions: [
+        Obx(() => IconButton(
               icon: AnimatedRotation(
                 turns: controller.isLoadingApplications.value ? 1 : 0,
-                duration: const Duration(seconds: 1),
+                duration: const Duration(milliseconds: 700),
                 child: Icon(
-                  Icons.refresh,
+                  Icons.refresh_outlined,
+                  size: 20,
                   color: controller.isLoadingApplications.value
-                      ? Colors.white.withOpacity(0.5)
-                      : Colors.white,
+                      ? _text3
+                      : _text2,
                 ),
               ),
               onPressed: controller.isLoadingApplications.value
                   ? null
                   : controller.refreshApplications,
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: controller.refreshApplications,
-        color: primary,
-        child: Obx(
-          () {
-            if (controller.isLoadingApplications.value &&
-                controller.myApplications.isEmpty) {
-              return _buildLoadingShimmer();
-            }
-
-            if (controller.errorMessage.isNotEmpty) {
-              return _buildErrorWidget();
-            }
-
-            if (controller.myApplications.isEmpty) {
-              return _buildEmptyState();
-            }
-
-            return Column(
-              children: [
-                // Sirf Status Filter Tabs (Summary cards hata diye)
-                _buildStatusTabs(),
-
-                // Applications List
-                Expanded(
-                  child: controller.filteredApplications.isEmpty
-                      ? _buildNoApplicationsForFilter()
-                      : _buildApplicationsList(),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
+            )),
+        const SizedBox(width: 4),
+      ],
     );
   }
 
-  // ============== LOADING SHIMMER ==============
-  Widget _buildLoadingShimmer() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 5,
-      itemBuilder: (context, index) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: 16,
-                          color: Colors.grey[300],
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: 100,
-                          height: 12,
-                          color: Colors.grey[300],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  // Build counts map for each tab badge
+  Map<String, int> _buildCounts() {
+    final all = controller.myApplications;
+    return {
+      'all':         all.length,
+      'pending':     all.where((a) => a.status == 'pending').length,
+      'reviewed':    all.where((a) => a.status == 'reviewed').length,
+      'shortlisted': all.where((a) => a.status == 'shortlisted').length,
+      'rejected':    all.where((a) => a.status == 'rejected').length,
+    };
   }
+}
 
-  // ============== ERROR WIDGET ==============
-  Widget _buildErrorWidget() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.error_outline,
-                size: 48,
-                color: Colors.red,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Oops! Something went wrong',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              controller.errorMessage.value,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: controller.refreshApplications,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+// ─── Tab metadata ──────────────────────────────────────────────────────────────
+class _TabMeta {
+  final String label;
+  final String value;
+  final IconData icon;
+  const _TabMeta(this.label, this.value, this.icon);
+}
 
-  // ============== EMPTY STATE ==============
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.history_toggle_off,
-                size: 64,
-                color: primary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No Applications Yet',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'You haven\'t applied for any jobs yet.\nStart exploring and apply to your dream job!',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () {
-                Get.back(); // Go back to jobs list
-              },
-              icon: const Icon(Icons.explore),
-              label: const Text('Browse Jobs'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+// ─── Filter Bar ───────────────────────────────────────────────────────────────
+class _FilterBar extends StatelessWidget {
+  final List<_TabMeta> tabs;
+  final String selected;
+  final void Function(String) onTap;
+  final Map<String, int> counts;
 
-  // ============== NO APPLICATIONS FOR FILTER ==============
-  Widget _buildNoApplicationsForFilter() {
-    return Center(
+  const _FilterBar({
+    required this.tabs,
+    required this.selected,
+    required this.onTap,
+    required this.counts,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _surface,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.filter_alt_outlined,
-            size: 64,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No ${controller.selectedStatus.value} applications',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try changing the filter',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+          SizedBox(
+            height: 48,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: tabs.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              itemBuilder: (_, i) {
+                final tab   = tabs[i];
+                final active = selected == tab.value;
+                final count  = counts[tab.value] ?? 0;
 
-  // ============== STATUS TABS ==============
-  Widget _buildStatusTabs() {
-    return Container(
-      height: 50,
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: statusTabs.length,
-        itemBuilder: (context, index) {
-          final tab = statusTabs[index];
-          final isSelected = controller.selectedStatus.value == tab['value'];
-
-          return GestureDetector(
-              onTap: () => controller.filterByStatus(tab['value']),
-              child: Container(
-                margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: isSelected ? primary : Colors.white,
-                  borderRadius: BorderRadius.circular(25),
-                  border: Border.all(
-                    color: isSelected ? primary : Colors.grey[300]!,
-                    width: 1,
-                  ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: primary.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          )
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      tab['icon'],
-                      size: 16,
-                      color: isSelected ? Colors.white : Colors.grey[600],
+                return GestureDetector(
+                  onTap: () => onTap(tab.value),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 0),
+                    decoration: BoxDecoration(
+                      color: active ? primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      tab['label'],
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        color: isSelected ? Colors.white : Colors.grey[700],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          
-        },
-      ),
-    );
-  }
-
-  // ============== APPLICATIONS LIST ==============
-  Widget _buildApplicationsList() {
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      itemCount: controller.filteredApplications.length,
-      itemBuilder: (context, index) {
-        final application = controller.filteredApplications[index];
-        return _buildApplicationCard(application);
-      },
-    );
-  }
-
-  Widget _buildApplicationCard(EmployeeApplication app) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            // Navigate to application details
-            Get.to(EmployeeApplicationDetailScreen(application: app,));
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with company logo and status
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Company Logo
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.grey[200]!,
-                          width: 1,
-                        ),
-                      ),
-                      child: app.employerSnapshot.logoUrl.isNotEmpty
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Image.network(
-                                app.employerSnapshot.logoUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return _buildCompanyInitials(app);
-                                },
-                              ),
-                            )
-                          : _buildCompanyInitials(app),
-                    ),
-                    const SizedBox(width: 16),
-
-                    // Job Title and Company
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            app.jobSnapshot.title,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.business_outlined,
-                                size: 14,
-                                color: Colors.grey[600],
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  app.employerSnapshot.companyName,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Status Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: controller.getStatusColor(app.status).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: controller.getStatusColor(app.status).withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            controller.getStatusIcon(app.status),
-                            size: 12,
-                            color: controller.getStatusColor(app.status),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            controller.getStatusText(app.status),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: controller.getStatusColor(app.status),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Location and Work Type
-                Row(
-                  children: [
-                    _buildInfoChip(
-                      Icons.location_on_outlined,
-                      app.jobSnapshot.location,
-                    ),
-                    const SizedBox(width: 12),
-                    _buildInfoChip(
-                      Icons.work_outline,
-                      app.jobSnapshot.workplace,
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Job Type and Applied Date
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        app.jobSnapshot.type,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: primary,
-                        ),
-                      ),
-                    ),
-                    Row(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.access_time,
-                          size: 14,
-                          color: Colors.grey[500],
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          controller.formatDate(app.appliedAt),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Divider
-                Divider(
-                  height: 1,
-                  color: Colors.grey[200],
-                ),
-
-                const SizedBox(height: 12),
-
-                // Resume and Skills
-                Row(
-                  children: [
-                    // Resume file
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.description,
+                        Icon(tab.icon,
                             size: 14,
-                            color: primary,
+                            color: active ? Colors.white : _text2),
+                        const SizedBox(width: 6),
+                        Text(
+                          tab.label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: active
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: active ? Colors.white : _text2,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Resume',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                          const SizedBox(width: 4),
+                        ),
+                        if (count > 0) ...[
+                          const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
+                                horizontal: 6, vertical: 1),
                             decoration: BoxDecoration(
-                              color: primary.withOpacity(0.1),
+                              color: active
+                                  ? Colors.white.withOpacity(0.25)
+                                  : const Color(0xFFF3F4F6),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              controller.getFileExtension(app.resumeFileName),
+                              '$count',
                               style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: primary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: active ? Colors.white : _text2,
                               ),
                             ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
+                  ),
+                );
+              },
+            ),
+          ),
+          const Divider(height: 1, color: _border),
+        ],
+      ),
+    );
+  }
+}
 
-                    // Skills preview
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: _buildSkillChips(app.employeeSnapshot.skills),
+// ─── Summary strip ─────────────────────────────────────────────────────────────
+class _SummaryStrip extends StatelessWidget {
+  final int total;
+  final int filtered;
+  final String selected;
+
+  const _SummaryStrip({
+    required this.total,
+    required this.filtered,
+    required this.selected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = selected == 'all'
+        ? '$total application${total == 1 ? '' : 's'}'
+        : '$filtered of $total';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _text1),
+          ),
+          const Spacer(),
+          if (selected != 'all')
+            Text(
+              'showing ${selected[0].toUpperCase()}${selected.substring(1)}',
+              style:
+                  const TextStyle(fontSize: 12, color: _text3),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Application Card ─────────────────────────────────────────────────────────
+class _ApplicationCard extends StatelessWidget {
+  final EmployeeApplication app;
+  final JobApplicationController controller;
+  final VoidCallback onTap;
+
+  const _ApplicationCard({
+    required this.app,
+    required this.controller,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = controller.getStatusColor(app.status);
+    final statusIcon  = controller.getStatusIcon(app.status);
+    final statusText  = controller.getStatusText(app.status);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(_r + 2),
+          border: Border.all(color: _border),
+        ),
+        child: Column(
+          children: [
+            // ── Main body ───────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Row 1: Logo + Title + Status badge
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _CompanyLogo(app: app),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              app.jobSnapshot.title,
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: _text1,
+                                  height: 1.3),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                Icon(Icons.business_outlined,
+                                    size: 12, color: _text3),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    app.employerSnapshot.companyName,
+                                    style: const TextStyle(
+                                        fontSize: 12, color: _text2),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Status badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                              color: statusColor.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(statusIcon,
+                                size: 11, color: statusColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              statusText,
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: statusColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Row 2: Location · Workplace · Type chips
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _MetaChip(
+                          icon: Icons.location_on_outlined,
+                          label: app.jobSnapshot.location),
+                      _MetaChip(
+                          icon: Icons.work_outline,
+                          label: app.jobSnapshot.workplace),
+                      _TypeChip(label: app.jobSnapshot.type),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Footer bar ──────────────────────────────────────────────
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(_r + 2)),
+                border: Border(top: BorderSide(color: _border)),
+              ),
+              child: Row(
+                children: [
+                  // Resume pill
+                  _ResumePill(
+                    ext: controller.getFileExtension(app.resumeFileName),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  // Skills
+                  Expanded(child: _SkillsRow(skills: app.employeeSnapshot.skills)),
+
+                  const SizedBox(width: 10),
+
+                  // Applied date
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time_outlined,
+                          size: 12, color: _text3),
+                      const SizedBox(width: 4),
+                      Text(
+                        controller.formatDate(app.appliedAt),
+                        style: const TextStyle(
+                            fontSize: 11, color: _text2),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Cover letter (if present) ───────────────────────────────
+            if (app.coverLetter.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                decoration: const BoxDecoration(
+                  border:
+                      Border(top: BorderSide(color: _border)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.format_quote_rounded,
+                        size: 14, color: primary.withOpacity(0.5)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        app.coverLetter,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: _text2,
+                            fontStyle: FontStyle.italic),
                       ),
                     ),
                   ],
                 ),
-
-                if (app.coverLetter.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey[200]!,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.format_quote,
-                          size: 16,
-                          color: primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            app.coverLetter,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[700],
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+              ),
+          ],
         ),
       ),
     );
   }
+}
 
-  // Helper: Build company initials
-  Widget _buildCompanyInitials(EmployeeApplication app) {
-    final initials = app.employerSnapshot.companyName.isNotEmpty
+// ─── Card sub-widgets ─────────────────────────────────────────────────────────
+class _CompanyLogo extends StatelessWidget {
+  final EmployeeApplication app;
+  const _CompanyLogo({required this.app});
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = app.employerSnapshot.companyName.isNotEmpty
         ? app.employerSnapshot.companyName[0].toUpperCase()
         : 'C';
 
     return Container(
-      width: 60,
-      height: 60,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
-        color: primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
+        color: primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _border),
       ),
-      child: Center(
-        child: Text(
-          initials,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: primary,
-          ),
+      clipBehavior: Clip.antiAlias,
+      child: app.employerSnapshot.logoUrl.isNotEmpty
+          ? Image.network(
+              app.employerSnapshot.logoUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _Initials(initial: initial),
+            )
+          : _Initials(initial: initial),
+    );
+  }
+}
+
+class _Initials extends StatelessWidget {
+  final String initial;
+  const _Initials({required this.initial});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        initial,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: primary,
         ),
       ),
     );
   }
+}
 
-  // Helper: Build info chip
-  Widget _buildInfoChip(IconData icon, String label) {
+class _MetaChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _MetaChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: _text3),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: _text2)),
+      ],
+    );
+  }
+}
+
+class _TypeChip extends StatelessWidget {
+  final String label;
+  const _TypeChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: primary),
+      ),
+    );
+  }
+}
+
+class _ResumePill extends StatelessWidget {
+  final String ext;
+  const _ResumePill({required this.ext});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(8),
+        color: primary.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: primary.withOpacity(0.15)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: Colors.grey[600],
-          ),
+          Icon(Icons.description_outlined, size: 12, color: primary),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[700],
+          Text('Resume',
+              style: TextStyle(
+                  fontSize: 11,
+                  color: primary,
+                  fontWeight: FontWeight.w500)),
+          const SizedBox(width: 4),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: primary,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              ext.toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 9,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3),
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  // Helper: Build skill chips
-  List<Widget> _buildSkillChips(List<String> skills) {
+class _SkillsRow extends StatelessWidget {
+  final List<String> skills;
+  const _SkillsRow({required this.skills});
+
+  @override
+  Widget build(BuildContext context) {
     if (skills.isEmpty) {
-      return [
-        Text(
-          'No skills listed',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[500],
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      ];
+      return const Text('No skills listed',
+          style: TextStyle(fontSize: 11, color: _text3));
     }
+    final shown = skills.take(3).toList();
+    final extra = skills.length - shown.length;
 
-    final chips = skills.take(3).map((skill) {
-      return Container(
-        margin: const EdgeInsets.only(right: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return Row(
+      children: [
+        ...shown.map((s) => Container(
+              margin: const EdgeInsets.only(right: 5),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(s,
+                  style: const TextStyle(
+                      fontSize: 10,
+                      color: _text2,
+                      fontWeight: FontWeight.w500)),
+            )),
+        if (extra > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text('+$extra',
+                style: const TextStyle(
+                    fontSize: 10,
+                    color: _text3,
+                    fontWeight: FontWeight.w500)),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Full-screen states ────────────────────────────────────────────────────────
+class _LoadingList extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      itemCount: 5,
+      itemBuilder: (_, i) => Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        height: 110,
         decoration: BoxDecoration(
-          color: primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
+          color: _surface,
+          borderRadius: BorderRadius.circular(_r + 2),
+          border: Border.all(color: _border),
         ),
-        child: Text(
-          skill,
-          style: TextStyle(
-            fontSize: 10,
-            color: primary,
-            fontWeight: FontWeight.w500,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Shimmer(width: 44, height: 44, radius: 10),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Shimmer(width: double.infinity, height: 14, radius: 4),
+                    const SizedBox(height: 8),
+                    _Shimmer(width: 140, height: 11, radius: 4),
+                    const SizedBox(height: 16),
+                    Row(children: [
+                      _Shimmer(width: 80, height: 22, radius: 5),
+                      const SizedBox(width: 8),
+                      _Shimmer(width: 80, height: 22, radius: 5),
+                    ]),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-      );
-    }).toList();
+      ),
+    );
+  }
+}
 
-    if (skills.length > 3) {
-      chips.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(20),
+class _Shimmer extends StatefulWidget {
+  final double width;
+  final double height;
+  final double radius;
+  const _Shimmer(
+      {required this.width, required this.height, required this.radius});
+
+  @override
+  State<_Shimmer> createState() => _ShimmerState();
+}
+
+class _ShimmerState extends State<_Shimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.5, end: 0.9).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: Color.lerp(
+              const Color(0xFFE5E7EB), const Color(0xFFF3F4F6), _anim.value),
+          borderRadius: BorderRadius.circular(widget.radius),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.wifi_off_outlined,
+                  size: 28, color: _red),
+            ),
+            const SizedBox(height: 20),
+            const Text('Something went wrong',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _text1)),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(fontSize: 13, color: _text2, height: 1.5),
+            ),
+            const SizedBox(height: 24),
+            _ABtn(
+                label: 'Try Again',
+                icon: Icons.refresh_outlined,
+                onTap: onRetry),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final VoidCallback onBrowse;
+  const _EmptyState({required this.onBrowse});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(Icons.inbox_outlined, size: 34, color: primary),
+            ),
+            const SizedBox(height: 20),
+            const Text('No applications yet',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _text1)),
+            const SizedBox(height: 8),
+            const Text(
+              "You haven't applied for any jobs yet.\nStart exploring and apply to your dream job!",
+              textAlign: TextAlign.center,
+              style:
+                  TextStyle(fontSize: 13, color: _text2, height: 1.6),
+            ),
+            const SizedBox(height: 24),
+            _ABtn(
+                label: 'Browse Jobs',
+                icon: Icons.search_outlined,
+                onTap: onBrowse),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoFilterResult extends StatelessWidget {
+  final String status;
+  final VoidCallback onClear;
+  const _NoFilterResult({required this.status, required this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.filter_alt_off_outlined, size: 36, color: _text3),
+          const SizedBox(height: 14),
+          Text(
+            'No ${status[0].toUpperCase()}${status.substring(1)} applications',
+            style: const TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w500, color: _text1),
           ),
-          child: Text(
-            '+${skills.length - 3}',
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
+          const SizedBox(height: 6),
+          const Text('Try a different filter',
+              style: TextStyle(fontSize: 13, color: _text2)),
+          const SizedBox(height: 20),
+          _ABtn(
+              label: 'Clear filter',
+              icon: Icons.clear_outlined,
+              onTap: onClear,
+              variant: _ABtnVariant.outlined),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── _ABtn — shared action button ─────────────────────────────────────────────
+enum _ABtnVariant { filled, outlined }
+
+class _ABtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final _ABtnVariant variant;
+
+  const _ABtn({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.variant = _ABtnVariant.filled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isFilled = variant == _ABtnVariant.filled;
+    final bg  = isFilled ? primary : Colors.transparent;
+    final fg  = isFilled ? Colors.white : primary;
+    final bd  = isFilled
+        ? Border.all(color: Colors.transparent)
+        : Border.all(color: primary.withOpacity(0.4));
+
+    return SizedBox(
+      height: 40,
+      child: Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          splashColor: fg.withOpacity(0.08),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: bd,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: fg),
+                const SizedBox(width: 7),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: fg)),
+              ],
             ),
           ),
         ),
-      );
-    }
-
-    return chips;
+      ),
+    );
   }
 }

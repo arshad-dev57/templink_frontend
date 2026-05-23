@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'talent_model.dart';
 
 // ==================== ATTACHED FILE MODEL ====================
 class AttachedFile {
@@ -149,8 +150,7 @@ class Milestone {
   bool get isReleased => status == 'RELEASED';
   bool get isCompleted => status == 'APPROVED' || status == 'RELEASED';
 }
-
-// Employee Profile Model
+// Employee Profile Model - ISME availability ADD KARO
 class EmployeeProfile {
   final String experienceLevel;
   final String goal;
@@ -166,11 +166,12 @@ class EmployeeProfile {
   final String city;
   final String province;
   final String phoneNumber;
-  final List<dynamic> workExperiences;
-  final List<dynamic> educations;
+  final List<WorkExperience> workExperiences;
+  final List<Education> educations;
   final List<PortfolioProject> portfolioProjects;
   final double rating;
   final int totalReviews;
+  final String availability;  // ✅ YEH ADD KARO
 
   EmployeeProfile({
     required this.experienceLevel,
@@ -192,6 +193,7 @@ class EmployeeProfile {
     required this.portfolioProjects,
     required this.rating,
     required this.totalReviews,
+    required this.availability,  // ✅ YEH ADD KARO
   });
 
   factory EmployeeProfile.fromJson(Map<String, dynamic> json) {
@@ -217,15 +219,19 @@ class EmployeeProfile {
       city: json['city']?.toString() ?? '',
       province: json['province']?.toString() ?? '',
       phoneNumber: json['phoneNumber']?.toString() ?? '',
-      workExperiences: json['workExperiences'] as List? ?? [],
-      educations: json['educations'] as List? ?? [],
+      workExperiences: (json['workExperiences'] as List? ?? [])
+          .map((e) => WorkExperience.fromJson(e))
+          .toList(),
+      educations: (json['educations'] as List? ?? [])
+          .map((e) => Education.fromJson(e))
+          .toList(),
       portfolioProjects: portfolioList,
       rating: (json['rating'] ?? 0).toDouble(),
       totalReviews: json['totalReviews'] ?? 0,
+      availability: json['availability']?.toString() ?? '',  // ✅ YEH ADD KARO
     );
   }
 }
-
 // Employer Profile Model
 class EmployerProfile {
   final String companyName;

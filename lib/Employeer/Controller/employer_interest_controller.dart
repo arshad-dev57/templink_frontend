@@ -9,21 +9,28 @@ import 'package:templink/config/api_config.dart';
 
 class EmployerInterestController extends GetxController {
   final String baseUrl = ApiConfig.baseUrl;
-  final interestedCandidates = <EmployerInterestModel>[].obs;
+  final allCandidates = <EmployerInterestModel>[].obs;
   final isLoading = false.obs;
   final isHiring = false.obs;
   final errorMessage = RxnString();
-  final interestedCount = 0.obs;
   final walletBalance = 0.0.obs;
+
+  // ✅ Status counts (matching backend)
+  int get pendingCount => allCandidates.where((c) => c.status == 'pending').length;
+  int get interestedCount => allCandidates.where((c) => c.status == 'interested').length;
+  int get declinedCount => allCandidates.where((c) => c.status == 'declined').length;
+  int get hiredCount => allCandidates.where((c) => c.status == 'hired').length;
+  int get cancelledCount => allCandidates.where((c) => c.status == 'cancelled').length;
+  int get totalCount => allCandidates.length;
 
   @override
   void onInit() {
     super.onInit();
-    fetchInterestedCandidates();
+    fetchAllCandidates();
     fetchWalletBalance();
   }
 
-  Future<void> fetchInterestedCandidates() async {
+  Future<void> fetchAllCandidates() async {
     try {
       isLoading.value = true;
       errorMessage.value = null;
@@ -43,23 +50,23 @@ class EmployerInterestController extends GetxController {
         },
       );
 
-      print('📡 Interested candidates response: ${response.statusCode}');
-print(response.body);
+      print('📡 All candidates response: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
         
         if (jsonResponse['success'] == true) {
           final List<dynamic> candidatesData = jsonResponse['data'] ?? [];
           
-          interestedCandidates.value = candidatesData
+          allCandidates.value = candidatesData
               .map((e) => EmployerInterestModel.fromJson(e))
-              .where((c) => c.status == 'interested')
               .toList();
 
-          interestedCount.value = jsonResponse['counts']?['interested'] ?? 
-                                  interestedCandidates.length;
-
-          print('✅ Loaded ${interestedCandidates.length} interested candidates');
+          print('✅ Loaded ${allCandidates.length} total candidates');
+          print('   - Pending: $pendingCount');
+          print('   - Interested: $interestedCount');
+          print('   - Declined: $declinedCount');
+          print('   - Hired: $hiredCount');
         } else {
           errorMessage.value = jsonResponse['message'] ?? 'Failed to load candidates';
         }
@@ -68,13 +75,12 @@ print(response.body);
       }
     } catch (e) {
       errorMessage.value = e.toString();
-      print('❌ Error fetching interested candidates: $e');
+      print('❌ Error fetching candidates: $e');
     } finally {
       isLoading.value = false;
     }
   }
 
-  // ============== FETCH WALLET BALANCE ==============
   Future<void> fetchWalletBalance() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -87,7 +93,6 @@ print(response.body);
         },
       );
 
-
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
         walletBalance.value = (jsonResponse['balance'] ?? 0).toDouble();
@@ -97,6 +102,7 @@ print(response.body);
     }
   }
 
+  // ✅ Hire candidate - status changes from 'interested' to 'hired'
   Future<bool> hireCandidate(String requestId, double commissionAmount) async {
     try {
       isHiring.value = true;
@@ -122,15 +128,34 @@ print(response.body);
         },
       );
 
+      print('📡 Hire response: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
         
         if (jsonResponse['success'] == true) {
-          // Remove from list
-          interestedCandidates.removeWhere((c) => c.id == requestId);
-          interestedCount.value = interestedCandidates.length;
+          // Update status in the list
+          final index = allCandidates.indexWhere((c) => c.id == requestId);
+          if (index != -1) {
+            final updated = EmployerInterestModel(
+              id: allCandidates[index].id,
+              employeeId: allCandidates[index].employeeId,
+              employeeName: allCandidates[index].employeeName,
+              employeePhoto: allCandidates[index].employeePhoto,
+              employeeTitle: allCandidates[index].employeeTitle,
+              jobTitle: allCandidates[index].jobTitle,
+              salaryAmount: allCandidates[index].salaryAmount,
+              salaryPeriod: allCandidates[index].salaryPeriod,
+              message: allCandidates[index].message,
+              status: 'hired',
+              createdAt: allCandidates[index].createdAt,
+              respondedAt: DateTime.now(),
+              commissionAmount: allCandidates[index].commissionAmount,
+            );
+            allCandidates[index] = updated;
+            allCandidates.refresh();
+          }
           
-          // Update wallet balance
           walletBalance.value = jsonResponse['newBalance']?.toDouble() ?? 
                                walletBalance.value - commissionAmount;
           
@@ -148,7 +173,7 @@ print(response.body);
 
   Future<void> refreshData() async {
     await Future.wait([
-      fetchInterestedCandidates(),
+      fetchAllCandidates(),
       fetchWalletBalance(),
     ]);
   }

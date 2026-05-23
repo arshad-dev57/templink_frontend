@@ -44,10 +44,9 @@ dependencies:
   device_info_plus: ^12.3.0
   shared_preferences: ^2.3.2
   intl: ^0.20.2
-  flutter_stripe: ^11.3.0
   webview_flutter: ^4.7.0
   onesignal_flutter: ^5.4.1
-  socket_io_client: ^2.0.3+1
+  socket_io_client: ^3.1.4
   video_player: ^2.8.6
   google_sign_in: ^6.2.1
   uuid: ^4.5.2
@@ -62,6 +61,11 @@ dependencies:
   audioplayers: ^6.6.0
   flutter_callkit_incoming: ^3.0.0
   mime_type: ^1.0.1
+  flutter_screenutil: ^5.9.3
+  web: ^1.1.0
+  js: ^0.7.1
+  webview_flutter_web: ^0.2.0
+  
 
 dev_dependencies:
   flutter_test:

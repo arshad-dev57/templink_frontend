@@ -1,11 +1,11 @@
-// screens/Employeer_Milestone_Payment_Screen.dart
 import 'dart:convert';
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Employeer/model/employer_project_model.dart';
+import 'package:templink/Global_Screens/stripe_webview_screen.dart';
 import 'package:templink/Utils/colors.dart';
 import 'package:templink/config/api_config.dart';
 
@@ -25,39 +25,25 @@ class MilestonePaymentScreen extends StatefulWidget {
 
 class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
   final String baseUrl = ApiConfig.baseUrl;
-  
+
   var isProcessing = false.obs;
   var selectedPaymentMethod = 'wallet'.obs;
   var currentWalletBalance = 0.0.obs;
 
   final List<Map<String, dynamic>> paymentMethods = [
     {
-      'id': 'wallet', 
-      'name': 'Wallet Balance', 
-      'icon': Icons.account_balance_wallet, 
+      'id': 'wallet',
+      'name': 'Wallet Balance',
+      'icon': Icons.account_balance_wallet,
       'color': Colors.blue,
       'description': 'Use your wallet balance'
     },
     {
-      'id': 'card', 
-      'name': 'Credit / Debit Card', 
-      'icon': Icons.credit_card, 
+      'id': 'card',
+      'name': 'Credit / Debit Card',
+      'icon': Icons.credit_card,
       'color': Colors.green,
       'description': 'Pay with Stripe'
-    },
-    {
-      'id': 'google_pay', 
-      'name': 'Google Pay', 
-      'icon': Icons.payment, 
-      'color': Colors.black,
-      'description': 'Fast & secure'
-    },
-    {
-      'id': 'apple_pay', 
-      'name': 'Apple Pay', 
-      'icon': Icons.apple, 
-      'color': Colors.black,
-      'description': 'Pay with Apple'
     },
   ];
 
@@ -74,9 +60,7 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
 
       final response = await http.get(
         Uri.parse('$baseUrl/api/wallet/balance'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
@@ -101,7 +85,7 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
       }
     } catch (e) {
       if (Get.isDialogOpen ?? false) Get.back();
-      
+
       String errorMessage = 'Payment failed';
       if (e.toString().contains('UserCanceled')) {
         errorMessage = 'Payment cancelled';
@@ -123,7 +107,6 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
   }
 
   Future<void> processWalletPayment() async {
-    // Check if wallet has sufficient balance
     if (currentWalletBalance.value < widget.milestone.amount) {
       throw Exception('Insufficient wallet balance');
     }
@@ -140,10 +123,8 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
             children: [
               CircularProgressIndicator(color: Colors.white),
               SizedBox(height: 16),
-              Text(
-                'Processing payment...',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
+              Text('Processing payment...',
+                  style: TextStyle(color: Colors.white, fontSize: 16)),
             ],
           ),
         ),
@@ -174,7 +155,7 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
         final jsonResponse = jsonDecode(response.body);
         if (jsonResponse['success'] == true) {
           currentWalletBalance.value = (jsonResponse['newBalance'] ?? 0).toDouble();
-          
+
           _showSuccessDialog(
             'Payment Successful!',
             'Milestone payment of \$${widget.milestone.amount.toStringAsFixed(2)} completed using wallet.',
@@ -190,265 +171,134 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
       rethrow;
     }
   }
+Future<void> processStripePayment() async {
+  bool confirm = await _showConfirmationDialog();
+  if (!confirm) return;
 
-  Future<void> processStripePayment() async {
-    bool confirm = await _showConfirmationDialog();
-    if (!confirm) return;
-
-    try {
-      Get.dialog(
-        const Center(
-          child: Material(
-            color: Colors.transparent,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(color: Colors.white),
-                SizedBox(height: 16),
-                Text(
-                  'Initializing payment...',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ],
-            ),
-          ),
-        ),
-        barrierDismissible: false,
-      );
-
-      // 1. Create payment intent
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
-      final paymentResponse = await http.post(
-        Uri.parse('$baseUrl/api/milestone-payments/create-payment-intent'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'projectId': widget.project.id,
-          'milestoneId': widget.milestone.id,
-          'amount': widget.milestone.amount,
-          'paymentMethod': selectedPaymentMethod.value,
-        }),
-      );
-
-      if (Get.isDialogOpen ?? false) Get.back();
-
-      if (paymentResponse.statusCode != 200) {
-        throw Exception('Failed to create payment');
-      }
-
-      final paymentData = jsonDecode(paymentResponse.body);
-      final clientSecret = paymentData['clientSecret'];
-
-      // 2. Initialize Stripe payment sheet
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          merchantDisplayName: 'Templink',
-          paymentIntentClientSecret: clientSecret,
-          googlePay: const PaymentSheetGooglePay(
-            merchantCountryCode: 'US',
-            currencyCode: 'USD',
-            testEnv: true,
-          ),
-          style: ThemeMode.light,
-          appearance: PaymentSheetAppearance(
-            colors: PaymentSheetAppearanceColors(
-              primary: primary,
-              background: Colors.white,
-              componentBackground: Colors.grey.shade50,
-              componentDivider: Colors.grey.shade300,
-              componentBorder: Colors.grey.shade400,
-              placeholderText: Colors.grey.shade500,
-              icon: primary,
-            ),
-            shapes: PaymentSheetShape(
-              borderWidth: 1,
-              borderRadius: 12,
-            ),
-            primaryButton: PaymentSheetPrimaryButtonAppearance(
-              colors: PaymentSheetPrimaryButtonTheme(
-                light: PaymentSheetPrimaryButtonThemeColors(
-                  background: primary,
-                  text: Colors.white,
-                  border: primary,
-                ),
-                dark: PaymentSheetPrimaryButtonThemeColors(
-                  background: primary,
-                  text: Colors.white,
-                  border: primary,
-                ),
-              ),
-              shapes: PaymentSheetPrimaryButtonShape(
-                borderWidth: 0,
-                blurRadius: 12,
-              ),
-            ),
-          ),
-        ),
-      );
-
-      // 3. Present payment sheet
-      await Stripe.instance.presentPaymentSheet();
-
-      Get.dialog(
-        const Center(
-          child: Material(
-            color: Colors.transparent,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(color: Colors.white),
-                SizedBox(height: 16),
-                Text(
-                  'Verifying payment...',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ],
-            ),
-          ),
-        ),
-        barrierDismissible: false,
-      );
-
-      // 4. Verify payment
-      final verifyResponse = await http.post(
-        Uri.parse('$baseUrl/api/milestone-payments/verify-payment'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'paymentIntentId': paymentData['paymentIntentId'],
-          'projectId': widget.project.id,
-          'milestoneId': widget.milestone.id,
-        }),
-      );
-
-      if (Get.isDialogOpen ?? false) Get.back();
-
-      if (verifyResponse.statusCode == 200) {
-        final verifyData = jsonDecode(verifyResponse.body);
-        if (verifyData['success'] == true) {
-          _showSuccessDialog(
-            'Payment Successful!',
-            'Milestone payment of \$${widget.milestone.amount.toStringAsFixed(2)} completed successfully.',
-          );
-        } else {
-          throw Exception('Payment verification failed');
-        }
-      } else {
-        throw Exception('Payment verification failed');
-      }
-    } catch (e) {
-      if (Get.isDialogOpen ?? false) Get.back();
-      rethrow;
-    }
-  }
-
-  Future<bool> _showConfirmationDialog() async {
-    return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          'Confirm Milestone Payment',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child:  Icon(
-                      Icons.payment,
-                      color: Colors.white,
-                      size: 30,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.milestone.title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '\$${widget.milestone.amount.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildInfoRow('Project:', widget.project.title),
-            _buildInfoRow('Payment Method:', _getPaymentMethodName()),
-            if (selectedPaymentMethod.value == 'wallet')
-              _buildInfoRow(
-                'Wallet Balance:', 
-                '\$${currentWalletBalance.value.toStringAsFixed(2)}',
-                color: currentWalletBalance.value >= widget.milestone.amount 
-                    ? Colors.green 
-                    : Colors.red,
-              ),
-            const Divider(height: 24),
-            _buildInfoRow('Total Amount:', '\$${widget.milestone.amount.toStringAsFixed(2)}', isBold: true),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('Confirm Payment'),
-          ),
-        ],
+  // ✅ WebView open karo - alag tab nahi
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => StripeWebViewScreen(
+        projectId: widget.project.id,
+        milestoneId: widget.milestone.id,
+        amount: widget.milestone.amount,
       ),
-    ) ?? false;
+    ),
+  );
+
+  if (result == true) {
+    _showSuccessDialog(
+      'Payment Successful!',
+      'Milestone payment of \$${widget.milestone.amount.toStringAsFixed(2)} completed successfully.',
+    );
+  }
+}  Future<bool> _showConfirmationDialog() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text(
+              'Confirm Milestone Payment',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: const BoxDecoration(
+                          color: primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.payment,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.milestone.title,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '\$${widget.milestone.amount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildInfoRow('Project:', widget.project.title),
+                _buildInfoRow('Payment Method:', _getPaymentMethodName()),
+                if (selectedPaymentMethod.value == 'wallet')
+                  _buildInfoRow(
+                    'Wallet Balance:',
+                    '\$${currentWalletBalance.value.toStringAsFixed(2)}',
+                    color: currentWalletBalance.value >= widget.milestone.amount
+                        ? Colors.green
+                        : Colors.red,
+                  ),
+                const Divider(height: 24),
+                _buildInfoRow(
+                    'Total Amount:',
+                    '\$${widget.milestone.amount.toStringAsFixed(2)}',
+                    isBold: true),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('Confirm Payment'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
-  Widget _buildInfoRow(String label, String value, {bool isBold = false, Color? color}) {
+  Widget _buildInfoRow(String label, String value,
+      {bool isBold = false, Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -527,8 +377,8 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
         actions: [
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context, true); // Return success to previous screen
+              Navigator.pop(context);
+              Navigator.pop(context, true);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: primary,
@@ -547,8 +397,6 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canPayWithWallet = currentWalletBalance.value >= widget.milestone.amount;
-
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -560,69 +408,59 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
       ),
-      body: Obx(() => Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Project Info Card
-                _buildProjectInfoCard(),
-                
-                const SizedBox(height: 20),
-                
-                // Milestone Details Card
-                _buildMilestoneDetailsCard(),
-                
-                const SizedBox(height: 20),
-                
-                // Payment Methods Card
-                _buildPaymentMethodsCard(canPayWithWallet),
-                
-                const SizedBox(height: 20),
-                
-                // Payment Summary Card
-                _buildPaymentSummaryCard(),
-                
-                const SizedBox(height: 30),
-                
-                // Pay Button
-                _buildPayButton(canPayWithWallet),
-                
-                const SizedBox(height: 20),
-              ],
+      body: Obx(() {
+        final canPayWithWallet =
+            currentWalletBalance.value >= widget.milestone.amount;
+
+        return Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildProjectInfoCard(),
+                  const SizedBox(height: 20),
+                  _buildMilestoneDetailsCard(),
+                  const SizedBox(height: 20),
+                  _buildPaymentMethodsCard(canPayWithWallet),
+                  const SizedBox(height: 20),
+                  _buildPaymentSummaryCard(),
+                  const SizedBox(height: 30),
+                  _buildPayButton(canPayWithWallet),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
-          ),
-          
-          if (isProcessing.value)
-            Container(
-              color: Colors.black.withOpacity(0.5),
-              child: Center(
-                child: Card(
-                  elevation: 10,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text(
-                          'Processing Payment...',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                      ],
+            if (isProcessing.value)
+              Container(
+                color: Colors.black.withOpacity(0.5),
+                child: Center(
+                  child: Card(
+                    elevation: 10,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text(
+                            'Processing Payment...',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
-      )),
+          ],
+        );
+      }),
     );
   }
 
@@ -662,10 +500,7 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
               children: [
                 const Text(
                   'Project',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -711,10 +546,7 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
         children: [
           const Text(
             'Milestone',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white70,
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.white70),
           ),
           const SizedBox(height: 4),
           Text(
@@ -740,10 +572,7 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
             children: [
               const Text(
                 'Amount to Pay',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white70,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.white70),
               ),
               Text(
                 '\$${widget.milestone.amount.toStringAsFixed(2)}',
@@ -779,21 +608,17 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
         children: [
           const Text(
             'Payment Method',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           ...paymentMethods.map((method) {
             final isSelected = selectedPaymentMethod.value == method['id'];
             final isWallet = method['id'] == 'wallet';
-            
-            // Disable wallet if insufficient balance
+
             if (isWallet && !canPayWithWallet) {
               return _buildDisabledPaymentMethod(method);
             }
-            
+
             return GestureDetector(
               onTap: () {
                 if (isWallet && !canPayWithWallet) return;
@@ -820,8 +645,8 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
-                        method['icon'],
-                        color: method['color'],
+                        method['icon'] as IconData,
+                        color: method['color'] as Color,
                         size: 20,
                       ),
                     ),
@@ -831,7 +656,7 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            method['name'],
+                            method['name'] as String,
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -839,7 +664,7 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            method['description'],
+                            method['description'] as String,
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.grey.shade600,
@@ -851,7 +676,9 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
                               'Balance: \$${currentWalletBalance.value.toStringAsFixed(2)}',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: canPayWithWallet ? Colors.green : Colors.red,
+                                color: canPayWithWallet
+                                    ? Colors.green
+                                    : Colors.red,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -860,7 +687,7 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
                       ),
                     ),
                     Radio<String>(
-                      value: method['id'],
+                      value: method['id'] as String,
                       groupValue: selectedPaymentMethod.value,
                       onChanged: (value) {
                         if (isWallet && !canPayWithWallet) return;
@@ -897,7 +724,7 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              method['icon'],
+              method['icon'] as IconData,
               color: Colors.grey.shade500,
               size: 20,
             ),
@@ -908,7 +735,7 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  method['name'],
+                  method['name'] as String,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -952,15 +779,18 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
       ),
       child: Column(
         children: [
-          _buildSummaryRow('Milestone Amount', '\$${widget.milestone.amount.toStringAsFixed(2)}'),
+          _buildSummaryRow(
+              'Milestone Amount', '\$${widget.milestone.amount.toStringAsFixed(2)}'),
           const SizedBox(height: 8),
-          _buildSummaryRow('Platform Fee (5%)', '\$${platformFee.toStringAsFixed(2)}', color: Colors.grey),
+          _buildSummaryRow('Platform Fee (5%)',
+              '\$${platformFee.toStringAsFixed(2)}',
+              color: Colors.grey),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Divider(),
           ),
           _buildSummaryRow(
-            'Total', 
+            'Total',
             '\$${total.toStringAsFixed(2)}',
             isBold: true,
             color: primary,
@@ -970,7 +800,8 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {bool isBold = false, Color? color}) {
+  Widget _buildSummaryRow(String label, String value,
+      {bool isBold = false, Color? color}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -996,7 +827,8 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
 
   Widget _buildPayButton(bool canPayWithWallet) {
     final isWalletSelected = selectedPaymentMethod.value == 'wallet';
-    final buttonEnabled = !isWalletSelected || (isWalletSelected && canPayWithWallet);
+    final buttonEnabled =
+        !isWalletSelected || (isWalletSelected && canPayWithWallet);
 
     final platformFee = widget.milestone.amount * 0.05;
     final total = widget.milestone.amount + platformFee;
@@ -1020,13 +852,15 @@ class _MilestonePaymentScreenState extends State<MilestonePaymentScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isWalletSelected ? Icons.account_balance_wallet : Icons.lock,
+              isWalletSelected
+                  ? Icons.account_balance_wallet
+                  : Icons.credit_card,
               size: 20,
             ),
             const SizedBox(width: 8),
             Text(
-              isWalletSelected 
-                  ? 'Pay with Wallet' 
+              isWalletSelected
+                  ? 'Pay with Wallet'
                   : 'Pay \$${total.toStringAsFixed(2)}',
               style: const TextStyle(
                 fontSize: 16,

@@ -2,16 +2,15 @@ import 'package:get/get.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show Platform, File, SocketException;
 import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Employeer/model/project_model.dart';
 import 'package:templink/config/api_config.dart';
-
-// ✅ NEW
 import 'package:mime/mime.dart';
 import 'package:http_parser/http_parser.dart';
+import 'dart:typed_data';
 
 class ProjectController extends GetxController {
   // Loading States
@@ -30,6 +29,202 @@ class ProjectController extends GetxController {
   var skillController = TextEditingController();
   var deliverableController = TextEditingController();
   
+  // ============= SEARCHABLE CATEGORY FIELDS =============
+  final categorySearchController = TextEditingController();
+  var filteredCategories = <String>[].obs;
+  var showCategoryList = false.obs;
+  
+  // All Categories List (100+ main fields)
+  final List<String> allCategories = [
+    // ========== TECHNOLOGY ==========
+    'Web Development',
+    'Mobile App Development',
+    'Software Development',
+    'Desktop Application Development',
+    'Game Development',
+    'Data Science & Analytics',
+    'Machine Learning & AI',
+    'DevOps & Cloud Computing',
+    'Cybersecurity',
+    'Database Administration',
+    'IT Support & Helpdesk',
+    'Network Administration',
+    'System Administration',
+    'Blockchain & Crypto',
+    'IoT Development',
+    'AR/VR Development',
+    'Embedded Systems',
+    'Salesforce Development',
+    'SAP Development',
+    'WordPress Development',
+    'Shopify Development',
+    'E-commerce Development',
+    'CMS Development',
+    
+    // ========== DESIGN ==========
+    'UI/UX Design',
+    'Graphic Design',
+    'Logo Design',
+    'Brand Identity Design',
+    'Motion Graphics',
+    'Animation',
+    'Video Editing',
+    '3D Modeling & Rendering',
+    'Architectural Design',
+    'Interior Design',
+    'Fashion Design',
+    'Product Design',
+    'Illustration',
+    'Photo Editing',
+    'Print Design',
+    
+    // ========== HEALTHCARE ==========
+    'Nursing',
+    'Doctor / Physician',
+    'Dentistry',
+    'Pharmacy',
+    'Medical Lab Technology',
+    'Radiology',
+    'Physical Therapy',
+    'Occupational Therapy',
+    'Veterinary',
+    'Caregiving',
+    'Medical Billing & Coding',
+    'Healthcare Administration',
+    'Public Health',
+    'Nutrition & Dietetics',
+    'Psychology',
+    'Mental Health Counseling',
+    
+    // ========== MARKETING & SALES ==========
+    'Digital Marketing',
+    'Social Media Marketing',
+    'SEO/SEM',
+    'Content Marketing',
+    'Email Marketing',
+    'Affiliate Marketing',
+    'Influencer Marketing',
+    'Brand Management',
+    'Public Relations',
+    'Sales Representative',
+    'Business Development',
+    'Account Management',
+    
+    // ========== EDUCATION ==========
+    'Teaching (School)',
+    'University Professor',
+    'Online Tutoring',
+    'Corporate Training',
+    'Language Instruction',
+    'Special Education',
+    'Early Childhood Education',
+    'Curriculum Development',
+    'Instructional Design',
+    
+    // ========== FINANCE & LEGAL ==========
+    'Accounting',
+    'Bookkeeping',
+    'Financial Analysis',
+    'Investment Banking',
+    'Tax Preparation',
+    'Auditing',
+    'Payroll Management',
+    'Legal Advising',
+    'Paralegal',
+    'Compliance Officer',
+    
+    // ========== CONSTRUCTION & LABOR ==========
+    'Construction Management',
+    'Civil Engineering',
+    'Architecture',
+    'Electrical Work',
+    'Plumbing',
+    'Carpentry',
+    'Welding',
+    'Painting',
+    'HVAC Technician',
+    'General Labor',
+    
+    // ========== TRANSPORT & LOGISTICS ==========
+    'Truck Driving',
+    'Delivery Driver',
+    'Logistics Coordinator',
+    'Warehouse Management',
+    'Supply Chain Management',
+    
+    // ========== HOSPITALITY & FOOD ==========
+    'Chef / Cook',
+    'Restaurant Management',
+    'Food Service Worker',
+    'Bartending',
+    'Hotel Management',
+    'Housekeeping',
+    'Event Planning',
+    
+    // ========== CUSTOMER SERVICE ==========
+    'Customer Support',
+    'Call Center Representative',
+    'Receptionist',
+    'Virtual Assistant',
+    'Chat Support',
+    
+    // ========== ADMINISTRATIVE ==========
+    'Administrative Assistant',
+    'Data Entry',
+    'Office Management',
+    'Executive Assistant',
+    'Document Controller',
+    
+    // ========== MEDIA & ENTERTAINMENT ==========
+    'Photography',
+    'Videography',
+    'Content Creation',
+    'Voice Acting',
+    'Music Production',
+    'Journalism',
+    'Copy Editing',
+    'Translation',
+    'Transcription',
+    
+    // ========== ENGINEERING ==========
+    'Mechanical Engineering',
+    'Electrical Engineering',
+    'Chemical Engineering',
+    'Industrial Engineering',
+    'Biomedical Engineering',
+    
+    // ========== REAL ESTATE ==========
+    'Real Estate Agent',
+    'Property Manager',
+    'Real Estate Investor',
+    
+    // ========== HR & RECRUITMENT ==========
+    'HR Generalist',
+    'Recruiter',
+    'Talent Acquisition',
+    'Training & Development',
+    
+    // ========== WRITING & CONTENT ==========
+    'Content Writing',
+    'Copywriting',
+    'Technical Writing',
+    'Creative Writing',
+    'Blog Writing',
+    'Script Writing',
+    
+    // ========== OTHER ==========
+    'Fitness Training',
+    'Personal Coaching',
+    'Beauty & Makeup',
+    'Cleaning Services',
+    'Security Guard',
+    'Pet Care',
+    'Child Care',
+    'Handyman Services',
+    'Appliance Repair',
+    'Automotive Repair',
+  ];
+  
   // Milestone related
   var milestonesList = <Map<String, dynamic>>[].obs;
   var showMilestoneForm = false.obs;
@@ -42,10 +237,13 @@ class ProjectController extends GetxController {
   var skills = <String>[].obs;
   var deliverables = <String>[].obs;
   var mediaFiles = <MediaFile>[].obs;
-  var selectedFiles = <PlatformFile>[].obs;
+  
+  // Web-compatible file storage
+  var selectedWebFiles = <WebFileData>[].obs;
+  var selectedFiles = <dynamic>[].obs;
+  
   var currentStep = 0.obs;
 
-  // API Config
   final String baseUrl = ApiConfig.baseUrl;
 
   @override
@@ -53,6 +251,8 @@ class ProjectController extends GetxController {
     super.onInit();
     skills.clear();
     deliverables.clear();
+    // Initialize filtered categories with all categories
+    filteredCategories.value = allCategories;
   }
 
   @override
@@ -66,7 +266,29 @@ class ProjectController extends GetxController {
     milestoneTitleController.dispose();
     milestoneDescController.dispose();
     milestoneAmountController.dispose();
+    categorySearchController.dispose();
     super.onClose();
+  }
+  
+  // ============= SEARCHABLE CATEGORY METHODS =============
+  void filterCategories(String query) {
+    if (query.isEmpty) {
+      filteredCategories.value = allCategories;
+      showCategoryList.value = false;
+    } else {
+      // Case-insensitive search - capital/small doesn't matter
+      filteredCategories.value = allCategories
+          .where((category) => 
+              category.toLowerCase().contains(query.toLowerCase()))
+          .toList();
+      showCategoryList.value = filteredCategories.isNotEmpty;
+    }
+  }
+  
+  void selectCategory(String category) {
+    selectedCategory.value = category;
+    categorySearchController.text = category;
+    showCategoryList.value = false;
   }
 
   void nextStep() {
@@ -77,7 +299,6 @@ class ProjectController extends GetxController {
     if (currentStep.value > 0) currentStep.value--;
   }
 
-  // ============= MILESTONE VALIDATION WITH BUDGET =============
   bool validateMilestonesWithBudget() {
     if (budgetType.value == 'FIXED' && milestonesList.isNotEmpty) {
       final minBudget = double.tryParse(minBudgetController.text) ?? 0;
@@ -87,7 +308,6 @@ class ProjectController extends GetxController {
         0, (sum, m) => sum + (m['amount'] as double)
       );
       
-      // Check if total milestones is within budget range
       if (totalMilestones < minBudget || totalMilestones > maxBudget) {
         Get.snackbar(
           '❌ Budget Mismatch',
@@ -103,7 +323,6 @@ class ProjectController extends GetxController {
     return true;
   }
 
-  // ============= SKILLS MANAGEMENT =============
   void addSkill(String skill) {
     final s = skill.trim();
     if (s.isNotEmpty && !skills.contains(s)) {
@@ -116,7 +335,6 @@ class ProjectController extends GetxController {
     skills.remove(skill);
   }
 
-  // ============= DELIVERABLES MANAGEMENT =============
   void addDeliverable(String deliverable) {
     final d = deliverable.trim();
     if (d.isNotEmpty) {
@@ -129,33 +347,40 @@ class ProjectController extends GetxController {
     deliverables.removeAt(index);
   }
 
-  // ============= FILE PICK =============
   Future<void> pickFiles() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
         allowMultiple: true,
-        withData: false,
+        withData: true,
       );
 
       if (result != null) {
-        // ✅ Avoid duplicates by path/name
-        for (final f in result.files) {
-          final already =
-              selectedFiles.any((x) => (x.path != null && x.path == f.path) || x.name == f.name);
+        for (final file in result.files) {
+          final already = selectedWebFiles.any((x) => x.name == file.name);
           if (already) continue;
 
-          selectedFiles.add(f);
-
+          final webFileData = WebFileData(
+            name: file.name,
+            size: file.size,
+            bytes: file.bytes,
+            extension: file.extension ?? '',
+            file: file,
+          );
+          
+          selectedWebFiles.add(webFileData);
+          
           mediaFiles.add(
             MediaFile(
-              fileName: f.name,
-              fileUrl: f.path ?? '',
-              fileType: _getFileType(f.extension ?? ''),
+              fileName: file.name,
+              fileUrl: file.name,
+              fileType: _getFileType(file.extension ?? ''),
               publicId: null,
             ),
           );
+          
+          selectedFiles.add(file);
         }
 
         Get.snackbar(
@@ -199,16 +424,16 @@ class ProjectController extends GetxController {
   void removeFile(int index) {
     mediaFiles.removeAt(index);
     selectedFiles.removeAt(index);
+    selectedWebFiles.removeAt(index);
   }
 
-  // ============= FORM VALIDATION =============
   bool validateStep1() {
     if (titleController.text.trim().isEmpty) {
       Get.snackbar('❌ Error', 'Project title is required',
           snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.red, colorText: Colors.white);
       return false;
     }
-    if (selectedCategory.value == null) {
+    if (selectedCategory.value == null || selectedCategory.value!.isEmpty) {
       Get.snackbar('❌ Error', 'Please select a category',
           snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.red, colorText: Colors.white);
       return false;
@@ -243,7 +468,6 @@ class ProjectController extends GetxController {
       return false;
     }
 
-    // Validate milestones against budget
     if (!validateMilestonesWithBudget()) {
       return false;
     }
@@ -258,8 +482,7 @@ class ProjectController extends GetxController {
       return false;
     }
 
-    // ✅ REQUIRED: At least one file must be selected
-    if (selectedFiles.isEmpty) {
+    if (selectedWebFiles.isEmpty) {
       Get.snackbar(
         '❌ Error',
         'Please upload at least one file (PDF, DOC, or Image)',
@@ -272,6 +495,40 @@ class ProjectController extends GetxController {
     }
 
     return true;
+  }
+
+  Future<void> addFilesToRequest(http.MultipartRequest request) async {
+    for (final webFile in selectedWebFiles) {
+      if (webFile.bytes != null) {
+        final mimeType = lookupMimeType(webFile.name) ?? 'application/octet-stream';
+        final mediaType = MediaType.parse(mimeType);
+        
+        final multipartFile = http.MultipartFile.fromBytes(
+          'media',
+          webFile.bytes!,
+          filename: webFile.name,
+          contentType: mediaType,
+        );
+        
+        request.files.add(multipartFile);
+      } else if (webFile.file?.path != null && (Platform.isAndroid || Platform.isIOS)) {
+        final filePath = webFile.file!.path;
+        if (filePath != null) {
+          final exists = await File(filePath).exists();
+          if (exists) {
+            final mediaType = _mediaTypeFromPath(filePath);
+            request.files.add(
+              await http.MultipartFile.fromPath(
+                'media',
+                filePath,
+                filename: webFile.name,
+                contentType: mediaType,
+              ),
+            );
+          }
+        }
+      }
+    }
   }
 
   MediaType _mediaTypeFromPath(String filePath) {
@@ -304,7 +561,6 @@ class ProjectController extends GetxController {
         'Authorization': 'Bearer $token',
       });
 
-      // Basic project fields
       request.fields['title'] = titleController.text.trim();
       request.fields['description'] = descriptionController.text.trim();
       request.fields['category'] = selectedCategory.value!;
@@ -317,18 +573,15 @@ class ProjectController extends GetxController {
       request.fields['skills'] = jsonEncode(skills.toList());
       request.fields['deliverables'] = jsonEncode(deliverables.toList());
 
-      // ==================== MILESTONES HANDLING ====================
       if (milestonesList.isNotEmpty) {
         List<Map<String, dynamic>> milestonesJson = [];
         
         for (var i = 0; i < milestonesList.length; i++) {
           var milestone = milestonesList[i];
           
-          // Safely extract and convert values
           String title = milestone['title']?.toString() ?? '';
           String description = milestone['description']?.toString() ?? '';
           
-          // Handle amount properly (convert to double)
           double amount = 0;
           if (milestone['amount'] != null) {
             if (milestone['amount'] is int) {
@@ -346,17 +599,14 @@ class ProjectController extends GetxController {
             'amount': amount,
           };
           
-          // Handle dueDate properly
           if (milestone.containsKey('dueDate') && milestone['dueDate'] != null) {
             if (milestone['dueDate'] is DateTime) {
               milestoneMap['dueDate'] = (milestone['dueDate'] as DateTime).toIso8601String();
             } else if (milestone['dueDate'] is String) {
-              // If it's already a string, try to parse to ensure valid format
               try {
                 DateTime parsedDate = DateTime.parse(milestone['dueDate']);
                 milestoneMap['dueDate'] = parsedDate.toIso8601String();
               } catch (e) {
-                // If parsing fails, use as is
                 milestoneMap['dueDate'] = milestone['dueDate'];
               }
             }
@@ -365,30 +615,11 @@ class ProjectController extends GetxController {
           milestonesJson.add(milestoneMap);
         }
         
-        // Convert to JSON string
         String milestonesJsonString = jsonEncode(milestonesJson);
         request.fields['milestones'] = milestonesJsonString;
       }
 
-      // ✅ ADD FILES WITH PROPER MIME TYPE
-      for (final file in selectedFiles) {
-        final filePath = file.path;
-        if (filePath == null) continue;
-
-        final exists = await File(filePath).exists();
-        if (!exists) continue;
-
-        final mediaType = _mediaTypeFromPath(filePath);
-
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'media',
-            filePath,
-            filename: file.name,
-            contentType: mediaType,
-          ),
-        );
-      }
+      await addFilesToRequest(request);
 
       final streamedResponse = await request.send().timeout(
         const Duration(seconds: 60),
@@ -450,7 +681,6 @@ class ProjectController extends GetxController {
     }
   }
 
-  // ============= CLEAR FORM =============
   void clearForm() {
     titleController.clear();
     descriptionController.clear();
@@ -464,11 +694,14 @@ class ProjectController extends GetxController {
     deliverables.clear();
     mediaFiles.clear();
     selectedFiles.clear();
+    selectedWebFiles.clear();
     milestonesList.clear();
     currentStep.value = 0;
+    categorySearchController.clear();
+    filteredCategories.value = allCategories;
+    showCategoryList.value = false;
   }
 
-  // ============= UI HELPER METHODS =============
   IconData getFileIcon(String fileName) {
     String extension = path.extension(fileName).toLowerCase();
     switch (extension) {
@@ -514,7 +747,7 @@ class ProjectController extends GetxController {
     switch (category) {
       case 'Web Development':
         return Icons.web;
-      case 'Mobile Development':
+      case 'Mobile App Development':
         return Icons.phone_android;
       case 'UI/UX Design':
         return Icons.design_services;
@@ -528,4 +761,20 @@ class ProjectController extends GetxController {
         return Icons.work;
     }
   }
+}
+
+class WebFileData {
+  final String name;
+  final int size;
+  final Uint8List? bytes;
+  final String extension;
+  final PlatformFile? file;
+  
+  WebFileData({
+    required this.name,
+    required this.size,
+    this.bytes,
+    required this.extension,
+    this.file,
+  });
 }

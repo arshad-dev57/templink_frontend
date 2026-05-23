@@ -8,7 +8,7 @@ import 'package:templink/Employeer/model/employer_project_model.dart';
 import 'package:templink/config/api_config.dart';
 import 'dart:convert';
 
-class EmployerProjectsController extends GetxController {
+class EmployerProposalsProjectsController extends GetxController {
   var isLoading = true.obs;
   var isAccepting = false.obs;
   var isRejecting = false.obs;
@@ -16,7 +16,6 @@ class EmployerProjectsController extends GetxController {
   var projects = <EmployerProject>[].obs;
   var filteredProjects = <EmployerProject>[].obs;
   var searchQuery = ''.obs;
-  var filterStatus = ''.obs;
 
   var selectedProject = Rx<EmployerProject?>(null);
   var expandedProjectId = ''.obs;
@@ -115,30 +114,20 @@ void filterProjects() {
 
 final activeProjects = projects.where((p) {
   final status = p.Status?.toLowerCase() ?? '';
-  return   status != 'awaiting_funding' && status != 'open';
+  return   status != 'completed';
 }).toList();
 
   print("✅ After filtering AWAITING_FUNDING: ${activeProjects.length}");
 
-  var filtered = activeProjects;
-
-  // Apply status filter if selected
-  if (filterStatus.value.isNotEmpty) {
-    print("🔎 Status Filter: ${filterStatus.value}");
-    filtered = filtered.where((p) {
-      final projectStatus = p.Status?.toLowerCase() ?? '';
-      final filter = filterStatus.value.toLowerCase();
-      return projectStatus == filter;
-    }).toList();
-    print("✅ After status filtering: ${filtered.length}");
-  }
-
-  // Apply search filter if query exists
-  if (searchQuery.value.isNotEmpty) {
+  if (searchQuery.value.isEmpty) {
+    print("🔎 No search query applied");
+    filteredProjects.value = activeProjects;
+  } else {
     final query = searchQuery.value.toLowerCase();
+
     print("🔎 Search Query: $query");
 
-    filtered = filtered.where((p) {
+    filteredProjects.value = activeProjects.where((p) {
       final match = p.title.toLowerCase().contains(query) ||
           p.category.toLowerCase().contains(query) ||
           p.skills.any((s) => s.toLowerCase().contains(query));
@@ -147,11 +136,7 @@ final activeProjects = projects.where((p) {
 
       return match;
     }).toList();
-  } else {
-    print("🔎 No search query applied");
   }
-
-  filteredProjects.value = filtered;
 
   print("🎯 Final Filtered Projects Count: ${filteredProjects.length}");
   print("🏁 filterProjects END");
@@ -163,12 +148,6 @@ final activeProjects = projects.where((p) {
 
   void clearFilters() {
     searchQuery.value = '';
-    filterStatus.value = '';
-    filterProjects();
-  }
-
-  void setFilterStatus(String status) {
-    filterStatus.value = status;
     filterProjects();
   }
 

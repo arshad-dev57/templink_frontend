@@ -1,10 +1,17 @@
 // screens/employer/employer_invoice_view_screen.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:templink/Employeer/Controller/employer_invoice_controller.dart';
 import 'package:templink/Employeer/model/Invoice_model.dart';
 import 'package:templink/Utils/colors.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 class EmployerInvoiceViewScreen extends StatelessWidget {
   final String projectId;
@@ -15,49 +22,43 @@ class EmployerInvoiceViewScreen extends StatelessWidget {
   EmployerInvoiceViewScreen({
     Key? key,
     required this.projectId,
-  }) : super(key: key){
- // ✅ Directly call fetch with projectId
+  }) : super(key: key) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.fetchInvoiceByProjectId(projectId);
     });
   }
-  
 
   @override
   Widget build(BuildContext context) {
-    // Debug print to check data
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (controller.invoice.value != null) {
-        print('🎯 Invoice loaded: ${controller.invoice.value!.invoiceNumber}');
-        print('📊 Project: ${controller.invoice.value!.projectTitle}');
-        print('📊 Milestones count: ${controller.invoice.value!.milestones.length}');
-        for (var m in controller.invoice.value!.milestones) {
-          print('  - ${m.title}: ${currencyFormat.format(m.amount)}');
-        }
-      }
-    });
-
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF2F2F2),
       appBar: AppBar(
         title: const Text(
-          'Tax Invoice',
+          'TAX INVOICE',
           style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.5,
           ),
         ),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0.5,
         actions: [
           IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: _downloadInvoice,
+            icon: const Icon(Icons.download_outlined),
+            onPressed: _generateAndDownloadPDF,
+            tooltip: 'Download PDF',
           ),
           IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: _shareInvoice,
+            icon: const Icon(Icons.share_outlined),
+            onPressed: _sharePDF,
+            tooltip: 'Share',
+          ),
+          IconButton(
+            icon: const Icon(Icons.print_outlined),
+            onPressed: _printInvoice,
+            tooltip: 'Print',
           ),
         ],
       ),
@@ -67,7 +68,7 @@ class EmployerInvoiceViewScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(color: Colors.green),
+                CircularProgressIndicator(color: Colors.black54),
                 SizedBox(height: 16),
                 Text('Loading invoice...'),
               ],
@@ -82,590 +83,396 @@ class EmployerInvoiceViewScreen extends StatelessWidget {
         final invoice = controller.invoice.value!;
         
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              _buildInvoiceHeader(invoice),
-              const SizedBox(height: 20),
-              _buildCompanyDetails(invoice),
-              const SizedBox(height: 20),
-              _buildInvoiceDetails(invoice),
-              const SizedBox(height: 20),
-              _buildProjectDetails(invoice),
-              const SizedBox(height: 20),
-              _buildMilestoneBreakdown(invoice),
-              const SizedBox(height: 20),
-              _buildPaymentSummary(invoice),
-              const SizedBox(height: 20),
-              _buildFooter(),
-              const SizedBox(height: 30),
-            ],
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: _buildInvoicePaper(invoice),
           ),
         );
       }),
     );
   }
 
-  // ==================== ERROR STATE ====================
-  Widget _buildErrorState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.receipt_long,
-                size: 60,
-                color: Colors.green.withOpacity(0.5),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'No Invoice Found',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Invoice for this project has not been generated yet.\nPlease complete all milestones first.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => Get.back(),
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Go Back'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-            ),
-          ],
-        ),
+  // ==================== INVOICE PAPER (PRINTABLE) ====================
+  Widget _buildInvoicePaper(Invoice invoice) {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          _buildInvoiceHeader(invoice),
+          const Divider(height: 32, thickness: 1),
+          
+          // Company & Client Details
+          _buildCompanyClientDetails(invoice),
+          const Divider(height: 32, thickness: 1),
+          
+          // Invoice Details
+          _buildInvoiceDetailsTable(invoice),
+          const Divider(height: 32, thickness: 1),
+          
+          // Milestone Breakdown Table
+          _buildMilestoneTable(invoice),
+          const Divider(height: 32, thickness: 1),
+          
+          // Payment Summary
+          _buildPaymentSummary(invoice),
+          const Divider(height: 32, thickness: 1),
+          
+          // Bank Details
+          _buildBankDetails(),
+          const Divider(height: 32, thickness: 1),
+          
+          // Footer
+          _buildFooter(),
+          
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }
 
   // ==================== INVOICE HEADER ====================
   Widget _buildInvoiceHeader(Invoice invoice) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.receipt_long,
-              color: Colors.green,
-              size: 30,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'INVOICE',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  invoice.invoiceNumber,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.green,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              invoice.status,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==================== COMPANY DETAILS ====================
-  Widget _buildCompanyDetails(Invoice invoice) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // From (Company/Templink)
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'FROM',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Templink Inc.',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'support@templink.com',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '+1 (555) 123-4567',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '123 Business Ave, Suite 100',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                Text(
-                  'New York, NY 10001',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // To (Client/Employer)
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'TO',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  invoice.employerCompany ?? invoice.employerName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  invoice.employerEmail,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Project ID: ${invoice.projectId.toString().substring(0, 8)}...',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.green[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==================== INVOICE DETAILS ====================
-  Widget _buildInvoiceDetails(Invoice invoice) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildDetailItem(
-              'Invoice Date',
-              dateFormat.format(invoice.issuedAt),
-              Icons.calendar_today,
-            ),
-          ),
-          Expanded(
-            child: _buildDetailItem(
-              'Due Date',
-              dateFormat.format(invoice.dueDate ?? invoice.issuedAt.add(const Duration(days: 15))),
-              Icons.event,
-            ),
-          ),
-          Expanded(
-            child: _buildDetailItem(
-              'Payment Method',
-              invoice.paymentMethod ?? 'Wallet/Card',
-              Icons.credit_card,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailItem(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, size: 20, color: Colors.green),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[600],
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  // ==================== PROJECT DETAILS ====================
-  Widget _buildProjectDetails(Invoice invoice) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Project Details',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildInfoRow('Project:', invoice.projectTitle),
-          const Divider(height: 16),
-          _buildInfoRow('Contract #:', invoice.contractNumber),
-          const Divider(height: 16),
-          _buildInfoRow('Freelancer:', invoice.employeeName),
-          const Divider(height: 16),
-          _buildInfoRow('Completion Date:', dateFormat.format(invoice.issuedAt)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[600],
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black, width: 2),
+              ),
+              child: const Text(
+                'INVOICE',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 3,
+                ),
+              ),
             ),
-            textAlign: TextAlign.right,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ==================== MILESTONE BREAKDOWN ====================
-  Widget _buildMilestoneBreakdown(Invoice invoice) {
-    // Debug print
-    print('📊 Building milestone breakdown with ${invoice.milestones.length} milestones');
-    
-    if (invoice.milestones.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+            const SizedBox(height: 16),
+            Text(
+              invoice.invoiceNumber,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black54,
+              ),
             ),
           ],
         ),
-        child: const Center(
-          child: Text('No milestone data available'),
-        ),
-      );
-    }
-
-    double subtotal = invoice.milestones.fold(0, (sum, m) => sum + m.amount);
-    double platformFee = subtotal * 0.1; // 10% fee
-    double total = subtotal + platformFee;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Milestone Breakdown',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Table Header
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Text(
-                      'Description',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
-                    ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Image.asset(
+              'assets/logo.png',
+              height: 60,
+              errorBuilder: (_, __, ___) => Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black26),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Templink',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    'Amount',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[700],
-                    ),
-                    textAlign: TextAlign.right,
-                  ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Templink Inc.',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ==================== COMPANY & CLIENT DETAILS ====================
+  Widget _buildCompanyClientDetails(Invoice invoice) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'FROM',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[600],
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Templink Inc.',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '123 Business Avenue',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              const Text(
+                'Suite 100, New York, NY 10001',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'support@templink.com',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              const Text(
+                '+1 (555) 123-4567',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'TO',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[600],
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                invoice.employerCompany ?? invoice.employerName,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                invoice.employerEmail,
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              if (invoice.contractNumber != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  invoice.contractNumber!,
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
               ],
-            ),
-          ),
-          
-          // Milestone Items from invoice
-          ...invoice.milestones.map((m) => _buildMilestoneRow(m.title, currencyFormat.format(m.amount))).toList(),
-          
-          const Divider(height: 24),
-          
-          // Subtotal
-          _buildTotalRow('Subtotal', currencyFormat.format(subtotal)),
-          const SizedBox(height: 8),
-          _buildTotalRow('Platform Fee (10%)', currencyFormat.format(platformFee), color: Colors.grey),
-          const Divider(height: 16),
-          _buildTotalRow('Total', currencyFormat.format(total), isBold: true, color: Colors.green),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMilestoneRow(String title, String amount) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              title,
-              style: const TextStyle(fontSize: 13),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Text(
-              amount,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black26),
+                ),
+                child: Text(
+                  'Project ID: ${invoice.projectId.toString().substring(0, 8)}...',
+                  style: const TextStyle(fontSize: 10),
+                ),
               ),
-              textAlign: TextAlign.right,
-            ),
+            ],
           ),
-        ],
+        ),
+      ],
+    );
+  }
+
+  // ==================== INVOICE DETAILS TABLE ====================
+  Widget _buildInvoiceDetailsTable(Invoice invoice) {
+    return Table(
+      columnWidths: const {
+        0: IntrinsicColumnWidth(),
+        1: FlexColumnWidth(),
+      },
+      children: [
+        TableRow(
+          children: [
+            _buildDetailCell('Invoice Date:', isHeader: true),
+            _buildDetailCell(dateFormat.format(invoice.issuedAt)),
+          ],
+        ),
+        TableRow(
+          children: [
+            _buildDetailCell('Due Date:', isHeader: true),
+            _buildDetailCell(
+              invoice.dueDate != null
+                  ? dateFormat.format(invoice.dueDate!)
+                  : dateFormat.format(invoice.issuedAt.add(const Duration(days: 15))),
+            ),
+          ],
+        ),
+        TableRow(
+          children: [
+            _buildDetailCell('Payment Method:', isHeader: true),
+            _buildDetailCell(invoice.paymentMethod ?? 'Bank Transfer / Credit Card'),
+          ],
+        ),
+        TableRow(
+          children: [
+            _buildDetailCell('Project Title:', isHeader: true),
+            _buildDetailCell(invoice.projectTitle),
+          ],
+        ),
+        TableRow(
+          children: [
+            _buildDetailCell('Freelancer:', isHeader: true),
+            _buildDetailCell(invoice.employeeName),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailCell(String text, {bool isHeader = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: isHeader ? FontWeight.w600 : FontWeight.normal,
+          color: isHeader ? Colors.black87 : Colors.black54,
+        ),
       ),
     );
   }
 
-  Widget _buildTotalRow(String label, String amount, {bool isBold = false, Color? color}) {
+  // ==================== MILESTONE TABLE ====================
+  Widget _buildMilestoneTable(Invoice invoice) {
+    double subtotal = invoice.milestones.fold(0, (sum, m) => sum + m.amount);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'MILESTONE BREAKDOWN',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        // Table Header
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          color: Colors.grey[100],
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'DESCRIPTION',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: Text(
+                  'AMOUNT',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                    letterSpacing: 0.5,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Milestone Items
+        ...invoice.milestones.map((m) => Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Colors.grey[200]!),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  m.title,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: Text(
+                  currencyFormat.format(m.amount),
+                  style: const TextStyle(fontSize: 12),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
+          ),
+        )),
+        
+        const Divider(height: 24),
+        
+        // Totals
+        _buildTotalLine('Subtotal', currencyFormat.format(subtotal)),
+        const SizedBox(height: 6),
+        _buildTotalLine('Platform Fee (10%)', currencyFormat.format(subtotal * 0.1)),
+        const Divider(height: 16),
+        _buildTotalLine('TOTAL', currencyFormat.format(subtotal * 1.1), isBold: true),
+      ],
+    );
+  }
+
+  Widget _buildTotalLine(String label, String amount, {bool isBold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            color: color ?? Colors.black87,
           ),
         ),
         Text(
           amount,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-            color: color ?? Colors.black87,
           ),
         ),
       ],
@@ -674,94 +481,96 @@ class EmployerInvoiceViewScreen extends StatelessWidget {
 
   // ==================== PAYMENT SUMMARY ====================
   Widget _buildPaymentSummary(Invoice invoice) {
-    double total = invoice.milestones.fold(0, (sum, m) => sum + m.amount);
-    double platformFee = total * 0.1;
-    double grandTotal = total + platformFee;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.green, Colors.green.withOpacity(0.8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'PAYMENT SUMMARY',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.green.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+        const SizedBox(height: 16),
+        
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: Colors.grey[50],
+          child: Column(
+            children: [
+              _buildSummaryRow('Payment Status', 'PAID', isPaid: true),
+              const SizedBox(height: 10),
+              _buildSummaryRow('Transaction ID', 'TXN-${invoice.id.toString().substring(0, 8).toUpperCase()}'),
+              const SizedBox(height: 10),
+              _buildSummaryRow('Payment Date', dateFormat.format(invoice.issuedAt)),
+              const SizedBox(height: 10),
+              _buildSummaryRow('Payment Method', invoice.paymentMethod ?? 'Bank Transfer'),
+            ],
           ),
-        ],
-      ),
-      child: Column(
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value, {bool isPaid = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isPaid ? FontWeight.bold : FontWeight.normal,
+            color: isPaid ? Colors.green : Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==================== BANK DETAILS ====================
+  Widget _buildBankDetails() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'BANK DETAILS',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildBankRow('Bank Name:', 'Chase Bank'),
+        _buildBankRow('Account Name:', 'Templink Inc.'),
+        _buildBankRow('Account Number:', '**** **** **** 1234'),
+        _buildBankRow('Routing Number:', '021000021'),
+        _buildBankRow('SWIFT Code:', 'CHASUS33'),
+      ],
+    );
+  }
+
+  Widget _buildBankRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
         children: [
-          const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text(
-                'Payment Completed',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Colors.black54),
+            ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Transaction ID:',
-                style: TextStyle(color: Colors.white70),
-              ),
-              Text(
-                'TXN-${invoice.id.toString().substring(0, 8).toUpperCase()}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Payment Date:',
-                style: TextStyle(color: Colors.white70),
-              ),
-              Text(
-                dateFormat.format(invoice.issuedAt),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Total Amount:',
-                style: TextStyle(color: Colors.white70),
-              ),
-              Text(
-                currencyFormat.format(grandTotal),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ],
+          Text(
+            value,
+            style: const TextStyle(fontSize: 11),
           ),
         ],
       ),
@@ -770,69 +579,450 @@ class EmployerInvoiceViewScreen extends StatelessWidget {
 
   // ==================== FOOTER ====================
   Widget _buildFooter() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+    return Column(
+      children: [
+        const Text(
+          'Thank you for your business!',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.5,
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          const Text(
-            'Thank you for your business!',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'This is a computer generated invoice. No signature required.',
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey[500],
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Templink Inc.',
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.grey[400],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'This is a computer generated invoice. No signature required.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
+            const SizedBox(width: 16),
+            Text(
+              'support@templink.com',
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.grey[400],
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            const SizedBox(width: 16),
+            Text(
+              'www.templink.com',
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.grey[400],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ==================== PDF GENERATION ====================
+  Future<void> _generateAndDownloadPDF() async {
+    try {
+      final invoice = controller.invoice.value;
+      if (invoice == null) {
+        Get.snackbar('Error', 'No invoice data available');
+        return;
+      }
+
+      Get.dialog(
+        const Center(child: CircularProgressIndicator()),
+        barrierDismissible: false,
+      );
+
+      final pdf = await _generatePDF(invoice);
+      final output = await getTemporaryDirectory();
+      final filePath = '${output.path}/Invoice_${invoice.invoiceNumber}.pdf';
+      final file = File(filePath);
+      await file.writeAsBytes(pdf);
+
+      if (Get.isDialogOpen ?? false) Get.back();
+
+      Get.snackbar(
+        'Success',
+        'Invoice downloaded successfully',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        mainButton: TextButton(
+          onPressed: () => _openFile(filePath),
+          child: const Text('OPEN', style: TextStyle(color: Colors.white)),
+        ),
+      );
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      Get.snackbar('Error', 'Failed to generate PDF: $e');
+    }
+  }
+
+  Future<Uint8List> _generatePDF(Invoice invoice) async {
+    final pdf = pw.Document();
+
+    // Load fonts
+    final font = await PdfGoogleFonts.nunitoRegular();
+    final fontBold = await PdfGoogleFonts.nunitoBold();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          double subtotal = invoice.milestones.fold(0, (sum, m) => sum + m.amount);
+          double platformFee = subtotal * 0.1;
+          double total = subtotal + platformFee;
+
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              Icon(Icons.print, size: 16, color: Colors.grey[400]),
-              const SizedBox(width: 4),
-              Text(
-                'Templink Inc.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[400],
+              // Header
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(8),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: PdfColors.black, width: 2),
+                        ),
+                        child: pw.Text(
+                          'INVOICE',
+                          style: pw.TextStyle(
+                            fontSize: 28,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 3,
+                          ),
+                        ),
+                      ),
+                      pw.SizedBox(height: 16),
+                      pw.Text(
+                        invoice.invoiceNumber,
+                        style: pw.TextStyle(fontSize: 12, color: PdfColors.grey600),
+                      ),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        'Templink Inc.',
+                        style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text('123 Business Avenue', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                      pw.Text('Suite 100, New York, NY 10001', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                      pw.SizedBox(height: 4),
+                      pw.Text('support@templink.com', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                      pw.Text('+1 (555) 123-4567', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                    ],
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 32),
+              pw.Divider(),
+              pw.SizedBox(height: 32),
+              
+              // Client Details
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'BILL TO',
+                          style: pw.TextStyle(
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        pw.SizedBox(height: 8),
+                        pw.Text(
+                          invoice.employerCompany ?? invoice.employerName,
+                          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(invoice.employerEmail, style: pw.TextStyle(fontSize: 11, color: PdfColors.grey600)),
+                        if (invoice.contractNumber != null) ...[
+                          pw.SizedBox(height: 2),
+                          pw.Text(invoice.contractNumber!, style: pw.TextStyle(fontSize: 11, color: PdfColors.grey600)),
+                        ],
+                      ],
+                    ),
+                  ),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'INVOICE DETAILS',
+                          style: pw.TextStyle(
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        pw.SizedBox(height: 8),
+                        _buildPdfDetailRow('Invoice Date:', dateFormat.format(invoice.issuedAt)),
+                        _buildPdfDetailRow('Due Date:', invoice.dueDate != null
+                            ? dateFormat.format(invoice.dueDate!)
+                            : dateFormat.format(invoice.issuedAt.add(const Duration(days: 15)))),
+                        _buildPdfDetailRow('Project:', invoice.projectTitle),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 32),
+              pw.Divider(),
+              pw.SizedBox(height: 24),
+              
+              // Milestone Table
+              pw.Text(
+                'MILESTONE BREAKDOWN',
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+              pw.SizedBox(height: 12),
+              
+              // Table Header
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                decoration: pw.BoxDecoration(color: PdfColors.grey100),
+                child: pw.Row(
+                  children: [
+                    pw.Expanded(
+                      flex: 3,
+                      child: pw.Text(
+                        'DESCRIPTION',
+                        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                      ),
+                    ),
+                    pw.Expanded(
+                      flex: 1,
+                      child: pw.Text(
+                        'AMOUNT',
+                        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Milestone Items
+              ...invoice.milestones.map((m) => pw.Container(
+                padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey300)),
+                ),
+                child: pw.Row(
+                  children: [
+                    pw.Expanded(
+                      flex: 3,
+                      child: pw.Text(m.title, style: pw.TextStyle(fontSize: 11)),
+                    ),
+                    pw.Expanded(
+                      flex: 1,
+                      child: pw.Text(
+                        '\$${m.amount.toStringAsFixed(2)}',
+                        style: pw.TextStyle(fontSize: 11),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+              
+              pw.SizedBox(height: 16),
+              pw.Divider(),
+              pw.SizedBox(height: 8),
+              
+              // Totals
+              _buildPdfTotalLine('Subtotal:', '\$${subtotal.toStringAsFixed(2)}'),
+              _buildPdfTotalLine('Platform Fee (10%):', '\$${platformFee.toStringAsFixed(2)}'),
+              pw.SizedBox(height: 4),
+              _buildPdfTotalLine('TOTAL:', '\$${total.toStringAsFixed(2)}', isBold: true),
+              
+              pw.SizedBox(height: 32),
+              pw.Divider(),
+              pw.SizedBox(height: 24),
+              
+              // Footer
+              pw.Center(
+                child: pw.Column(
+                  children: [
+                    pw.Text(
+                      'Thank you for your business!',
+                      style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.normal),
+                    ),
+                    pw.SizedBox(height: 8),
+                    pw.Text(
+                      'This is a computer generated invoice. No signature required.',
+                      style: pw.TextStyle(fontSize: 9, color: PdfColors.grey500),
+                    ),
+                    pw.SizedBox(height: 16),
+                    pw.Text(
+                      'Templink Inc. | support@templink.com | www.templink.com',
+                      style: pw.TextStyle(fontSize: 8, color: PdfColors.grey400),
+                    ),
+                  ],
                 ),
               ),
             ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  pw.Widget _buildPdfDetailRow(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 4),
+      child: pw.Row(
+        children: [
+          pw.SizedBox(
+            width: 80,
+            child: pw.Text(label, style: pw.TextStyle(fontSize: 11, color: PdfColors.grey600)),
+          ),
+          pw.Expanded(
+            child: pw.Text(value, style: pw.TextStyle(fontSize: 11)),
           ),
         ],
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfTotalLine(String label, String value, {bool isBold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            label,
+            style: pw.TextStyle(
+              fontSize: 11,
+              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            ),
+          ),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              fontSize: 11,
+              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== ERROR STATE ====================
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey[400]),
+            const SizedBox(height: 24),
+            const Text(
+              'No Invoice Found',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Invoice for this project has not been generated yet.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: () => Get.back(),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Go Back'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   // ==================== HELPER METHODS ====================
-  void _downloadInvoice() {
-    controller.downloadInvoice(projectId);
+  Future<void> _sharePDF() async {
+    try {
+      final invoice = controller.invoice.value;
+      if (invoice == null) return;
+
+      Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+      
+      final pdf = await _generatePDF(invoice);
+      final output = await getTemporaryDirectory();
+      final filePath = '${output.path}/Invoice_${invoice.invoiceNumber}.pdf';
+      final file = File(filePath);
+      await file.writeAsBytes(pdf);
+
+      if (Get.isDialogOpen ?? false) Get.back();
+
+      await Share.shareXFiles(
+        [XFile(filePath)],
+        text: 'Invoice ${invoice.invoiceNumber} for project ${invoice.projectTitle}',
+      );
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      Get.snackbar('Error', 'Failed to share PDF: $e');
+    }
   }
 
-  void _shareInvoice() {
-    Get.snackbar(
-      'Share',
-      'Sharing options opened',
-      backgroundColor: Colors.blue,
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
-    );
+  Future<void> _printInvoice() async {
+    try {
+      final invoice = controller.invoice.value;
+      if (invoice == null) return;
+
+      final pdf = await _generatePDF(invoice);
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf,
+      );
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to print: $e');
+    }
+  }
+
+  void _openFile(String path) {
+    // Open file functionality can be added here
+    Get.snackbar('Info', 'File saved to: $path');
   }
 }

@@ -38,7 +38,8 @@ class SettingsScreen extends StatelessWidget {
             title: 'Profile',
             subtitle: 'Manage your profile details',
             onTap: () {
-              Get.to(() => const EmployerProfileScreen()); // Placeholder for Profile Screen
+              // Get.to(() => const EmployerProfileScreen(
+              // )); 
             },
           ),
           _tile(

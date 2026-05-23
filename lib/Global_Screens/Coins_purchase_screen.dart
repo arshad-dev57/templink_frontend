@@ -1,31 +1,60 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Utils/colors.dart';
 import 'package:templink/config/api_config.dart';
 
+// ─── Design tokens (matches Applied Jobs screen) ─────────────────────────────────
+const _bg      = Color(0xFFF7F8FA);
+const _surface = Colors.white;
+const _border  = Color(0xFFE5E7EB);
+const _text1   = Color(0xFF111827);
+const _text2   = Color(0xFF6B7280);
+const _text3   = Color(0xFF9CA3AF);
+const _green   = Color(0xFF16A34A);
+const _r       = 12.0;
+
 class CoinPackage {
   final String id;
   final String name;
   final int coins;
-  final int price; 
+  final int price;
+  final String? badge;
+  final String? badgeColor;
 
   CoinPackage({
     required this.id,
     required this.name,
     required this.coins,
     required this.price,
+    this.badge,
+    this.badgeColor,
   });
 
   factory CoinPackage.fromJson(Map<String, dynamic> json) {
+    String? badge;
+    String? badgeColor;
+    
+    if (json['id'] == 'popular') {
+      badge = '🔥 Most Popular';
+      badgeColor = '#F59E0B';
+    } else if (json['id'] == 'pro') {
+      badge = '✨ Best Value';
+      badgeColor = '#8B5CF6';
+    } else if (json['id'] == 'enterprise') {
+      badge = '🚀 Enterprise';
+      badgeColor = '#3B82F6';
+    }
+    
     return CoinPackage(
       id: json['id'] ?? '',
       name: json['name'] ?? '',
       coins: json['coins'] ?? 0,
       price: json['price'] ?? 0,
+      badge: badge,
+      badgeColor: badgeColor,
     );
   }
 
@@ -35,7 +64,14 @@ class CoinPackage {
 }
 
 class CoinsPurchaseScreen extends StatefulWidget {
-  const CoinsPurchaseScreen({Key? key}) : super(key: key);
+  final VoidCallback? onBackPressed;
+  final bool showSidebar;
+  
+  const CoinsPurchaseScreen({
+    Key? key,
+    this.onBackPressed,
+    this.showSidebar = true,
+  }) : super(key: key);
 
   @override
   State<CoinsPurchaseScreen> createState() => _CoinsPurchaseScreenState();
@@ -52,9 +88,9 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
   var selectedPaymentMethod = 'card'.obs;
 
   final List<Map<String, dynamic>> paymentMethods = [
-    {'id': 'card', 'name': 'Credit / Debit Card', 'icon': Icons.credit_card, 'color': Colors.blue},
-    {'id': 'google_pay', 'name': 'Google Pay', 'icon': Icons.payment, 'color': Colors.black},
-    {'id': 'apple_pay', 'name': 'Apple Pay', 'icon': Icons.apple, 'color': Colors.black},
+    {'id': 'card', 'name': 'Credit / Debit Card', 'icon': Icons.credit_card, 'color': Color(0xFF3B82F6)},
+    {'id': 'google_pay', 'name': 'Google Pay', 'icon': Icons.payment, 'color': Color(0xFF1F2937)},
+    {'id': 'apple_pay', 'name': 'Apple Pay', 'icon': Icons.apple, 'color': Color(0xFF1F2937)},
   ];
 
   @override
@@ -81,6 +117,7 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
         Uri.parse('$baseUrl/api/coins/packages'),
         headers: {
           'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
         },
       );
 
@@ -107,6 +144,7 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
         Uri.parse('$baseUrl/api/coins/balance'),
         headers: {
           'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
         },
       );
 
@@ -126,7 +164,6 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
       isProcessing.value = true;
       selectedPackage.value = package;
 
-      // 1. Create payment intent
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
 
@@ -148,59 +185,13 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
       final paymentData = jsonDecode(paymentResponse.body);
       final clientSecret = paymentData['clientSecret'];
 
-      // 2. Initialize Stripe payment sheet
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          merchantDisplayName: 'Templink',
-          paymentIntentClientSecret: clientSecret,
-          googlePay: const PaymentSheetGooglePay(
-            merchantCountryCode: 'US',
-            currencyCode: 'USD',
-            testEnv: true,
-          ),
-          style: ThemeMode.light,
-          appearance: PaymentSheetAppearance(
-            colors: PaymentSheetAppearanceColors(
-              primary: primary,
-              background: Colors.white,
-              componentBackground: Colors.grey.shade50,
-              componentDivider: Colors.grey.shade300,
-              componentBorder: Colors.grey.shade400,
-              placeholderText: Colors.grey.shade500,
-              icon: primary,
-            ),
-            shapes: PaymentSheetShape(
-              borderWidth: 1,
-              borderRadius: 12,
-            ),
-            primaryButton: PaymentSheetPrimaryButtonAppearance(
-              colors: PaymentSheetPrimaryButtonTheme(
-                light: PaymentSheetPrimaryButtonThemeColors(
-                  background: primary,
-                  text: Colors.white,
-                  border: primary,
-                ),
-                dark: PaymentSheetPrimaryButtonThemeColors(
-                  background: primary,
-                  text: Colors.white,
-                  border: primary,
-                ),
-              ),
-              shapes: PaymentSheetPrimaryButtonShape(
-                borderWidth: 0,
-                blurRadius: 12,
-              ),
-            ),
-          ),
-        ),
-      );
       bool confirm = await _showConfirmationDialog(package);
       if (!confirm) {
         isProcessing.value = false;
         selectedPackage.value = null;
         return;
       }
-      await Stripe.instance.presentPaymentSheet();
+
       Get.dialog(
         const Center(
           child: Material(
@@ -232,17 +223,14 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
           'packageId': package.id,
         }),
       );
+      
       if (Get.isDialogOpen ?? false) Get.back();
 
       if (verifyResponse.statusCode == 200) {
         final verifyData = jsonDecode(verifyResponse.body);
         if (verifyData['success'] == true) {
           currentBalance.value = verifyData['newBalance'] ?? 0;
-          
-          _showSuccessDialog(
-            package.coins,
-            verifyData['newBalance'],
-          );
+          _showSuccessDialog(package.coins, verifyData['newBalance']);
         }
       } else {
         throw Exception('Payment verification failed');
@@ -414,12 +402,12 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: _green.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.check_circle,
-                color: Colors.green,
+                color: _green,
                 size: 60,
               ),
             ),
@@ -453,7 +441,7 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
                     'New Balance: $newBalance coins',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey.shade600,
+                      color: _text2,
                     ),
                   ),
                 ],
@@ -484,143 +472,84 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          "Buy Coins",
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: primary.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.bolt,
-                  color: primary,
-                  size: 18,
-                ),
-                const SizedBox(width: 4),
-                Obx(() => Text(
-                  '${currentBalance.value}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: primary,
-                  ),
-                )),
-              ],
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: _bg,
+      appBar: _buildAppBar(),
       body: Obx(() {
         if (isLoading.value) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: primary));
         }
 
         return Stack(
           children: [
-            SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [primary, primary.withOpacity(0.8)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+            CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // Banner
+                SliverToBoxAdapter(
+                  child: _buildInfoBanner(),
+                ),
+                
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                
+                // Section Title
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      "Select Package",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: _text1,
                       ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.info_outline,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Why buy coins?',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '• Submit proposals (13 coins each)\n• Boost your profile visibility\n• Get more client interviews',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white.withOpacity(0.9),
-                                  height: 1.4,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
                     ),
                   ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  const Text(
-                    "Select Package",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                ),
+                
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                
+                // Packages List
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildPackageCard(packages[i]),
+                      ),
+                      childCount: packages.length,
                     ),
                   ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  ...packages.map((package) => _buildPackageCard(package)).toList(),
-                  
-                  const SizedBox(height: 24),
-                  
-                  const Text(
-                    "Payment Method",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                ),
+                
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                
+                // Payment Method Section
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      "Payment Method",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: _text1,
+                      ),
                     ),
                   ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  _buildPaymentMethods(),
-                  
-                  const SizedBox(height: 30),
-                ],
-              ),
+                ),
+                
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildPaymentMethods(),
+                  ),
+                ),
+                
+                const SliverToBoxAdapter(child: SizedBox(height: 32)),
+              ],
             ),
             
             if (isProcessing.value)
@@ -637,7 +566,7 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          CircularProgressIndicator(),
+                          CircularProgressIndicator(color: primary),
                           SizedBox(height: 16),
                           Text(
                             'Processing...',
@@ -655,50 +584,152 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
     );
   }
 
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: _surface,
+      foregroundColor: _text1,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      titleSpacing: 0,
+      leading: widget.onBackPressed != null
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, size: 17, color: _text2),
+              onPressed: widget.onBackPressed)
+          : IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, size: 17, color: _text2),
+              onPressed: () => Navigator.pop(context)),
+      title: const Text(
+        'Buy Coins',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: _text1,
+        ),
+      ),
+      bottom: const PreferredSize(
+        preferredSize: Size.fromHeight(1),
+        child: Divider(height: 1, color: _border),
+      ),
+      actions: [
+        Container(
+          margin: const EdgeInsets.only(right: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: primary.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.bolt,
+                color: primary,
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Obx(() => Text(
+                '${currentBalance.value}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: primary,
+                ),
+              )),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [primary, primary.withOpacity(0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(_r),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.info_outline,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Why buy coins?',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '• Submit proposals (13 coins each)\n• Boost your profile visibility\n• Get more client interviews',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white.withOpacity(0.85),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPackageCard(CoinPackage package) {
     final isSelected = selectedPackage.value?.id == package.id;
-    String savings = '';
-    if (package.id == 'popular') {
-      savings = '🔥 Most Popular';
-    } else if (package.id == 'pro') {
-      savings = '✨ Best Value';
-    } else if (package.id == 'enterprise') {
-      savings = '🚀 Enterprise';
-    }
     
-    final coinsPerDollar = package.coinsPerDollar.toStringAsFixed(1);
-
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(_r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Stack(
         children: [
-          if (savings.isNotEmpty)
+          if (package.badge != null)
             Positioned(
               top: 12,
               right: 12,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: package.id == 'popular' ? Colors.orange :
-                         package.id == 'pro' ? Colors.purple :
-                         Colors.blue,
+                  color: Color(int.parse(package.badgeColor!.substring(1), radix: 16)).withOpacity(0.9),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  savings,
+                  package.badge!,
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
@@ -706,142 +737,169 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
             ),
           
           Container(
-            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              color: _surface,
+              borderRadius: BorderRadius.circular(_r),
               border: Border.all(
-                color: isSelected ? primary : Colors.grey.shade200,
+                color: isSelected ? primary : _border,
                 width: isSelected ? 2 : 1,
               ),
             ),
             child: Column(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: primary.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Text(
-                          '💰',
-                          style: TextStyle(fontSize: 28),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
                         children: [
-                          Text(
-                            package.name,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                '💰',
+                                style: TextStyle(fontSize: 24),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${package.coins} Coins',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: primary,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  package.name,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: _text1,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${package.coins} Coins',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: primary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 20),
-                
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Price',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
+                      
+                      const SizedBox(height: 16),
+                      
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Price',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _text3,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  package.displayPrice,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: _text1,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          package.displayPrice,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                          Container(
+                            width: 1,
+                            height: 40,
+                            color: _border,
                           ),
-                        ),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'Value',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Value',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _text3,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${package.coinsPerDollar.toStringAsFixed(1)} coins/\$',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: _green,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$coinsPerDollar coins/\$',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.green.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 20),
-                
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: isProcessing.value ? null : () => purchaseCoins(package),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isSelected ? primary : Colors.grey.shade100,
-                      foregroundColor: isSelected ? Colors.white : Colors.black87,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        ],
                       ),
-                      elevation: isSelected ? 4 : 0,
+                    ],
+                  ),
+                ),
+                
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? primary.withOpacity(0.05) : const Color(0xFFF9FAFB),
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(_r),
                     ),
-                    child: isProcessing.value && selectedPackage.value?.id == package.id
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            isSelected ? 'Selected' : 'Select Package',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            ),
+                    border: Border(
+                      top: BorderSide(color: _border),
+                    ),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isProcessing.value ? null : () => purchaseCoins(package),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isSelected ? primary : Colors.white,
+                        foregroundColor: isSelected ? Colors.white : primary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(
+                            color: isSelected ? primary : _border,
                           ),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: isProcessing.value && selectedPackage.value?.id == package.id
+                          ? SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: isSelected ? Colors.white : primary,
+                              ),
+                            )
+                          : Text(
+                              isSelected ? 'Selected' : 'Select Package',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              ),
+                            ),
+                    ),
                   ),
                 ),
               ],
@@ -854,25 +912,30 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
 
   Widget _buildPaymentMethods() {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        color: _surface,
+        borderRadius: BorderRadius.circular(_r),
+        border: Border.all(color: _border),
       ),
       child: Column(
-        children: paymentMethods.map((method) {
+        children: paymentMethods.asMap().entries.map((entry) {
+          final index = entry.key;
+          final method = entry.value;
           final isSelected = selectedPaymentMethod.value == method['id'];
+          final isLast = index == paymentMethods.length - 1;
+          
           return GestureDetector(
             onTap: () => selectedPaymentMethod.value = method['id'],
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: method != paymentMethods.last ? Colors.grey.shade200 : Colors.transparent,
-                  ),
-                ),
+                color: isSelected ? primary.withOpacity(0.03) : Colors.transparent,
+                borderRadius: isLast
+                    ? const BorderRadius.vertical(bottom: Radius.circular(_r))
+                    : null,
+                border: !isLast
+                    ? Border(bottom: BorderSide(color: _border))
+                    : null,
               ),
               child: Row(
                 children: [
@@ -881,7 +944,7 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
                     height: 40,
                     decoration: BoxDecoration(
                       color: (method['color'] as Color).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       method['icon'],
@@ -893,17 +956,35 @@ class _CoinsPurchaseScreenState extends State<CoinsPurchaseScreen> {
                   Expanded(
                     child: Text(
                       method['name'],
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
+                        color: _text1,
                       ),
                     ),
                   ),
-                  Radio<String>(
-                    value: method['id'],
-                    groupValue: selectedPaymentMethod.value,
-                    onChanged: (value) => selectedPaymentMethod.value = value!,
-                    activeColor: primary,
+                  Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected ? primary : _border,
+                        width: 2,
+                      ),
+                    ),
+                    child: isSelected
+                        ? Center(
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: primary,
+                              ),
+                            ),
+                          )
+                        : null,
                   ),
                 ],
               ),

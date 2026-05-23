@@ -6,762 +6,1158 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Employee/Controllers/job_apply_application_controller.dart';
 import 'package:templink/Employee/models/job_application_model.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:templink/Utils/responsive.dart';
 import 'package:templink/config/api_config.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+// ─── Design tokens ─────────────────────────────────────────────────────────────
+const _bg      = Color(0xFFF7F8FA);
+const _surface = Colors.white;
+const _border  = Color(0xFFE5E7EB);
+const _text1   = Color(0xFF111827);
+const _text2   = Color(0xFF6B7280);
+const _text3   = Color(0xFF9CA3AF);
+const _red     = Color(0xFFDC2626);
+const _green   = Color(0xFF16A34A);
+const _amber   = Color(0xFFD97706);
+const _r       = 10.0;
+
 class EmployeeApplicationDetailScreen extends StatelessWidget {
   final EmployeeApplication application;
+  final VoidCallback? onBackPressed;
+  final bool showSidebar;
+
   final JobApplicationController controller = Get.find();
   final String baseUrl = ApiConfig.baseUrl;
 
-  EmployeeApplicationDetailScreen({super.key, required this.application});
+  EmployeeApplicationDetailScreen({
+    super.key,
+    required this.application,
+    this.onBackPressed,
+    this.showSidebar = true,
+  });
 
-  // ============== MARK JOB AS LEFT ==============
+  // ── Resume opener ────────────────────────────────────────────────────────────
+  Future<void> _openResume() async {
+    if (application.resumeFileUrl.isEmpty) return;
+    try {
+      final uri = Uri.parse(application.resumeFileUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        _snack('Error', 'Could not open resume', isError: true);
+      }
+    } catch (_) {
+      _snack('Error', 'Failed to open resume', isError: true);
+    }
+  }
+
+  // ── Leave job flow ────────────────────────────────────────────────────────────
   Future<void> _markAsLeft() async {
-    final reasonController = TextEditingController();
-    
+    final reasonCtrl = TextEditingController();
+
     final confirm = await Get.dialog<bool>(
-      AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text(
-          'Leave this Job?',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Are you sure you want to leave this job?',
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.shade200),
-              ),
-              child: const Row(
+      Dialog(
+        backgroundColor: _surface,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Dialog header
+              Row(
                 children: [
-                  Icon(Icons.info, color: Colors.orange),
-                  SizedBox(width: 8),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.exit_to_app_outlined,
+                        size: 18, color: _red),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('Leave this job?',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: _text1)),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Warning banner
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline_rounded,
+                        size: 14, color: _amber),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'This will notify the employer and update your application status.',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: _amber,
+                            height: 1.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Reason field
+              TextField(
+                controller: reasonCtrl,
+                maxLines: 3,
+                style: const TextStyle(fontSize: 13, color: _text1),
+                decoration: InputDecoration(
+                  hintText: 'Reason for leaving (optional)',
+                  hintStyle:
+                      const TextStyle(fontSize: 13, color: _text3),
+                  contentPadding: const EdgeInsets.all(12),
+                  filled: true,
+                  fillColor: _bg,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: _border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: _border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide:
+                        BorderSide(color: primary, width: 1.5),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Action buttons
+              Row(
+                children: [
                   Expanded(
-                    child: Text(
-                      'This will notify the employer and update your application status.',
-                      style: TextStyle(fontSize: 12, color: Colors.orange),
+                    child: _DBtn(
+                      label: 'Cancel',
+                      onTap: () => Get.back(result: false),
+                      variant: _DBtnVariant.ghost,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _DBtn(
+                      label: 'Confirm Leave',
+                      onTap: () => Get.back(result: true),
+                      variant: _DBtnVariant.danger,
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: reasonController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Reason for leaving (optional)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.grey[600],
-            ),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Get.back(result: true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('Confirm Leave'),
-          ),
-        ],
       ),
     );
 
     if (confirm == true) {
-      await _submitLeaveRequest(reasonController.text);
+      await _submitLeaveRequest(reasonCtrl.text);
     }
   }
-Future<void> _submitLeaveRequest(String reason) async {
-  try {
-    // Show loading
-    Get.dialog(
-      const Center(child: CircularProgressIndicator()),
-      barrierDismissible: false,
-    );
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
-    final response = await http.patch(
-      Uri.parse('$baseUrl/api/applications/${application.id}/left'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'reason': reason,
-      }),
-    );
-
-    if (Get.isDialogOpen ?? false) Get.back();
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      
-      Get.snackbar(
-        'Success',
-        data['message'] ?? 'Job marked as left',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
+  Future<void> _submitLeaveRequest(String reason) async {
+    try {
+      Get.dialog(
+        const Center(
+            child: CircularProgressIndicator(color: primary)),
+        barrierDismissible: false,
       );
-      
-      // ✅ IMPORTANT: Refresh karo taake list update ho
-      await controller.fetchMyApplications();
-      
-      // ✅ WAPIS JAO - List screen par
-      Get.back(); // Detail screen band karo
-      
-      // Agar chahte ho to dubara snackbar dikhao
-      // Get.back() ke baad bhi snackbar dikhega
-      
-    } else {
-      throw Exception('Failed to update');
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/applications/${application.id}/left'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'reason': reason}),
+      );
+
+      if (Get.isDialogOpen ?? false) Get.back();
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        _snack('Done', data['message'] ?? 'Job marked as left');
+        await controller.fetchMyApplications();
+        Get.back();
+      } else {
+        throw Exception('Failed to update');
+      }
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      _snack('Error', e.toString(), isError: true);
     }
-  } catch (e) {
-    if (Get.isDialogOpen ?? false) Get.back();
+  }
+
+  void _snack(String title, String msg, {bool isError = false}) {
     Get.snackbar(
-      'Error',
-      e.toString(),
-      backgroundColor: Colors.red,
+      title,
+      msg,
+      backgroundColor: isError ? _red : _green,
       colorText: Colors.white,
       snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 2),
+      margin: const EdgeInsets.all(16),
+      borderRadius: 10,
+    );
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────────
+  @override
+  Widget build(BuildContext context) {
+    Responsive.init(context);
+    final isWeb =
+        Responsive.isDesktop(context) || Responsive.isTablet(context);
+
+    if (isWeb && !showSidebar) {
+      return Scaffold(
+        backgroundColor: _bg,
+        body: Column(
+          children: [
+            _WebTopBar(
+              title: application.jobSnapshot.title,
+              onBack: onBackPressed,
+              hasResume: application.resumeFileUrl.isNotEmpty,
+              onResume: _openResume,
+            ),
+            Expanded(child: _buildScrollBody(context)),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: _buildAppBar(),
+      body: _buildScrollBody(context),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: _surface,
+      foregroundColor: _text1,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      titleSpacing: 0,
+      leading: onBackPressed != null
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new,
+                  size: 17, color: _text2),
+              onPressed: onBackPressed)
+          : null,
+      title: Text(
+        application.jobSnapshot.title,
+        style: const TextStyle(
+            fontSize: 15, fontWeight: FontWeight.w600, color: _text1),
+        overflow: TextOverflow.ellipsis,
+      ),
+      actions: [
+        if (application.resumeFileUrl.isNotEmpty)
+          IconButton(
+            icon: const Icon(Icons.open_in_new_outlined,
+                size: 19, color: _text2),
+            onPressed: _openResume,
+            tooltip: 'Open Resume',
+          ),
+        const SizedBox(width: 4),
+      ],
+      bottom: const PreferredSize(
+        preferredSize: Size.fromHeight(1),
+        child: Divider(height: 1, color: _border),
+      ),
+    );
+  }
+
+  Widget _buildScrollBody(BuildContext context) {
+    final isWeb =
+        Responsive.isDesktop(context) || Responsive.isTablet(context);
+    final hPad = isWeb ? 28.0 : 16.0;
+
+    return SingleChildScrollView(
+      padding:
+          EdgeInsets.symmetric(horizontal: hPad, vertical: 20),
+      child: isWeb
+          ? _buildWebLayout()
+          : _buildMobileLayout(),
+    );
+  }
+
+  // ── Web: two-column layout ────────────────────────────────────────────────────
+  Widget _buildWebLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Left column — main content
+        Expanded(
+          flex: 3,
+          child: Column(
+            children: [
+              _CompanyHeader(application: application),
+              const SizedBox(height: 16),
+              _JobDetailsCard(
+                  application: application, controller: controller),
+              const SizedBox(height: 16),
+              if (application.coverLetter.isNotEmpty) ...[
+                _CoverLetterCard(application: application),
+                const SizedBox(height: 16),
+              ],
+              if (application.employeeSnapshot.skills.isNotEmpty) ...[
+                _SkillsCard(application: application),
+                const SizedBox(height: 16),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+
+        // Right column — status + resume + action
+        Expanded(
+          flex: 2,
+          child: Column(
+            children: [
+              _StatusCard(
+                  application: application, controller: controller),
+              const SizedBox(height: 16),
+              _ResumeCard(
+                  application: application, onOpen: _openResume),
+              const SizedBox(height: 16),
+              if (application.status == 'hired') ...[
+                application.employmentStatus != 'left'
+                    ? _LeaveButton(onTap: _markAsLeft)
+                    : _LeftBanner(
+                        application: application,
+                        controller: controller),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Mobile: single column ────────────────────────────────────────────────────
+  Widget _buildMobileLayout() {
+    return Column(
+      children: [
+        _CompanyHeader(application: application),
+        const SizedBox(height: 14),
+        _StatusCard(application: application, controller: controller),
+        const SizedBox(height: 14),
+        _JobDetailsCard(
+            application: application, controller: controller),
+        const SizedBox(height: 14),
+        _ResumeCard(application: application, onOpen: _openResume),
+        if (application.coverLetter.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _CoverLetterCard(application: application),
+        ],
+        if (application.employeeSnapshot.skills.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _SkillsCard(application: application),
+        ],
+        if (application.status == 'hired') ...[
+          const SizedBox(height: 14),
+          application.employmentStatus != 'left'
+              ? _LeaveButton(onTap: _markAsLeft)
+              : _LeftBanner(
+                  application: application, controller: controller),
+        ],
+        const SizedBox(height: 24),
+      ],
     );
   }
 }
-  // ============== OPEN RESUME ==============
-  Future<void> _openResume() async {
-    if (application.resumeFileUrl.isEmpty) return;
 
-    try {
-      final Uri uri = Uri.parse(application.resumeFileUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        Get.snackbar(
-          'Error',
-          'Could not open resume',
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-        );
-      }
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to open resume',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
-  }
+// ─── Web Top Bar ───────────────────────────────────────────────────────────────
+class _WebTopBar extends StatelessWidget {
+  final String title;
+  final VoidCallback? onBack;
+  final bool hasResume;
+  final VoidCallback onResume;
+
+  const _WebTopBar({
+    required this.title,
+    required this.onBack,
+    required this.hasResume,
+    required this.onResume,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: Text(
-          application.jobSnapshot.title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        backgroundColor: primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          if (application.resumeFileUrl.isNotEmpty)
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: const BoxDecoration(
+        color: _surface,
+        border: Border(bottom: BorderSide(color: _border, width: 1)),
+      ),
+      child: Row(
+        children: [
+          if (onBack != null) ...[
             IconButton(
-              icon: const Icon(Icons.picture_as_pdf),
-              onPressed: _openResume,
-              tooltip: 'View Resume',
+              icon: const Icon(Icons.arrow_back_ios_new,
+                  size: 16, color: _text2),
+              onPressed: onBack,
+              style: IconButton.styleFrom(
+                  minimumSize: const Size(32, 32),
+                  padding: EdgeInsets.zero),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Text(title,
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: _text1),
+                overflow: TextOverflow.ellipsis),
+          ),
+          if (hasResume)
+            TextButton.icon(
+              onPressed: onResume,
+              icon: const Icon(Icons.open_in_new_outlined,
+                  size: 15),
+              label: const Text('Resume'),
+              style: TextButton.styleFrom(
+                foregroundColor: primary,
+                textStyle: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w500),
+              ),
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Company Header Card
-            _buildCompanyHeaderCard(),
-            
-            const SizedBox(height: 16),
+    );
+  }
+}
 
-            // Job Details Card
-            _buildJobDetailsCard(),
-            
-            const SizedBox(height: 16),
+// ─── Company Header ───────────────────────────────────────────────────────────
+class _CompanyHeader extends StatelessWidget {
+  final EmployeeApplication application;
+  const _CompanyHeader({required this.application});
 
-            // Application Status Card
-            _buildStatusCard(),
-            
-            const SizedBox(height: 16),
+  @override
+  Widget build(BuildContext context) {
+    final emp = application.employerSnapshot;
 
-            // Cover Letter Card
-            if (application.coverLetter.isNotEmpty)
-              _buildCoverLetterCard(),
-            
-            const SizedBox(height: 16),
+    return _Card(
+      child: Row(
+        children: [
+          // Logo
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: emp.logoUrl.isNotEmpty
+                ? Image.network(emp.logoUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        _Initial(name: emp.companyName))
+                : _Initial(name: emp.companyName),
+          ),
+          const SizedBox(width: 14),
 
-            // Resume Card
-            _buildResumeCard(),
-            
-            const SizedBox(height: 16),
-
-            // Skills Card
-            if (application.employeeSnapshot.skills.isNotEmpty)
-              _buildSkillsCard(),
-            
-            const SizedBox(height: 16),
-
-            // 👇 LEFT JOB BUTTON / MESSAGE
-            if (application.status == 'hired') ...[
-              if (application.employmentStatus != 'left')
-                _buildLeaveButton()
-              else
-                _buildLeftMessage(),
-            ],
-
-            const SizedBox(height: 20),
-          ],
-        ),
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(emp.companyName,
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: _text1),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                if (emp.industry.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(emp.industry,
+                      style: const TextStyle(
+                          fontSize: 12, color: _text2),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                ],
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined,
+                        size: 12, color: _text3),
+                    const SizedBox(width: 3),
+                    Expanded(
+                      child: Text(
+                        '${emp.city}, ${emp.country}',
+                        style: const TextStyle(
+                            fontSize: 11, color: _text2),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  // ============== COMPANY HEADER CARD ==============
-  Widget _buildCompanyHeaderCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            // Company Logo
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: application.employerSnapshot.logoUrl.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.network(
-                        application.employerSnapshot.logoUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildCompanyInitials();
-                        },
-                      ),
-                    )
-                  : _buildCompanyInitials(),
+// ─── Status Card ──────────────────────────────────────────────────────────────
+class _StatusCard extends StatelessWidget {
+  final EmployeeApplication application;
+  final JobApplicationController controller;
+  const _StatusCard(
+      {required this.application, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = controller.getStatusColor(application.status);
+    final icon  = controller.getStatusIcon(application.status);
+    final text  = controller.getStatusText(application.status);
+    final isHiredActive = application.status == 'hired' &&
+        application.employmentStatus == 'active';
+
+    return _Card(
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 16),
-            
-            // Company Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    application.employerSnapshot.companyName,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (application.employerSnapshot.industry.isNotEmpty)
-                    Text(
-                      application.employerSnapshot.industry,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  const SizedBox(height: 4),
+            child: Icon(icon, size: 20, color: color),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Application Status',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: _text2,
+                        fontWeight: FontWeight.w500)),
+                const SizedBox(height: 3),
+                Text(text,
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: color)),
+                if (isHiredActive) ...[
+                  const SizedBox(height: 3),
                   Row(
                     children: [
-                      Icon(Icons.location_on, size: 14, color: Colors.grey[500]),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${application.employerSnapshot.city}, ${application.employerSnapshot.country}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: _green, shape: BoxShape.circle),
                       ),
+                      const SizedBox(width: 5),
+                      const Text('Currently working here',
+                          style: TextStyle(
+                              fontSize: 11, color: _green)),
                     ],
                   ),
                 ],
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============== JOB DETAILS CARD ==============
-  Widget _buildJobDetailsCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Job Details',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            _buildInfoRow(
-              Icons.work_outline,
-              'Position',
-              application.jobSnapshot.title,
-            ),
-            _buildInfoRow(
-              Icons.location_on_outlined,
-              'Location',
-              application.jobSnapshot.location,
-            ),
-            _buildInfoRow(
-              Icons.business_outlined,
-              'Workplace',
-              application.jobSnapshot.workplace,
-            ),
-            _buildInfoRow(
-              Icons.category_outlined,
-              'Type',
-              application.jobSnapshot.type,
-            ),
-            _buildInfoRow(
-              Icons.access_time,
-              'Applied',
-              controller.formatDate(application.appliedAt),
-            ),
-            
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 12),
-            
-            const Text(
-              'About the Job',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              application.jobSnapshot.about,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[700],
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============== STATUS CARD ==============
-  Widget _buildStatusCard() {
-    Color statusColor = controller.getStatusColor(application.status);
-    
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                controller.getStatusIcon(application.status),
-                color: statusColor,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Application Status',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    controller.getStatusText(application.status),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: statusColor,
-                    ),
-                  ),
-                  if (application.status == 'hired' && application.employmentStatus == 'active')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        'You are currently working here',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.green[700],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============== COVER LETTER CARD ==============
-  Widget _buildCoverLetterCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Your Cover Letter',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Text(
-                application.coverLetter,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[700],
-                  height: 1.6,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============== RESUME CARD ==============
-  Widget _buildResumeCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Your Resume',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.description,
-                      color: primary,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          application.resumeFileName,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${(application.resumeFileSize! / 1024).toStringAsFixed(1)} KB',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.visibility, color: primary),
-                    onPressed: _openResume,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============== SKILLS CARD ==============
-  Widget _buildSkillsCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Your Skills',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: application.employeeSnapshot.skills.map((skill) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: Text(
-                    skill,
-                    style: TextStyle(
-                      color: primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============== LEAVE BUTTON ==============
-  Widget _buildLeaveButton() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ElevatedButton.icon(
-        onPressed: _markAsLeft,
-        icon: const Icon(Icons.exit_to_app),
-        label: const Text(
-          'I Left This Job',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
           ),
-          elevation: 4,
-        ),
-      ),
-    );
-  }
 
-  // ============== LEFT MESSAGE ==============
-  Widget _buildLeftMessage() {
-    return Card(
-      color: Colors.grey[100],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.info_outline,
-                color: Colors.orange,
-                size: 32,
-              ),
+          // Status pill (right side)
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(20),
+              border:
+                  Border.all(color: color.withOpacity(0.2)),
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'You have left this job',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            if (application.leftReason != null && application.leftReason!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Reason: ${application.leftReason}',
+            child: Text(text,
                 style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-            const SizedBox(height: 4),
-            Text(
-              'Left on: ${controller.formatDate(application.leftAt!)}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[500],
-              ),
-            ),
-          ],
-        ),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: color)),
+          ),
+        ],
       ),
     );
   }
+}
 
-  // ============== HELPER: Info Row ==============
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
+// ─── Job Details Card ─────────────────────────────────────────────────────────
+class _JobDetailsCard extends StatelessWidget {
+  final EmployeeApplication application;
+  final JobApplicationController controller;
+  const _JobDetailsCard(
+      {required this.application, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final j = application.jobSnapshot;
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: Colors.grey[600]),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+          const _SectionLabel('Job Details'),
+          const SizedBox(height: 14),
+
+          // Info rows
+          _InfoRow(
+              icon: Icons.work_outline,
+              label: 'Position',
+              value: j.title),
+          _InfoRow(
+              icon: Icons.location_on_outlined,
+              label: 'Location',
+              value: j.location),
+          _InfoRow(
+              icon: Icons.laptop_outlined,
+              label: 'Workplace',
+              value: j.workplace),
+          _InfoRow(
+              icon: Icons.category_outlined,
+              label: 'Type',
+              value: j.type),
+          _InfoRow(
+              icon: Icons.calendar_today_outlined,
+              label: 'Applied',
+              value: controller.formatDate(application.appliedAt),
+              isLast: true),
+
+          if (j.about.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: _border),
+            const SizedBox(height: 14),
+            const _SectionLabel('About the job'),
+            const SizedBox(height: 10),
+            Text(j.about,
+                style: const TextStyle(
+                    fontSize: 13,
+                    color: _text2,
+                    height: 1.65)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Resume Card ──────────────────────────────────────────────────────────────
+class _ResumeCard extends StatelessWidget {
+  final EmployeeApplication application;
+  final VoidCallback onOpen;
+  const _ResumeCard(
+      {required this.application, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final sizeKb = application.resumeFileSize != null
+        ? '${(application.resumeFileSize! / 1024).toStringAsFixed(1)} KB'
+        : '';
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionLabel('Resume'),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: _bg,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _border),
             ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.description_outlined,
+                      size: 18, color: primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        application.resumeFileName,
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: _text1),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                      if (sizeKb.isNotEmpty)
+                        Text(sizeKb,
+                            style: const TextStyle(
+                                fontSize: 11, color: _text2)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (application.resumeFileUrl.isNotEmpty)
+                  _IconPill(
+                    icon: Icons.open_in_new_outlined,
+                    label: 'Open',
+                    onTap: onOpen,
+                  ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  // ============== HELPER: Company Initials ==============
-  Widget _buildCompanyInitials() {
-    final initials = application.employerSnapshot.companyName.isNotEmpty
-        ? application.employerSnapshot.companyName[0].toUpperCase()
-        : 'C';
+// ─── Cover Letter Card ────────────────────────────────────────────────────────
+class _CoverLetterCard extends StatelessWidget {
+  final EmployeeApplication application;
+  const _CoverLetterCard({required this.application});
 
-    return Container(
-      width: 70,
-      height: 70,
-      decoration: BoxDecoration(
-        color: primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionLabel('Cover Letter'),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _bg,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _border),
+            ),
+            child: Text(
+              application.coverLetter,
+              style: const TextStyle(
+                  fontSize: 13, color: _text2, height: 1.7),
+            ),
+          ),
+        ],
       ),
-      child: Center(
-        child: Text(
-          initials,
+    );
+  }
+}
+
+// ─── Skills Card ──────────────────────────────────────────────────────────────
+class _SkillsCard extends StatelessWidget {
+  final EmployeeApplication application;
+  const _SkillsCard({required this.application});
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _SectionLabel('Skills'),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${application.employeeSnapshot.skills.length}',
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _text2),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: application.employeeSnapshot.skills
+                .map((skill) => _SkillPill(skill: skill))
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Leave Button ─────────────────────────────────────────────────────────────
+class _LeaveButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _LeaveButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(_r + 2),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(_r + 2),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(_r + 2),
+          splashColor: _red.withOpacity(0.05),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 20, vertical: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.exit_to_app_outlined,
+                      size: 16, color: _red),
+                ),
+                const SizedBox(width: 12),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('I Left This Job',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: _red)),
+                    Text('Tap to notify the employer',
+                        style: TextStyle(
+                            fontSize: 11, color: _text3)),
+                  ],
+                ),
+                const Spacer(),
+                const Icon(Icons.chevron_right_outlined,
+                    size: 18, color: _text3),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Left Banner ──────────────────────────────────────────────────────────────
+class _LeftBanner extends StatelessWidget {
+  final EmployeeApplication application;
+  final JobApplicationController controller;
+  const _LeftBanner(
+      {required this.application, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(_r + 2),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.info_outline_rounded,
+                size: 17, color: _amber),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('You have left this job',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _text1)),
+                if (application.leftReason != null &&
+                    application.leftReason!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text('Reason: ${application.leftReason}',
+                      style: const TextStyle(
+                          fontSize: 12, color: _text2)),
+                ],
+                if (application.leftAt != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Left on ${controller.formatDate(application.leftAt!)}',
+                    style: const TextStyle(
+                        fontSize: 11, color: _text3),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Shared small widgets ─────────────────────────────────────────────────────
+class _Card extends StatelessWidget {
+  final Widget child;
+  const _Card({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(_r + 2),
+        border: Border.all(color: _border),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text,
+        style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: _text1,
+            letterSpacing: 0.1));
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool isLast;
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Icon + label column
+          SizedBox(
+            width: 100,
+            child: Row(
+              children: [
+                Icon(icon, size: 14, color: _text3),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(label,
+                      style: const TextStyle(
+                          fontSize: 12, color: _text2)),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Text(value,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _text1)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkillPill extends StatelessWidget {
+  final String skill;
+  const _SkillPill({required this.skill});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: primary.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: primary.withOpacity(0.15)),
+      ),
+      child: Text(skill,
           style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: primary,
+              fontSize: 12,
+              color: primary,
+              fontWeight: FontWeight.w500)),
+    );
+  }
+}
+
+class _IconPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _IconPill(
+      {required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: primary.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: primary.withOpacity(0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: primary),
+            const SizedBox(width: 5),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: primary,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Initial extends StatelessWidget {
+  final String name;
+  const _Initial({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final ch = name.isNotEmpty ? name[0].toUpperCase() : 'C';
+    return Center(
+      child: Text(ch,
+          style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: primary)),
+    );
+  }
+}
+
+// ─── Dialog button ─────────────────────────────────────────────────────────────
+enum _DBtnVariant { ghost, danger }
+
+class _DBtn extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final _DBtnVariant variant;
+  const _DBtn(
+      {required this.label,
+      required this.onTap,
+      required this.variant});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDanger = variant == _DBtnVariant.danger;
+    final bg  = isDanger ? _red : Colors.transparent;
+    final fg  = isDanger ? Colors.white : _text2;
+    final bd  = isDanger
+        ? Border.all(color: Colors.transparent)
+        : Border.all(color: _border);
+
+    return SizedBox(
+      height: 38,
+      child: Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          splashColor: fg.withOpacity(0.08),
+          child: Container(
+            decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: bd),
+            alignment: Alignment.center,
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: fg)),
           ),
         ),
       ),

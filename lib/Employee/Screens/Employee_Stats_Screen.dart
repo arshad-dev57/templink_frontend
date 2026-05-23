@@ -1,12 +1,17 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:templink/Employee/Controllers/employee_stats_controller.dart';
 import 'package:templink/Global_Screens/Coins_purchase_screen.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:templink/Utils/responsive.dart';
 
 class MyStatsScreen extends StatefulWidget {
-  const MyStatsScreen({Key? key}) : super(key: key);
+    final VoidCallback? onNavigateToCoins;  // YEH LINE ADD KARO
+  final VoidCallback? onBackPressed;     // YEH LINE ADD KARO
+  final bool showSidebar;     
+  const MyStatsScreen({Key? key, this.onNavigateToCoins, this.onBackPressed, this.showSidebar = true}) : super(key: key);
 
   @override
   State<MyStatsScreen> createState() => _MyStatsScreenState();
@@ -25,6 +30,148 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Responsive.init(context);
+    final isDesktop = Responsive.isDesktop(context);
+    final isTablet = Responsive.isTablet(context);
+    final isWeb = isDesktop || isTablet;
+
+    if (isWeb) {
+      return _buildWebLayout();
+    } else {
+      return _buildMobileLayout();
+    }
+  }
+
+  // ==================== WEB LAYOUT ====================
+  Widget _buildWebLayout() {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: Column(
+        children: [
+          _buildWebTopBar(),
+          Expanded(
+            child: _buildWebContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWebTopBar() {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Text(
+            "My Stats",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            "View proposal history, earnings, profiles",
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWebContent() {
+    return Obx(() {
+      if (controller.isLoading.value) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      return RefreshIndicator(
+        onRefresh: () => controller.fetchAllStats(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 900;
+              
+              if (isWide) {
+                return _buildTwoColumnLayout();
+              } else {
+                return _buildSingleColumnLayout();
+              }
+            },
+          ),
+        ),
+      );
+    });
+  }
+
+  // Two-column layout for wider screens
+  Widget _buildTwoColumnLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 2,
+          child: Column(
+            children: [
+              _buildEarningsCard(),
+              const SizedBox(height: 20),
+              _buildProposalsCard(),
+              const SizedBox(height: 20),
+              _buildPerformanceMetrics(),
+            ],
+          ),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          flex: 1,
+          child: Column(
+            children: [
+              _buildPointsCard(),
+              const SizedBox(height: 20),
+              _buildRecentActivity(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Single column layout for narrower screens
+  Widget _buildSingleColumnLayout() {
+    return Column(
+      children: [
+        _buildEarningsCard(),
+        const SizedBox(height: 20),
+        _buildPointsCard(),
+        const SizedBox(height: 20),
+        _buildProposalsCard(),
+        const SizedBox(height: 20),
+        _buildRecentActivity(),
+        const SizedBox(height: 20),
+        _buildPerformanceMetrics(),
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
+  // ==================== MOBILE LAYOUT ====================
+  Widget _buildMobileLayout() {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -63,32 +210,16 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                     color: Colors.black54,
                   ),
                 ),
-                
                 const SizedBox(height: 24),
-                
-                // Earnings Card
                 _buildEarningsCard(),
-                
                 const SizedBox(height: 20),
-                
-                // Points Card
                 _buildPointsCard(),
-                
                 const SizedBox(height: 20),
-                
-                // Proposals Card
                 _buildProposalsCard(),
-                
                 const SizedBox(height: 20),
-                
-                // Recent Activity
                 _buildRecentActivity(),
-                
                 const SizedBox(height: 20),
-                
-                // Performance Metrics
                 _buildPerformanceMetrics(),
-                
                 const SizedBox(height: 40),
               ],
             ),
@@ -97,127 +228,133 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
       }),
     );
   }
-Widget _buildEarningsCard() {
-  return Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              "Total Earnings",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                "USD",
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: primary,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Flexible(
-              child: Text(
-                controller.formatCurrency(controller.totalEarnings.value),
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: primary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.trending_up,
-                    size: 16,
-                    color: Colors.green,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    "${controller.successRate.value}%",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.green.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              "Pending: ${controller.formatCurrency(controller.pendingEarnings.value)}",
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.orange.shade700,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Text(
-              "Avg/Project: ${controller.formatCurrency(controller.averagePerProject.value)}",
-                style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          "Member since: ${controller.memberSince.value} (${controller.totalDays.value} days)",
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
+
+  // ==================== EARNINGS CARD ====================
+  Widget _buildEarningsCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-        ),
-      ],
-    ),
-  );
-}  Widget _buildPointsCard() {
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Total Earnings",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  "USD",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  controller.formatCurrency(controller.totalEarnings.value),
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: primary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.trending_up,
+                      size: 16,
+                      color: Colors.green,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      "${controller.successRate.value}%",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              Text(
+                "Pending: ${controller.formatCurrency(controller.pendingEarnings.value)}",
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.orange.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                "Avg/Project: ${controller.formatCurrency(controller.averagePerProject.value)}",
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "Member since: ${controller.memberSince.value} (${controller.totalDays.value} days)",
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== POINTS CARD ====================
+  Widget _buildPointsCard() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -287,20 +424,26 @@ Widget _buildEarningsCard() {
               ],
             ),
           ),
-          IconButton(
-            icon: Icon(
-              Icons.add_circle_outline,
-              color: primary,
-              size: 24,
-            ),
-            onPressed: () {
-Get.to(CoinsPurchaseScreen());            },
-          ),
+         // MyStatsScreen.dart - _buildPointsCard() method mein:
+
+IconButton(
+  icon: Icon(Icons.add_circle_outline, color: primary, size: 24),
+  onPressed: () {
+    final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+    
+    if (isWeb && widget.onNavigateToCoins != null) {
+      widget.onNavigateToCoins!();  // Callback call karo
+    } else {
+      Get.to(() => CoinsPurchaseScreen());
+    }
+  },
+),
         ],
       ),
     );
   }
 
+  // ==================== PROPOSALS CARD ====================
   Widget _buildProposalsCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -329,7 +472,6 @@ Get.to(CoinsPurchaseScreen());            },
                   color: Colors.black87,
                 ),
               ),
-              
               Container(
                 constraints: const BoxConstraints(maxWidth: 150),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -375,74 +517,70 @@ Get.to(CoinsPurchaseScreen());            },
               ),
             ],
           ),
-          
           const SizedBox(height: 20),
           
-          // Stats Overview
-          Row(
-            children: [
-              Expanded(
-                child: _statBox(
-                  label: 'Total',
-                  value: controller.totalProposals.value.toString(),
-                  color: Colors.blue,
-                ),
-              ),
-              Expanded(
-                child: _statBox(
-                  label: 'Accepted',
-                  value: controller.acceptedProposals.value.toString(),
-                  color: Colors.green,
-                ),
-              ),
-              Expanded(
-                child: _statBox(
-                  label: 'Pending',
-                  value: controller.pendingProposals.value.toString(),
-                  color: Colors.orange,
-                ),
-              ),
-              Expanded(
-                child: _statBox(
-                  label: 'Rejected',
-                  value: controller.rejectedProposals.value.toString(),
-                  color: Colors.red,
-                ),
-              ),
-            ],
+          // Stats Overview - Responsive grid
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 400;
+              if (isWide) {
+                return Row(
+                  children: [
+                    Expanded(child: _statBox(label: 'Total', value: controller.totalProposals.value.toString(), color: Colors.blue)),
+                    Expanded(child: _statBox(label: 'Accepted', value: controller.acceptedProposals.value.toString(), color: Colors.green)),
+                    Expanded(child: _statBox(label: 'Pending', value: controller.pendingProposals.value.toString(), color: Colors.orange)),
+                    Expanded(child: _statBox(label: 'Rejected', value: controller.rejectedProposals.value.toString(), color: Colors.red)),
+                  ],
+                );
+              } else {
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  children: [
+                    _statBox(label: 'Total', value: controller.totalProposals.value.toString(), color: Colors.blue),
+                    _statBox(label: 'Accepted', value: controller.acceptedProposals.value.toString(), color: Colors.green),
+                    _statBox(label: 'Pending', value: controller.pendingProposals.value.toString(), color: Colors.orange),
+                    _statBox(label: 'Rejected', value: controller.rejectedProposals.value.toString(), color: Colors.red),
+                  ],
+                );
+              }
+            },
           ),
           
           const SizedBox(height: 16),
           
-          // Contracts Stats
+          // Contracts Stats - Responsive
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _contractStat(
-                  label: 'Active',
-                  value: controller.activeContracts.value.toString(),
-                  icon: Icons.play_circle,
-                  color: Colors.green,
-                ),
-                _contractStat(
-                  label: 'Completed',
-                  value: controller.completedContracts.value.toString(),
-                  icon: Icons.check_circle,
-                  color: Colors.blue,
-                ),
-                _contractStat(
-                  label: 'Working',
-                  value: controller.workingProjects.value.toString(),
-                  icon: Icons.work,
-                  color: Colors.purple,
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 400;
+                if (isWide) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _contractStat(label: 'Active', value: controller.activeContracts.value.toString(), icon: Icons.play_circle, color: Colors.green),
+                      _contractStat(label: 'Completed', value: controller.completedContracts.value.toString(), icon: Icons.check_circle, color: Colors.blue),
+                      _contractStat(label: 'Working', value: controller.workingProjects.value.toString(), icon: Icons.work, color: Colors.purple),
+                    ],
+                  );
+                } else {
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 12,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _contractStat(label: 'Active', value: controller.activeContracts.value.toString(), icon: Icons.play_circle, color: Colors.green),
+                      _contractStat(label: 'Completed', value: controller.completedContracts.value.toString(), icon: Icons.check_circle, color: Colors.blue),
+                      _contractStat(label: 'Working', value: controller.workingProjects.value.toString(), icon: Icons.work, color: Colors.purple),
+                    ],
+                  );
+                }
+              },
             ),
           ),
           
@@ -454,17 +592,13 @@ Get.to(CoinsPurchaseScreen());            },
             value: controller.totalProposals.value,
             maxValue: controller.totalProposals.value > 0 ? controller.totalProposals.value : 1,
           ),
-
           const SizedBox(height: 12),
-
           _proposalProgress(
             label: "Accepted",
             value: controller.acceptedProposals.value,
             maxValue: controller.totalProposals.value > 0 ? controller.totalProposals.value : 1,
           ),
-
           const SizedBox(height: 12),
-
           _proposalProgress(
             label: "Success Rate",
             value: controller.successRate.value,
@@ -477,6 +611,7 @@ Get.to(CoinsPurchaseScreen());            },
 
   Widget _statBox({required String label, required String value, required Color color}) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           value,
@@ -500,6 +635,7 @@ Get.to(CoinsPurchaseScreen());            },
 
   Widget _contractStat({required String label, required String value, required IconData icon, required Color color}) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 4),
@@ -523,6 +659,7 @@ Get.to(CoinsPurchaseScreen());            },
     );
   }
 
+  // ==================== RECENT ACTIVITY ====================
   Widget _buildRecentActivity() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -548,9 +685,7 @@ Get.to(CoinsPurchaseScreen());            },
               color: Colors.black87,
             ),
           ),
-          
           const SizedBox(height: 12),
-          
           Text(
             "Your latest proposals and contracts",
             style: TextStyle(
@@ -558,9 +693,7 @@ Get.to(CoinsPurchaseScreen());            },
               color: Colors.grey.shade600,
             ),
           ),
-          
           const SizedBox(height: 20),
-          
           Obx(() {
             if (controller.isLoadingActivity.value) {
               return const Center(child: CircularProgressIndicator());
@@ -588,10 +721,8 @@ Get.to(CoinsPurchaseScreen());            },
               },
             );
           }),
-          
           if (controller.recentActivities.length > 3)
             const SizedBox(height: 16),
-          
           if (controller.recentActivities.length > 3)
             SizedBox(
               width: double.infinity,
@@ -701,6 +832,7 @@ Get.to(CoinsPurchaseScreen());            },
     );
   }
 
+  // ==================== PERFORMANCE METRICS ====================
   Widget _buildPerformanceMetrics() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -726,49 +858,39 @@ Get.to(CoinsPurchaseScreen());            },
               color: Colors.black87,
             ),
           ),
-          
           const SizedBox(height: 20),
-          
-          SizedBox(
-            height: 190,
-            child: GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 16,
-              childAspectRatio: 1.8,
-              children: [
-                _metricCard(
-                  title: 'Response Rate',
-                  value: '${controller.responseRate.value}%',
-                  subtitle: '',
-                  icon: Icons.timer_outlined,
-                  color: Colors.blue,
-                ),
-                _metricCard(
-                  title: 'Success Rate',
-                  value: '${controller.successRate.value}%',
-                  subtitle: '',
-                  icon: Icons.check_circle_outline,
-                  color: Colors.green,
-                ),
-                _metricCard(
-                  title: 'Rating',
-                  value: controller.averageRating.value.toStringAsFixed(1),
-                  subtitle: '',
-                  icon: Icons.star_outline,
-                  color: Colors.orange,
-                ),
-                _metricCard(
-                  title: 'Projects',
-                  value: controller.completedProjects.value.toString(),
-                  subtitle: '',
-                  icon: Icons.work_outline,
-                  color: Colors.purple,
-                ),
-              ],
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 500;
+              if (isWide) {
+                return Row(
+                  children: [
+                    Expanded(child: _metricCard(title: 'Response Rate', value: '${controller.responseRate.value}%', subtitle: '', icon: Icons.timer_outlined, color: Colors.blue)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _metricCard(title: 'Success Rate', value: '${controller.successRate.value}%', subtitle: '', icon: Icons.check_circle_outline, color: Colors.green)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _metricCard(title: 'Rating', value: controller.averageRating.value.toStringAsFixed(1), subtitle: '', icon: Icons.star_outline, color: Colors.orange)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _metricCard(title: 'Projects', value: controller.completedProjects.value.toString(), subtitle: '', icon: Icons.work_outline, color: Colors.purple)),
+                  ],
+                );
+              } else {
+                return GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.6,
+                  children: [
+                    _metricCard(title: 'Response Rate', value: '${controller.responseRate.value}%', subtitle: '', icon: Icons.timer_outlined, color: Colors.blue),
+                    _metricCard(title: 'Success Rate', value: '${controller.successRate.value}%', subtitle: '', icon: Icons.check_circle_outline, color: Colors.green),
+                    _metricCard(title: 'Rating', value: controller.averageRating.value.toStringAsFixed(1), subtitle: '', icon: Icons.star_outline, color: Colors.orange),
+                    _metricCard(title: 'Projects', value: controller.completedProjects.value.toString(), subtitle: '', icon: Icons.work_outline, color: Colors.purple),
+                  ],
+                );
+              }
+            },
           ),
         ],
       ),
@@ -821,33 +943,6 @@ Get.to(CoinsPurchaseScreen());            },
           ),
         ),
       ],
-    );
-  }
-
-  Widget _scoreDetail(String label, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

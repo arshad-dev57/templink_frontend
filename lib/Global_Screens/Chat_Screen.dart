@@ -10,6 +10,8 @@ import '../Controllers/chat_list_controller.dart';
 import '../Controllers/call_controller.dart';
 import '../Controllers/video_call_controller.dart';
 import '../Utils/colors.dart';
+import '../Utils/responsive.dart';
+
 
 class ChatScreen extends StatefulWidget {
   final String userName;
@@ -20,6 +22,8 @@ class ChatScreen extends StatefulWidget {
   final String myUserId;
   final String? initialConversationId;
   final List<Map<String, dynamic>>? initialMessages;
+  final bool showSidebar;
+  final VoidCallback? onBackPressed;
 
   const ChatScreen({
     Key? key,
@@ -31,6 +35,8 @@ class ChatScreen extends StatefulWidget {
     required this.myUserId,
     this.initialConversationId,
     this.initialMessages,
+    this.showSidebar = true,
+    this.onBackPressed,
   }) : super(key: key);
 
   @override
@@ -189,6 +195,40 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         curve: Curves.easeOut,
       );
     } catch (e) { print('❌ Scroll error: $e'); }
+  }
+
+  void _switchToChat(Map<String, dynamic> conv) {
+    final newConversationId = conv['id']?.toString();
+    if (newConversationId == null || newConversationId == conversationId) return;
+    
+    setState(() {
+      conversationId = newConversationId;
+      _isLoading = true;
+    });
+    
+    controller.setActiveConversation(newConversationId);
+    
+    final cachedMessages = listController.getCachedMessages(newConversationId);
+    if (cachedMessages.isNotEmpty) {
+      controller.replaceMessages(newConversationId, cachedMessages);
+      setState(() { _isLoading = false; });
+    }
+    
+    ChatApi.getMessages(
+      baseUrl: widget.baseUrl,
+      token: widget.myToken,
+      conversationId: newConversationId,
+      page: 1,
+      limit: 50,
+    ).then((msgs) {
+      controller.replaceMessages(newConversationId, msgs);
+      controller.markRead(conversationId: newConversationId);
+      if (mounted) setState(() { _isLoading = false; });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    }).catchError((e) {
+      print('❌ Error loading conversation: $e');
+      if (mounted) setState(() { _isLoading = false; });
+    });
   }
 
   void _sendMessage() {
@@ -1062,66 +1102,256 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
+  // ── Web Sidebar ──────────────────────────────────────────
+  Widget _buildSidebarItem(Map<String, dynamic> conv, bool isSelected) {
+    final name = conv['name'] ?? 'Unknown';
+    final lastMsg = conv['lastMessage'] ?? '';
+    final time = conv['time'] ?? '';
+    final unread = (conv['unread'] ?? 0) as int;
+    final isOnline = conv['online'] ?? false;
+    final imageUrl = conv['image']?.toString();
+
+    return InkWell(
+      onTap: () => _switchToChat(conv),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? primary.withOpacity(0.05) : Colors.transparent,
+          border: Border(
+            left: BorderSide(
+              color: isSelected ? primary : Colors.transparent,
+              width: 4,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                _buildSidebarAvatar(imageUrl, name),
+                if (isOnline)
+                  Positioned(
+                    bottom: 0, right: 0,
+                    child: Container(
+                      width: 12, height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: unread > 0 ? FontWeight.bold : FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      Text(time, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          lastMsg,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: unread > 0 ? Colors.black87 : Colors.grey[600],
+                            fontWeight: unread > 0 ? FontWeight.w500 : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      if (unread > 0)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            unread.toString(),
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSidebarAvatar(String? imageUrl, String name) {
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: 20,
+        backgroundColor: Colors.grey[200],
+        backgroundImage: NetworkImage(imageUrl),
+      );
+    }
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: primary.withOpacity(0.1),
+      child: Text(
+        name.isNotEmpty ? name[0].toUpperCase() : '?',
+        style: TextStyle(color: primary, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+
     final cid = conversationId;
     final bool showLoading = _isLoading &&
         controller.messages.isEmpty &&
         (widget.initialMessages?.isEmpty ?? true);
+    
+    final bool isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+
+    Widget chatContent = Column(
+      children: [
+        if (isWeb) _buildWebTopBarForChat(),
+        Expanded(
+          child: Obx(() {
+            final messages = controller.messages;
+            if (messages.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
+                    const SizedBox(height: 16),
+                    Text("No messages yet",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                    const SizedBox(height: 8),
+                    Text("Say hello to start the conversation",
+                        style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+                  ],
+                ),
+              );
+            }
+            return ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[index];
+                final isMe = (message["from"] ?? "").toString() == widget.myUserId;
+                final isFirstInGroup = index == 0 ||
+                    messages[index - 1]["from"] != message["from"];
+                return _buildMessageItem(message, isMe, isFirstInGroup);
+              },
+            );
+          }),
+        ),
+        // Upload progress bar
+        if (_isUploading) _buildUploadProgress(),
+        Obx(() => controller.isOtherTyping.value ? _typingIndicator() : const SizedBox()),
+        _buildInputBar(cid ?? ''),
+      ],
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: _buildAppBar(),
-      body: showLoading
-          ? _buildShimmerLoading()
-          : (cid == null)
-              ? const Center(child: Text("Chat not available"))
-              : Column(
-                  children: [
-                    Expanded(
-                      child: Obx(() {
-                        final messages = controller.messages;
-                        if (messages.isEmpty) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
-                                const SizedBox(height: 16),
-                                Text("No messages yet",
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[700])),
-                                const SizedBox(height: 8),
-                                Text("Say hello to start the conversation",
-                                    style: TextStyle(fontSize: 14, color: Colors.grey[500])),
-                              ],
-                            ),
-                          );
-                        }
-                        return ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.only(top: 8, bottom: 8),
-                          itemCount: messages.length,
-                          itemBuilder: (context, index) {
-                            final message = messages[index];
-                            final isMe = (message["from"] ?? "").toString() == widget.myUserId;
-                            final isFirstInGroup = index == 0 ||
-                                messages[index - 1]["from"] != message["from"];
-                            return _buildMessageItem(message, isMe, isFirstInGroup);
-                          },
-                        );
-                      }),
-                    ),
-                    // Upload progress bar
-                    if (_isUploading) _buildUploadProgress(),
-                    Obx(() => controller.isOtherTyping.value ? _typingIndicator() : const SizedBox()),
-                    _buildInputBar(cid),
-                  ],
-                ),
+      appBar: isWeb ? null : _buildAppBar(),
+      body: Row(
+        children: [
+          Expanded(
+            child: showLoading
+                ? _buildShimmerLoading()
+                : (cid == null)
+                    ? const Center(child: Text("Chat not available"))
+                    : chatContent,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Web Top Bar for Chat area ─────────────────────────────
+  Widget _buildWebTopBarForChat() {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+      ),
+      child: Row(
+        children: [
+          if (widget.onBackPressed != null)
+            IconButton(
+              onPressed: widget.onBackPressed,
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Back',
+            )
+          else
+            IconButton(
+              onPressed: () => Get.back(),
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Back',
+            ),
+          const SizedBox(width: 8),
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: primary.withOpacity(0.1),
+            child: Text(
+              widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : "?",
+              style: TextStyle(color: primary, fontWeight: FontWeight.w700, fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.userName,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                Obx(() => Text(
+                  controller.isOtherTyping.value ? "Typing..." : (widget.userOnline ? "Online" : "Offline"),
+                  style: TextStyle(
+                    fontSize: 12, 
+                    color: controller.isOtherTyping.value ? primary : (widget.userOnline ? Colors.green : Colors.grey),
+                  ),
+                )),
+              ],
+            ),
+          ),
+          IconButton(onPressed: _startVoiceCall, icon: Icon(Icons.phone_rounded, color: primary), tooltip: 'Voice Call'),
+          IconButton(onPressed: _startVideoCall, icon: Icon(Icons.videocam_rounded, color: primary), tooltip: 'Video Call'),
+        ],
+      ),
     );
   }
 
   @override
   void dispose() {
+
     WidgetsBinding.instance.removeObserver(this);
     _messageController.dispose();
     _scrollController.dispose();

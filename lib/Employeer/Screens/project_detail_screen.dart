@@ -5,25 +5,130 @@ import 'package:get/get.dart';
 import 'package:path/path.dart';
 import 'package:templink/Employee/Screens/Employee_Place_Bid_Screen.dart';
 import 'package:templink/Employee/models/project_model.dart';
-import 'package:templink/Employeer/model/project_model.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:templink/Utils/responsive.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ProjectDetailScreen extends StatelessWidget {
   final ProjectFeedModel project;
+  final VoidCallback? onBackPressed;
+  final bool showSidebar;
 
   const ProjectDetailScreen({
     Key? key,
     required this.project,
+    this.onBackPressed,
+    this.showSidebar = true,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    Responsive.init(context);
+    final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+    final isDesktop = Responsive.isDesktop(context);
+
+    // ✅ WEB LAYOUT WITH SIDEBAR
+    if (isWeb && showSidebar) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: Row(
+          children: [
+            // Sidebar placeholder - actually sidebar parent se aayega
+            // Isliye hum sirf Expanded use karte hain
+            Expanded(
+              child: Column(
+                children: [
+                  _buildWebTopBar(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: _buildBody(),
+                    ),
+                  ),
+                  _buildBottomBar(project),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ✅ WEB WITHOUT SIDEBAR (Direct navigation)
+    if (isWeb && !showSidebar) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: Column(
+          children: [
+            _buildWebTopBar(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: _buildBody(),
+              ),
+            ),
+            _buildBottomBar(project),
+          ],
+        ),
+      );
+    }
+
+    // ✅ MOBILE LAYOUT
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: _buildAppBar(),
-      body: _buildBody(),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            _buildBody(),
+          ],
+        ),
+      ),
       bottomNavigationBar: _buildBottomBar(project),
+    );
+  }
+
+  Widget _buildWebTopBar() {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (onBackPressed != null)
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              onPressed: onBackPressed,
+            ),
+          Expanded(
+            child: Text(
+              'Project Details',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.share_outlined, color: Colors.black87),
+            onPressed: _shareProject,
+          ),
+          IconButton(
+            icon: const Icon(Icons.favorite_border, color: Colors.black87),
+            onPressed: _toggleBookmark,
+          ),
+        ],
+      ),
     );
   }
 
@@ -34,7 +139,11 @@ class ProjectDetailScreen extends StatelessWidget {
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.black87),
         onPressed: () {
-          Get.back();
+          if (onBackPressed != null) {
+            onBackPressed!();
+          } else {
+            Get.back();
+          }
         },
       ),
       title: Text(
@@ -59,40 +168,37 @@ class ProjectDetailScreen extends StatelessWidget {
   }
 
   Widget _buildBody() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildTitleSection(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTitleSection(),
+        const SizedBox(height: 12),
+        Builder(
+          builder: (context) => _buildInfoGrid(context),
+        ),
+        const SizedBox(height: 12),
+        _buildCategoryAndSkills(),
+        const SizedBox(height: 12),
+        _buildDescription(),
+        const SizedBox(height: 12),
+        
+        if (project.hasMilestones) ...[
+          _buildMilestonesSection(),
           const SizedBox(height: 12),
-          _buildInfoGrid(),
-          const SizedBox(height: 12),
-          _buildCategoryAndSkills(),
-          const SizedBox(height: 12),
-          _buildDescription(),
-          const SizedBox(height: 12),
-          
-          // ✅ NEW: Milestones Section
-          if (project.hasMilestones) ...[
-            _buildMilestonesSection(),
-            const SizedBox(height: 12),
-          ],
-          
-          _buildDeliverables(),
-          const SizedBox(height: 12),
-          if (project.media.isNotEmpty) _buildAttachments(),
-          if (project.media.isNotEmpty) const SizedBox(height: 12),
-          _buildClientInfo(),
-          const SizedBox(height: 12),
-          _buildActivitySection(),
-          const SizedBox(height: 30),
         ],
-      ),
+        
+        _buildDeliverables(),
+        const SizedBox(height: 12),
+        if (project.media.isNotEmpty) _buildAttachments(),
+        if (project.media.isNotEmpty) const SizedBox(height: 12),
+        _buildClientInfo(),
+        const SizedBox(height: 12),
+        _buildActivitySection(),
+        const SizedBox(height: 30),
+      ],
     );
   }
 
-  // ✅ NEW: Milestones Section
   Widget _buildMilestonesSection() {
     return Container(
       width: double.infinity,
@@ -138,10 +244,7 @@ class ProjectDetailScreen extends StatelessWidget {
               ),
             ],
           ),
-          
           const SizedBox(height: 20),
-          
-         
           ...project.milestones.asMap().entries.map((entry) {
             int index = entry.key;
             Milestone milestone = entry.value;
@@ -152,53 +255,6 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  // ✅ Milestone Progress Bar
-  Widget _buildMilestoneProgress() {
-    if (project.milestones.isEmpty) return const SizedBox.shrink();
-    
-    final completedCount = project.milestones.where((m) => 
-      m.status == 'APPROVED' || m.status == 'RELEASED').length;
-    final progress = completedCount / project.milestones.length;
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Progress',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Text(
-              '$completedCount/${project.milestones.length} completed',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.blue.shade700,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: progress,
-            backgroundColor: Colors.grey.shade200,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-            minHeight: 8,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ✅ Individual Milestone Item
   Widget _buildMilestoneItem(Milestone milestone, int number) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -213,7 +269,6 @@ class ProjectDetailScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              // Milestone Number
               Container(
                 width: 28,
                 height: 28,
@@ -234,8 +289,6 @@ class ProjectDetailScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              
-              // Title and Status
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,10 +335,7 @@ class ProjectDetailScreen extends StatelessWidget {
               ),
             ],
           ),
-          
           const SizedBox(height: 12),
-          
-          // Description
           Text(
             milestone.description,
             style: TextStyle(
@@ -294,8 +344,6 @@ class ProjectDetailScreen extends StatelessWidget {
               height: 1.4,
             ),
           ),
-          
-          // Due Date if available
           if (milestone.dueDate != null) ...[
             const SizedBox(height: 8),
             Row(
@@ -332,7 +380,7 @@ class ProjectDetailScreen extends StatelessWidget {
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children: [ 
           Text(
             project.title,
             style: const TextStyle(
@@ -375,7 +423,10 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoGrid() {
+  Widget _buildInfoGrid(BuildContext context) {
+    final isDesktop = Responsive.isDesktop(context);
+    final crossAxisCount = isDesktop ? 4 : 2;
+    
     return Container(
       padding: const EdgeInsets.all(20),
       color: Colors.white,
@@ -391,41 +442,53 @@ class ProjectDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 1.8,
-            children: [
-              _infoTile(
-                icon: Icons.attach_money,
-                color: Colors.green,
-                label: 'BUDGET',
-                value: project.displayBudget,
-                subValue: project.budgetType,
-              ),
-              _infoTile(
-                icon: Icons.access_time,
-                color: Colors.blue,
-                label: 'DURATION',
-                value: project.duration,
-              ),
-              _infoTile(
-                icon: Icons.military_tech_outlined,
-                color: Colors.purple,
-                label: 'LEVEL',
-                value: project.experienceLevel,
-              ),
-              _infoTile(
-                icon: Icons.timeline,
-                color: Colors.orange,
-                label: 'STATUS',
-                value: 'Active',
-                subValue: 'Accepting Proposals',
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  SizedBox(
+                    width: (constraints.maxWidth / crossAxisCount) - 16,
+                    child: _infoTile(
+                      icon: Icons.attach_money,
+                      color: Colors.green,
+                      label: 'BUDGET',
+                      value: project.displayBudget,
+                      subValue: project.budgetType,
+                    ),
+                  ),
+                  SizedBox(
+                    width: (constraints.maxWidth / crossAxisCount) - 16,
+                    child: _infoTile(
+                      icon: Icons.access_time,
+                      color: Colors.blue,
+                      label: 'DURATION',
+                      value: project.duration,
+                    ),
+                  ),
+                  SizedBox(
+                    width: (constraints.maxWidth / crossAxisCount) - 16,
+                    child: _infoTile(
+                      icon: Icons.military_tech_outlined,
+                      color: Colors.purple,
+                      label: 'LEVEL',
+                      value: project.experienceLevel,
+                    ),
+                  ),
+                  SizedBox(
+                    width: (constraints.maxWidth / crossAxisCount) - 16,
+                    child: _infoTile(
+                      icon: Icons.timeline,
+                      color: Colors.orange,
+                      label: 'STATUS',
+                      value: 'Active',
+                      subValue: 'Accepting Proposals',
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -480,6 +543,8 @@ class ProjectDetailScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           if (subValue != null) ...[
             const SizedBox(height: 2),
@@ -489,6 +554,8 @@ class ProjectDetailScreen extends StatelessWidget {
                 fontSize: 11,
                 color: Colors.grey.shade500,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ],
@@ -570,7 +637,6 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  // ==================== DELIVERABLES ====================
   Widget _buildDeliverables() {
     if (project.deliverables.isEmpty) return const SizedBox();
 
@@ -670,7 +736,6 @@ class ProjectDetailScreen extends StatelessWidget {
     IconData iconData;
     Color iconColor;
 
-    // File type icon
     if (media.fileType.contains('image')) {
       iconData = Icons.image;
       iconColor = Colors.blue;
@@ -794,9 +859,6 @@ class ProjectDetailScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          
-          
-          
           Row(
             children: [
               Container(
@@ -838,7 +900,6 @@ class ProjectDetailScreen extends StatelessWidget {
                       ),
               ),
               const SizedBox(width: 16),
-              
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -876,7 +937,6 @@ class ProjectDetailScreen extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-
                         ],
                       ),
                   ],
@@ -884,10 +944,7 @@ class ProjectDetailScreen extends StatelessWidget {
               ),
             ],
           ),
-          
           const SizedBox(height: 16),
-          
-          
           Row(
             children: [
               Expanded(
@@ -909,7 +966,6 @@ class ProjectDetailScreen extends StatelessWidget {
                 ),
             ],
           ),
-          
           if (project.clientAbout.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(
@@ -923,7 +979,6 @@ class ProjectDetailScreen extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          
           if (project.clientCultureTags.isNotEmpty) ...[
             const SizedBox(height: 16),
             const Text(
@@ -971,32 +1026,35 @@ class ProjectDetailScreen extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: Colors.grey.shade500),
         const SizedBox(width: 6),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade500,
-                fontWeight: FontWeight.w500,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade800,
-                fontWeight: FontWeight.w500,
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade800,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
   }
 
-  // ==================== ACTIVITY SECTION ====================
   Widget _buildActivitySection() {
     return Container(
       width: double.infinity,
@@ -1086,8 +1144,13 @@ class ProjectDetailScreen extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
-                onPressed: (){
-                  Get.to(SubmitProposalScreen(project: project));
+                onPressed: () {
+                  // ✅ Proper navigation with back support
+                  Get.to(() => SubmitProposalScreen(
+                    project: project,
+                    onBackPressed: () => Get.back(),
+                    showSidebar: true,
+                  ));
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primary,
@@ -1120,9 +1183,7 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  // ==================== ACTIONS ====================
   void _shareProject() {
-    // Share functionality
     Get.snackbar(
       'Share Project',
       'Link copied to clipboard!',
@@ -1144,10 +1205,6 @@ class ProjectDetailScreen extends StatelessWidget {
       margin: const EdgeInsets.all(16),
       borderRadius: 12,
     );
-  }
-
-  void _submitProposal() {
-    Get.to(() => SubmitProposalScreen(project: project,));
   }
 
   void _downloadFile(String url) async {

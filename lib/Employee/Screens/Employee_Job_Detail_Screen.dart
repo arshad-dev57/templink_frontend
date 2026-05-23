@@ -4,11 +4,19 @@ import 'package:get/get.dart';
 import 'package:templink/Employee/Controllers/job_apply_application_controller.dart';
 import 'package:templink/Employee/models/Employee_jobs_model.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:templink/Utils/responsive.dart';
 
 class JobDetailScreen extends StatefulWidget {
   final JobPostModel job;
+  final VoidCallback? onBackPressed;
+  final bool showSidebar;
 
-  const JobDetailScreen({Key? key, required this.job}) : super(key: key);
+  const JobDetailScreen({
+    Key? key, 
+    required this.job,
+    this.onBackPressed,
+    this.showSidebar = true,
+  }) : super(key: key);
 
   @override
   State<JobDetailScreen> createState() => _JobDetailScreenState();
@@ -20,7 +28,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   // GetX controller
   final JobApplicationController appController = Get.put(JobApplicationController());
 
-  // ✅ Helper getter for cleaner code
+  // Helper getter for cleaner code
   JobPostModel get job => widget.job;
 
   @override
@@ -31,6 +39,42 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Responsive.init(context);
+    final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+
+    // WEB LAYOUT (with sidebar support) - SIRF YE NAYA HAI
+    if (isWeb && !widget.showSidebar) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: Column(
+          children: [
+            _buildWebTopBar(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildJobHeader(),
+                    const SizedBox(height: 20),
+                    _buildAboutJobSection(),
+                    _buildRequirementsSection(),
+                    _buildQualificationsSection(),
+                    _buildJobDetailsSection(),
+                    _buildEmployerInfoSection(),
+                    _buildApplicationSection(), // YAHI PURANA WALA
+                    const SizedBox(height: 100),
+                  ],
+                ),
+              ),
+            ),
+            _buildApplyButton(), // YAHI PURANA WALA
+          ],
+        ),
+      );
+    }
+
+    // MOBILE LAYOUT (BILKUL WAISA HI - KUCH CHANGE NAHI)
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       body: SafeArea(
@@ -50,20 +94,68 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     _buildQualificationsSection(),
                     _buildJobDetailsSection(),
                     _buildEmployerInfoSection(),
-                    _buildApplicationSection(), // Updated with file upload
+                    _buildApplicationSection(),
                     const SizedBox(height: 100),
                   ],
                 ),
               ),
             ),
-            _buildApplyButton(), // Updated with loading state
+            _buildApplyButton(),
           ],
         ),
       ),
     );
   }
 
-  // ==================== APP BAR ====================
+  // ==================== WEB TOP BAR (NAYA - SIRF WEB KE LIYE) ====================
+  Widget _buildWebTopBar() {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (widget.onBackPressed != null)
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              onPressed: widget.onBackPressed,
+            ),
+          Expanded(
+            child: Text(
+              'Job Details',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+              color: _isBookmarked ? Colors.orange : Colors.grey.shade600,
+            ),
+            onPressed: () => setState(() => _isBookmarked = !_isBookmarked),
+          ),
+          IconButton(
+            icon: const Icon(Icons.share_outlined, color: Colors.black87),
+            onPressed: _shareJob,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== APP BAR (ORIGINAL - BILKUL WAISA HI) ====================
   Widget _buildAppBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -81,7 +173,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Get.back(),
+            onPressed: () {
+              if (widget.onBackPressed != null) {
+                widget.onBackPressed!();
+              } else {
+                Get.back();
+              }
+            },
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -110,7 +208,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
-  // ==================== JOB HEADER ====================
+  // ==================== JOB HEADER (ORIGINAL) ====================
   Widget _buildJobHeader() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -233,7 +331,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                         child: Row(
                           children: [
                             Container(
-                              width: 56, // 70% of 80
+                              width: 56,
                               height: 10,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
@@ -689,7 +787,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         .split('\n')
         .where((item) => item.trim().isNotEmpty)
         .map((item) {
-          // Remove bullet points if present
           String cleanItem = item.trim();
           if (cleanItem.startsWith('•') || cleanItem.startsWith('-') || cleanItem.startsWith('*')) {
             cleanItem = cleanItem.substring(1).trim();
@@ -751,7 +848,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
-  // ==================== APPLICATION SECTION WITH FILE UPLOAD ====================
+  // ==================== APPLICATION SECTION (ORIGINAL - BILKUL WAISA HI) ====================
   Widget _buildApplicationSection() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -837,7 +934,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           // File Upload Area
           Obx(() {
             if (appController.isFileSelected.value) {
-              // Show selected file with details
               return Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -942,7 +1038,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 ),
               );
             } else {
-              // Show upload button (empty state)
               return GestureDetector(
                 onTap: appController.pickResumeFile,
                 child: Container(
@@ -1018,7 +1113,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
-  // ==================== APPLY BUTTON WITH LOADING ====================
+  // ==================== APPLY BUTTON (ORIGINAL - BILKUL WAISA HI) ====================
   Widget _buildApplyButton() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1037,7 +1132,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           children: [
             Expanded(
               child: Obx(() {
-                // Check if file is selected
                 bool canApply = appController.isFileSelected.value && !appController.isApplying.value;
                 
                 return ElevatedButton(
@@ -1091,12 +1185,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
-  // ==================== HELPER FUNCTIONS ====================
+  // ==================== HELPER FUNCTIONS (ORIGINAL) ====================
   Future<void> _handleApply() async {
-    // Call controller's apply function
     await appController.applyForJob(job.id);
     
-    // If successful, show dialog
     if (appController.applicationSuccess.value) {
       appController.showSuccessDialog(context, job);
     }
@@ -1117,7 +1209,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   @override
   void dispose() {
-    // Don't dispose controller here as it's GetX managed
     super.dispose();
   }
 }

@@ -379,6 +379,14 @@ class ProjectFeedModel {
   
   String? get logoUrl => employerSnapshot?.logoUrl;
   
+  String? get imageUrl {
+    if (media.isNotEmpty) {
+      // Return the first media item's file URL
+      return media.first.fileUrl;
+    }
+    return null;
+  }
+  
   String get displayBudget {
     if (budgetType == 'HOURLY') {
       return '\$$minBudget - \$$maxBudget/hr';

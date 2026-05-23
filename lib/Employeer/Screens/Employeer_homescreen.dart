@@ -1,378 +1,527 @@
+// lib/Employeer/Screens/Employeer_homescreen.dart
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Controllers/call_controller.dart';
 import 'package:templink/Controllers/chat_socket_controller.dart';
 import 'package:templink/Controllers/video_call_controller.dart';
 import 'package:templink/Employee/Controllers/Employee_home_controller.dart';
+import 'package:templink/Employee/Screens/Employee_Active_Projects.dart';
+import 'package:templink/Employee/Screens/Employee_Active_Projects_Detail_Screen.dart';
 import 'package:templink/Employee/Screens/Employee_Stats_Screen.dart';
 import 'package:templink/Employee/Screens/Employee_proposals_Screen.dart';
+import 'package:templink/Employee/models/Employee_Active_Project_model.dart';
+import 'package:templink/Employee/models/Employee_jobs_model.dart';
 import 'package:templink/Employee/models/project_model.dart';
-import 'package:templink/Employeer/Screens/Employeer_Dashboard_Screen.dart';
+import 'package:templink/Employeer/Screens/Edit_Employeer_Profile.dart';
 import 'package:templink/Employeer/Screens/Employeer_Projects_Discovery_Screen.dart';
 import 'package:templink/Employeer/Screens/Employeer_Talent_Discovery_Screen.dart';
 import 'package:templink/Employeer/Screens/Employer_Job_Applications_Screen.dart';
+import 'package:templink/Employeer/Screens/Employer_Project_Milestone_Screen.dart';
+import 'package:templink/Employeer/Screens/Employer_my_jobs_screens.dart';
 import 'package:templink/Employeer/Screens/Emplyeer_profile_screen.dart';
 import 'package:templink/Employeer/Screens/employer_hub_dashboard_Screen.dart';
 import 'package:templink/Employeer/Screens/employer_interested_screen.dart';
 import 'package:templink/Employeer/Screens/employer_own_projects_screen.dart';
-import 'package:templink/Employeer/Screens/hired_employees_screen.dart';
 import 'package:templink/Employeer/Screens/project_detail_screen.dart';
 import 'package:templink/Employeer/Screens/project_management_screen.dart';
 import 'package:templink/Employeer/Screens/select_post_type_screen.dart';
 import 'package:templink/Employeer/Screens/talent_profile.dart';
+import 'package:templink/Employeer/model/employer_project_model.dart';
 import 'package:templink/Employeer/model/talent_model.dart';
 import 'package:templink/Global_Screens/Chat_Users_List_Screen.dart';
 import 'package:templink/Global_Screens/Notification_Screen.dart';
 import 'package:templink/Global_Screens/Settings_Screen.dart';
 import 'package:templink/Global_Screens/login_screen.dart';
-import 'package:templink/Resume_Builder/Screens/Resume_Dashboard_Screen.dart';
 import 'package:templink/Services/Notificaton_Service.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:templink/Utils/responsive.dart';
 import 'package:templink/config/api_config.dart';
 
-class EmployeerHomeScreen extends StatefulWidget {
-  const EmployeerHomeScreen({super.key});
+// ==================== NAVIGATION CONTROLLER (WEB ONLY) ====================
+class EmployerNavigationController extends GetxController {
+  final currentIndex = 0.obs;
+  final selectedProjectTab = 0.obs;
+  final sidebarExpanded = true.obs;
+  final showTalentDiscovery = false.obs;
 
-  @override
-  State<EmployeerHomeScreen> createState() => _EmployeerHomeScreenState();
+  final selectedEmployerProject = Rxn<EmployerProject>();
+  final selectedTalent = Rxn<TalentModel>();
+  final selectedEmployeeProject = Rxn<EmployeeActiveProjectModel>();
+final showProjectsDiscovery = false.obs;
+
+
+void closeProjectsDiscovery() {
+  showProjectsDiscovery.value = false;
 }
-
-class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
-    with SingleTickerProviderStateMixin {
-  int currentIndex = 0;
-  int selectedCategoryIndex = 0;
-  int selectedProjectTab = 0;
-
-  final EmployeeHomeController homeController = Get.put(EmployeeHomeController());
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  // ✅ CHANGE 1: ScrollController add kiya
-  final ScrollController _scrollController = ScrollController();
-
-  var selectedTalentFilter = 'All'.obs;
-  var selectedProjectFilter = 'All'.obs;
-  var selectedTalentTimeFilter = 'All Time'.obs;
-  var selectedProjectTimeFilter = 'All Time'.obs;
-
-  final List<String> talentFilters = ['All', 'Top Rated', 'Available'];
-  final List<String> projectFilters = ['All', 'Featured'];
-  final List<String> timeFilters = [
-    'All Time',
-    'Today',
-    'Yesterday',
-    'This Week',
-    'This Month',
-    'Last Month',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _initCallServices();
-
-    // ✅ CHANGE 2: Scroll listener - lazy load trigger
-    _scrollController.addListener(() {
-      if (_scrollController.position.pixels >=
-          _scrollController.position.maxScrollExtent - 300) {
-        if (!homeController.isLoadingMoreProjects.value &&
-            homeController.hasMoreProjectsPages) {
-          homeController.loadNextProjectsPage();
-        }
-      }
-    });
+  void goToDashboard() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 0;
+  }
+void goToProjectsDiscovery() {
+  showTalentDiscovery.value = false;
+  showProjectsDiscovery.value = true;
+  currentIndex.value = 16; // Naya index
+}
+  void goToMessages() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 1;
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
+  void goToProposalsReceived() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 2;
   }
 
-  Future<void> _initCallServices() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token') ?? '';
-      final userId = prefs.getString('auth_user_id') ?? '';
+  void goToMyStats() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 3;
+  }
 
-      if (token.isEmpty || userId.isEmpty) return;
+  void goToProfile() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 5;
+  }
 
-      if (!Get.isRegistered<ChatSocketController>()) {
-        Get.put(
-          ChatSocketController(
-            socketBaseUrl: ApiConfig.baseUrl,
-            token: token,
-            myUserId: userId,
-          ),
-          permanent: true,
-        );
-        print('✅ [EmployerHome] ChatSocketController initialized');
-      }
+  void goToHubDashboard() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 6;
+  }
 
-      if (!Get.isRegistered<CallController>()) {
-        final callCtrl = Get.put(CallController(), permanent: true);
-        callCtrl.init(userId);
-        print('✅ [EmployerHome] CallController initialized for $userId');
-      }
+  void goToJobApplications() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 7;
+  }
 
-      if (!Get.isRegistered<VideoCallController>()) {
-        final videoCtrl = Get.put(VideoCallController(), permanent: true);
-        await videoCtrl.init(userId);
-        print('✅ [EmployerHome] VideoCallController initialized for $userId');
-      } else {
-        print('✅ [EmployerHome] Reusing existing VideoCallController');
-      }
-    } catch (e) {
-      print('❌ [EmployerHome] _initCallServices error: $e');
+  void goToHiredCandidates() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 8;
+  }
+
+  void goToMyProjects() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 9;
+  }
+
+  void goToMyJobs() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 10;
+  }
+
+  void goToLiveProjects() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 11;
+  }
+
+  void goToSettings() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 4;
+  }
+
+  void goToEditProfile() {
+    showTalentDiscovery.value = false;
+    currentIndex.value = 15;
+  }
+
+  void goToTalentDiscovery() => showTalentDiscovery.value = true;
+  void closeTalentDiscovery() => showTalentDiscovery.value = false;
+
+  void goToProjectDetail(EmployerProject project) {
+    showTalentDiscovery.value = false;
+    selectedEmployerProject.value = project;
+    currentIndex.value = 12;
+  }
+
+  void goToEmployeeProjectDetail(EmployeeActiveProjectModel project) {
+    showTalentDiscovery.value = false;
+    selectedEmployeeProject.value = project;
+    currentIndex.value = 13;
+  }
+
+  void goToTalentProfile(TalentModel talent) {
+    showTalentDiscovery.value = false;
+    selectedTalent.value = talent;
+    currentIndex.value = 14;
+  }
+
+  void goBack() {
+    if (showTalentDiscovery.value) {
+      showTalentDiscovery.value = false;
+    } else if (currentIndex.value == 12) {
+      selectedEmployerProject.value = null;
+      currentIndex.value = 9;
+    } else if (currentIndex.value == 13) {
+      selectedEmployeeProject.value = null;
+      currentIndex.value = 11;
+    } else if (currentIndex.value == 14 && selectedTalent.value != null) {
+      selectedTalent.value = null;
+      currentIndex.value = 0;
+    } else if (currentIndex.value == 15) {
+      currentIndex.value = 5;
+    }
+    else if (currentIndex.value == 16) {
+  showProjectsDiscovery.value = false;
+  currentIndex.value = 0;
+}
+     else {
+      currentIndex.value = 0;
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: Colors.white,
-      bottomNavigationBar: _customBottomNavBar(),
-      drawer: _buildDrawer(homeController),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.admin_panel_settings, color: Colors.white),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => EmployerHubDashboardScreen(),
-            ),
-          );
-        },
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      body: SafeArea(
-        child: _getCurrentScreen(),
-      ),
-    );
+  String getPageTitle() {
+    if (showTalentDiscovery.value) return 'Find Talent';
+    switch (currentIndex.value) {
+      case 0:
+        return 'Dashboard';
+      case 1:
+        return 'Messages';
+      case 2:
+        return 'Proposals Received';
+      case 3:
+        return 'My Stats';
+      case 4:
+        return 'Settings';
+      case 5:
+        return 'Profile';
+      case 6:
+        return 'Hub Dashboard';
+      case 7:
+        return 'Job Applications';
+      case 8:
+        return 'Hired Candidates';
+      case 9:
+        return 'My Projects';
+      case 10:
+        return 'My Jobs';
+      case 11:
+        return 'Live Projects';
+      case 12:
+        return 'Project Details';
+      case 13:
+        return 'Live Project Details';
+      case 14:
+        return 'Talent Profile';
+      case 15:
+        return 'Edit Profile';
+        case 16:
+  return 'Discover Projects';
+      default:
+        return 'Dashboard';
+    }
   }
 
-  Widget _getCurrentScreen() {
-    switch (currentIndex) {
+  Widget getCurrentScreen() {
+    if (showTalentDiscovery.value) {
+      return const TalentDiscoveryScreen(showSidebar: true);
+    }
+    switch (currentIndex.value) {
       case 0:
-        return _buildHomeContent();
+        return const HomeContentWeb();
       case 1:
         return const ChatUsersListScreen();
       case 2:
-        return const Center(child: EmployerOwnProjectsScreen());
+        return const EmployerOwnProjectsScreen();
       case 3:
-        return const Center(child: SettingsScreen());
+        return const MyStatsScreen();
+      case 4:
+        return const SettingsScreen();
+      case 5:
+        return const EmployerProfileScreen(showSidebar: true);
+      case 6:
+        return const EmployerHubDashboardScreen();
+      case 7:
+        return EmployerJobApplicationsScreen();
+      case 8:
+        return const EmployerInterestedScreen();
+      case 9:
+        return EmployerProjectManagementScreen(
+          showSidebar: true,
+          onBackPressed: goBack,
+          onProjectTap: (project) => goToProjectDetail(project),
+        );
+      case 10:
+        return const EmployerJobsScreen();
+      case 11:
+        return EmployeeActiveProjectsScreen(
+          showSidebar: true,
+          onBackPressed: goBack,
+          onProjectTap: (projectId, project) =>
+              goToEmployeeProjectDetail(project),
+        );
+      case 12:
+        if (selectedEmployerProject.value != null) {
+          return EmployerProjectDetailsScreen(
+            project: selectedEmployerProject.value!,
+            showSidebar: true,
+            onBackPressed: goBack,
+          );
+        }
+        return const HomeContentWeb();
+      case 13:
+        if (selectedEmployeeProject.value != null) {
+          return EmployeeProjectDetailsScreen(
+            project: selectedEmployeeProject.value!,
+            showSidebar: true,
+            onBackPressed: goBack,
+          );
+        }
+        return const HomeContentWeb();
+      case 14:
+        if (selectedTalent.value != null) {
+          return TalentProfileScreen(
+            talent: selectedTalent.value!,
+            showSidebar: true,
+            onBackPressed: goBack,
+          );
+        }
+        return const HomeContentWeb();
+      case 15:
+        return const EditEmployerProfileScreen(showSidebar: true);
+        case 16:
+  return const ProjectsDiscoveryScreen(showSidebar: true);
       default:
-        return _buildHomeContent();
+        return const HomeContentWeb();
     }
   }
+}
 
-  Widget _buildDrawer(EmployeeHomeController controller) {
-    return Drawer(
-      backgroundColor: Colors.white,
-      child: ListView(
-        padding: EdgeInsets.zero,
+// ==================== EMPLOYER HOME SCREEN ====================
+class EmployeerHomeScreen extends StatelessWidget {
+  const EmployeerHomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    Responsive.init(context);
+    final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+
+    if (!Get.isRegistered<EmployerNavigationController>()) {
+      Get.put(EmployerNavigationController(), permanent: true);
+    }
+    if (!Get.isRegistered<EmployeeHomeController>()) {
+      Get.put(EmployeeHomeController(), permanent: true);
+    }
+
+    if (isWeb) {
+      return const EmployerHomeScreenWeb();
+    } else {
+      return const EmployerHomeScreenMobile();
+    }
+  }
+}
+
+// ==================== WEB LAYOUT ====================
+class EmployerHomeScreenWeb extends StatelessWidget {
+  const EmployerHomeScreenWeb({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final navController = Get.find<EmployerNavigationController>();
+    final homeController = Get.find<EmployeeHomeController>();
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Obx(() {
+      if (screenWidth < 900 && navController.sidebarExpanded.value) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          navController.sidebarExpanded.value = false;
+        });
+      }
+
+      return Scaffold(
+        backgroundColor: const Color(0xFFF4F6F9),
+        body: Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeInOut,
+              width: navController.sidebarExpanded.value ? 240.0 : 64.0,
+              child: _WebSidebar(
+                expanded: navController.sidebarExpanded.value,
+                onToggle: () => navController.sidebarExpanded.toggle(),
+                navController: navController,
+                homeController: homeController,
+              ),
+            ),
+            Expanded(
+              child: Column(
+                children: [
+                  _WebTopBar(
+                    navController: navController,
+                    homeController: homeController,
+                  ),
+                  Expanded(
+                    child: navController.getCurrentScreen(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+// ==================== WEB SIDEBAR ====================
+class _WebSidebar extends StatelessWidget {
+  final bool expanded;
+  final VoidCallback onToggle;
+  final EmployerNavigationController navController;
+  final EmployeeHomeController homeController;
+
+  const _WebSidebar({
+    required this.expanded,
+    required this.onToggle,
+    required this.navController,
+    required this.homeController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(2, 0),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _LogoSection(expanded: expanded, onToggle: onToggle),
+          if (expanded) _ProfileCard(homeController: homeController),
+          if (!expanded) const SizedBox(height: 8),
+          Expanded(child: _NavItems(expanded: expanded, navController: navController)),
+          _BottomSection(expanded: expanded, navController: navController),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogoSection extends StatelessWidget {
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  const _LogoSection({required this.expanded, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+        ),
+      ),
+      child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(24, 56, 24, 32),
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
-              color: primary.withOpacity(0.05),
+              color: primary,
+              borderRadius: BorderRadius.circular(7),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Obx(
-                  () => ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      controller.imageUrl.value.isNotEmpty
-                          ? controller.imageUrl.value
-                          : 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                      width: 44,
-                      height: 44,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        width: 44,
-                        height: 44,
-                        color: Colors.grey.shade300,
-                        child: const Icon(Icons.person, color: Colors.white),
-                      ),
-                    ),
-                  ),
+            child: const Icon(Icons.work_outline, color: Colors.white, size: 16),
+          ),
+          if (expanded) ...[
+            const SizedBox(width: 8),
+            const Text(
+              'Templink',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: onToggle,
+              child: Icon(Icons.menu, size: 18, color: Colors.grey.shade500),
+            ),
+          ] else ...[
+            const Spacer(),
+            GestureDetector(
+              onTap: onToggle,
+              child: Icon(Icons.menu, size: 18, color: Colors.grey.shade500),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileCard extends StatelessWidget {
+  final EmployeeHomeController homeController;
+
+  const _ProfileCard({required this.homeController});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => Container(
+        margin: const EdgeInsets.fromLTRB(10, 10, 10, 4),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: primary.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: primary.withOpacity(0.1)),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: Image.network(
+                homeController.imageUrl.value.isNotEmpty
+                    ? homeController.imageUrl.value
+                    : 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+                width: 32,
+                height: 32,
+                fit: BoxFit.cover,
+                errorBuilder: (c, e, s) => Container(
+                  width: 32,
+                  height: 32,
+                  color: Colors.grey.shade300,
+                  child: const Icon(Icons.person, color: Colors.white, size: 18),
                 ),
-                const SizedBox(height: 8),
-                Obx(
-                  () => Text(
-                    controller.fullName.value,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    homeController.fullName.value,
                     style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Free Account',
-                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: Colors.black87,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Column(
-              children: [
-                _drawerItem(Icons.person_outline, 'Profile', () {
-                  Get.to(() => const EmployerProfileScreen());
-                }),
-                _drawerItem(Icons.work_outline, 'My Projects', () {
-                  Get.to(EmployerProjectManagementScreen());
-                }),
-                _drawerItem(Icons.person_outline, 'Hired Candidates', () {
-                  Get.to(EmployerInterestedScreen());
-                }),
-                _drawerItem(Icons.assignment, 'Proposals Sent', () {
-                  Get.to(MyProposalsScreen());
-                }),
-                _drawerItem(Icons.assignment_outlined, 'Job Applicatons', () {
-                  Get.to(EmployerJobApplicationsScreen());
-                }),
-                _drawerItem(Icons.assignment_outlined, 'My Stats', () {
-                  Get.to(MyStatsScreen());
-                }),
-                _drawerItem(Icons.settings_outlined, 'Settings', () {
-                  Get.to(() => const SettingsScreen());
-                }),
-                _drawerItem(Icons.help_outline, 'Help & Support', () {}),
-                _buildThemeItem(),
-                _buildLogoutItem(),
-                _buildFooter(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _drawerItem(IconData icon, String title, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.grey.shade600, size: 22),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 14, color: Colors.black87),
-      ),
-      trailing:
-          Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
-      onTap: onTap,
-    );
-  }
-
-  Widget _buildThemeItem() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-      child: Row(
-        children: [
-          Icon(Icons.palette_outlined, color: Colors.grey.shade600, size: 22),
-          const SizedBox(width: 12),
-          const Text('Theme: Auto',
-              style: TextStyle(fontSize: 14, color: Colors.black87)),
-          const Spacer(),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              'Auto',
-              style: TextStyle(
-                  fontSize: 12,
-                  color: primary,
-                  fontWeight: FontWeight.w500),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLogoutItem() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-      child: GestureDetector(
-        onTap: () async {
-          Get.dialog(
-            const Center(child: CircularProgressIndicator()),
-            barrierDismissible: false,
-          );
-
-          try {
-            await NotificationService.instance.logout();
-
-            if (Get.isRegistered<ChatSocketController>()) {
-              final socketCtrl = Get.find<ChatSocketController>();
-              socketCtrl.disconnect();
-              Get.delete<ChatSocketController>(force: true);
-            }
-
-            if (Get.isRegistered<CallController>()) {
-              final callCtrl = Get.find<CallController>();
-              callCtrl.resetForLogout();
-              Get.delete<CallController>(force: true);
-            }
-
-            if (Get.isRegistered<VideoCallController>()) {
-              final videoCtrl = Get.find<VideoCallController>();
-              videoCtrl.resetForLogout();
-              Get.delete<VideoCallController>(force: true);
-            }
-
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.remove('auth_token');
-            await prefs.remove('auth_user');
-            await prefs.remove('auth_role');
-            await prefs.remove('auth_user_id');
-
-            if (Get.isDialogOpen ?? false) Get.back();
-            Get.offAll(() => const LoginScreen());
-          } catch (e) {
-            if (Get.isDialogOpen ?? false) Get.back();
-            Get.snackbar(
-              'Error',
-              'Logout failed: ${e.toString()}',
-              snackPosition: SnackPosition.TOP,
-              backgroundColor: Colors.red,
-              colorText: Colors.white,
-              duration: const Duration(seconds: 3),
-            );
-          }
-        },
-        child: Row(
-          children: [
-            const Icon(Icons.logout_outlined, color: Colors.red, size: 22),
-            const SizedBox(width: 12),
-            const Text(
-              'Log Out',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.red,
-                fontWeight: FontWeight.w500,
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Free Account',
+                      style: TextStyle(fontSize: 9, color: Colors.black54),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -380,305 +529,850 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
       ),
     );
   }
+}
 
-  Widget _buildFooter() {
-    return Column(
+class _NavItems extends StatelessWidget {
+  final bool expanded;
+  final EmployerNavigationController navController;
+
+  const _NavItems({required this.expanded, required this.navController});
+
+  final List<Map<String, dynamic>> mainNavItems = const [
+    {'icon': Icons.home_outlined, 'activeIcon': Icons.home, 'label': 'Dashboard', 'index': 0},
+    {'icon': Icons.message_outlined, 'activeIcon': Icons.message, 'label': 'Messages', 'index': 1},
+    {'icon': Icons.folder_outlined, 'activeIcon': Icons.folder, 'label': 'Proposals Received', 'index': 2},
+    {'icon': Icons.bar_chart_outlined, 'activeIcon': Icons.bar_chart, 'label': 'My Stats', 'index': 3},
+    {'icon': Icons.settings_outlined, 'activeIcon': Icons.settings, 'label': 'Settings', 'index': 4},
+  ];
+
+  final List<Map<String, dynamic>> extraNavItems = const [
+    {'icon': Icons.person_outline, 'label': 'Profile', 'index': 5},
+    {'icon': Icons.build_outlined, 'label': 'Hub Dashboard', 'index': 6},
+    {'icon': Icons.assignment_outlined, 'label': 'Job Applications', 'index': 7},
+    {'icon': Icons.people_outline, 'label': 'Hired Candidates', 'index': 8},
+    {'icon': Icons.folder_special_outlined, 'label': 'My Projects', 'index': 9},
+    {'icon': Icons.work_outline, 'label': 'My Jobs', 'index': 10},
+    {'icon': Icons.live_tv_outlined, 'label': 'Live Projects', 'index': 11},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       children: [
-        const Divider(height: 40, thickness: 1),
+        ...mainNavItems.map(
+          (item) => _NavItemTile(item: item, expanded: expanded, navController: navController),
+        ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: [
-              Text(
-                'Version 2.1.0 (1768)',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '© 2024 Templink. All rights reserved.',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
-              ),
-            ],
-          ),
+          padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 8, vertical: 6),
+          child: Divider(height: 1, color: Colors.grey.shade100),
+        ),
+        _FindTalentTile(expanded: expanded, navController: navController),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 8, vertical: 6),
+          child: Divider(height: 1, color: Colors.grey.shade100),
+        ),
+        ...extraNavItems.map(
+          (item) => _ExtraNavItemTile(item: item, expanded: expanded, navController: navController),
         ),
       ],
     );
   }
+}
 
-  Widget _customBottomNavBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+class _FindTalentTile extends StatelessWidget {
+  final bool expanded;
+  final EmployerNavigationController navController;
+
+  const _FindTalentTile({required this.expanded, required this.navController});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isSelected = navController.showTalentDiscovery.value;
+      return GestureDetector(
+        onTap: () => navController.goToTalentDiscovery(),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          padding: EdgeInsets.symmetric(
+            horizontal: expanded ? 10 : 14,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected ? primary.withOpacity(0.08) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.manage_search, color: isSelected ? primary : Colors.grey.shade500, size: 18),
+              if (expanded) ...[
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Find Talent',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? primary : Colors.grey.shade700,
+                      ),
+                    ),
+                    Text(
+                      'Browse professionals',
+                      style: TextStyle(fontSize: 9, color: Colors.grey.shade400),
+                    ),
+                  ],
+                ),
+                if (isSelected) ...[
+                  const Spacer(),
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(color: primary, shape: BoxShape.circle),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _NavItemTile extends StatelessWidget {
+  final Map<String, dynamic> item;
+  final bool expanded;
+  final EmployerNavigationController navController;
+
+  const _NavItemTile({required this.item, required this.expanded, required this.navController});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final selected = !navController.showTalentDiscovery.value &&
+          navController.currentIndex.value == item['index'];
+      return GestureDetector(
+        onTap: () {
+          navController.showTalentDiscovery.value = false;
+          navController.currentIndex.value = item['index'];
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          padding: EdgeInsets.symmetric(
+            horizontal: expanded ? 10 : 14,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: selected ? primary.withOpacity(0.08) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                selected ? item['activeIcon'] : item['icon'],
+                color: selected ? primary : Colors.grey.shade500,
+                size: 18,
+              ),
+              if (expanded) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    item['label'],
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                      color: selected ? primary : Colors.black87,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (selected)
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(color: primary, shape: BoxShape.circle),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _ExtraNavItemTile extends StatelessWidget {
+  final Map<String, dynamic> item;
+  final bool expanded;
+  final EmployerNavigationController navController;
+
+  const _ExtraNavItemTile({required this.item, required this.expanded, required this.navController});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isSelected = !navController.showTalentDiscovery.value &&
+          navController.currentIndex.value == item['index'];
+      return GestureDetector(
+        onTap: () {
+          switch (item['index']) {
+            case 5: navController.goToProfile(); break;
+            case 6: navController.goToHubDashboard(); break;
+            case 7: navController.goToJobApplications(); break;
+            case 8: navController.goToHiredCandidates(); break;
+            case 9: navController.goToMyProjects(); break;
+            case 10: navController.goToMyJobs(); break;
+            case 11: navController.goToLiveProjects(); break;
+            default:
+              navController.showTalentDiscovery.value = false;
+              navController.currentIndex.value = item['index'];
+          }
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          padding: EdgeInsets.symmetric(
+            horizontal: expanded ? 10 : 14,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected ? primary.withOpacity(0.08) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(item['icon'], color: isSelected ? primary : Colors.grey.shade500, size: 18),
+              if (expanded) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    item['label'],
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected ? primary : Colors.grey.shade700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isSelected)
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(color: primary, shape: BoxShape.circle),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _BottomSection extends StatelessWidget {
+  final bool expanded;
+  final EmployerNavigationController navController;
+
+  const _BottomSection({required this.expanded, required this.navController});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: Colors.grey.shade100)),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        children: [
+          if (expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => Get.to(() => SelectPostTypeScreen()),
+                  icon: const Icon(Icons.add, size: 14),
+                  label: const Text('Post a Job', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: IconButton(
+                icon: Icon(Icons.add_circle, color: primary, size: 24),
+                onPressed: () => Get.to(() => SelectPostTypeScreen()),
+                tooltip: 'Post a Job',
+              ),
+            ),
+          _LogoutTile(expanded: expanded),
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogoutTile extends StatelessWidget {
+  final bool expanded;
+
+  const _LogoutTile({required this.expanded});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _handleLogout,
       child: Container(
-        height: 64,
+        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        padding: EdgeInsets.symmetric(
+          horizontal: expanded ? 10 : 14,
+          vertical: 8,
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.logout_outlined, color: Colors.red, size: 18),
+            if (expanded) ...[
+              const SizedBox(width: 10),
+              const Text(
+                'Log Out',
+                style: TextStyle(fontSize: 13, color: Colors.red, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleLogout() async {
+    Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+    try {
+      if (!kIsWeb) await NotificationService.instance.logout();
+      if (Get.isRegistered<ChatSocketController>()) {
+        Get.find<ChatSocketController>().disconnect();
+        Get.delete<ChatSocketController>(force: true);
+      }
+      if (Get.isRegistered<CallController>()) {
+        Get.find<CallController>().resetForLogout();
+        Get.delete<CallController>(force: true);
+      }
+      if (Get.isRegistered<VideoCallController>()) {
+        Get.find<VideoCallController>().resetForLogout();
+        Get.delete<VideoCallController>(force: true);
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('auth_token');
+      await prefs.remove('auth_user');
+      await prefs.remove('auth_role');
+      await prefs.remove('auth_user_id');
+      if (Get.isDialogOpen ?? false) Get.back();
+      Get.offAll(() => const LoginScreen());
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      Get.snackbar('Error', 'Logout failed: ${e.toString()}',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.red,
+          colorText: Colors.white);
+    }
+  }
+}
+
+// ==================== WEB TOP BAR ====================
+class _WebTopBar extends StatelessWidget {
+  final EmployerNavigationController navController;
+  final EmployeeHomeController homeController;
+
+  const _WebTopBar({required this.navController, required this.homeController});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: primary,
-          borderRadius: BorderRadius.circular(40),
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: primary.withOpacity(0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _navIcon(Icons.home_outlined, 0),
-            _navIcon(Icons.message_outlined, 1),
-            GestureDetector(
-              onTap: () {
-                Get.to(() => SelectPostTypeScreen());
-              },
-              child: Container(
-                height: 54,
-                width: 54,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
+            if (navController.showTalentDiscovery.value ||
+                navController.currentIndex.value != 0)
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black87, size: 20),
+                onPressed: () => navController.goBack(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            Flexible(
+              child: Text(
+                navController.getPageTitle(),
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
-                child: Center(
-                  child: Icon(Icons.add, size: 24, color: primary),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Spacer(),
+            Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_none, color: Colors.black87, size: 22),
+                  onPressed: () => Get.to(() => const NotificationScreen()),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                ),
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => navController.goToProfile(),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  homeController.imageUrl.value.isNotEmpty
+                      ? homeController.imageUrl.value
+                      : 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+                  width: 34,
+                  height: 34,
+                  fit: BoxFit.cover,
+                  errorBuilder: (c, e, s) => Container(
+                    width: 34,
+                    height: 34,
+                    color: Colors.grey.shade300,
+                    child: const Icon(Icons.person, color: Colors.white, size: 18),
+                  ),
                 ),
               ),
             ),
-            _navIcon(Icons.description, 2),
-            _navIcon(Icons.settings, 3),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== MOBILE LAYOUT ====================
+class EmployerHomeScreenMobile extends StatelessWidget {
+  const EmployerHomeScreenMobile({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final navController = Get.find<EmployerNavigationController>();
+    final homeController = Get.find<EmployeeHomeController>();
+    final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
+    return Scaffold(
+      key: scaffoldKey,
+      backgroundColor: const Color(0xFFF4F6F9),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        toolbarHeight: 52,
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.black87, size: 20),
+          onPressed: () => scaffoldKey.currentState?.openDrawer(),
+        ),
+        title: Obx(
+          () => Text(
+            navController.getPageTitle(),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: Colors.black87, size: 22),
+            onPressed: () => Get.to(() => const NotificationScreen()),
+            padding: EdgeInsets.zero,
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () => navController.goToProfile(),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                homeController.imageUrl.value.isNotEmpty
+                    ? homeController.imageUrl.value
+                    : 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+                width: 30,
+                height: 30,
+                fit: BoxFit.cover,
+                errorBuilder: (c, e, s) => Container(
+                  width: 30,
+                  height: 30,
+                  color: Colors.grey.shade300,
+                  child: const Icon(Icons.person, color: Colors.white, size: 16),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
+      drawer: _MobileDrawer(navController: navController, homeController: homeController),
+      bottomNavigationBar: _CustomBottomNavBar(navController: navController),
+      body: Obx(() => navController.getCurrentScreen()),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: primary,
+        mini: true,
+        child: const Icon(Icons.add, color: Colors.white, size: 20),
+        onPressed: () => Get.to(() => SelectPostTypeScreen()),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+}
+
+class _CustomBottomNavBar extends StatelessWidget {
+  final EmployerNavigationController navController;
+
+  const _CustomBottomNavBar({required this.navController});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 58,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, -2)),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _NavIconMobile(icon: Icons.home_outlined, activeIcon: Icons.home, index: 0, navController: navController),
+          _NavIconMobile(icon: Icons.message_outlined, activeIcon: Icons.message, index: 1, navController: navController),
+          _NavIconMobile(icon: Icons.folder_outlined, activeIcon: Icons.folder, index: 2, navController: navController),
+          _NavIconMobile(icon: Icons.bar_chart_outlined, activeIcon: Icons.bar_chart, index: 3, navController: navController),
+          _NavIconMobile(icon: Icons.settings_outlined, activeIcon: Icons.settings, index: 4, navController: navController),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavIconMobile extends StatelessWidget {
+  final IconData icon;
+  final IconData activeIcon;
+  final int index;
+  final EmployerNavigationController navController;
+
+  const _NavIconMobile({
+    required this.icon,
+    required this.activeIcon,
+    required this.index,
+    required this.navController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final selected = navController.currentIndex.value == index;
+      return GestureDetector(
+        onTap: () => navController.currentIndex.value = index,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            selected ? activeIcon : icon,
+            color: selected ? primary : Colors.grey.shade400,
+            size: 22,
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _MobileDrawer extends StatelessWidget {
+  final EmployerNavigationController navController;
+  final EmployeeHomeController homeController;
+
+  const _MobileDrawer({required this.navController, required this.homeController});
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: Colors.white,
+      width: MediaQuery.of(context).size.width * 0.82,
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+              decoration: BoxDecoration(
+                color: primary.withOpacity(0.05),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Obx(
+                    () => ClipRRect(
+                      borderRadius: BorderRadius.circular(50),
+                      child: Image.network(
+                        homeController.imageUrl.value.isNotEmpty
+                            ? homeController.imageUrl.value
+                            : 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => Container(
+                          width: 60,
+                          height: 60,
+                          color: Colors.grey.shade300,
+                          child: const Icon(Icons.person, color: Colors.white, size: 34),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Obx(
+                    () => Text(
+                      homeController.fullName.value,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'Free Account',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _drawerItem(Icons.dashboard_outlined, 'Dashboard', () { navController.goToDashboard(); Navigator.pop(context); }),
+                  _drawerItem(Icons.manage_search, 'Find Talent', () { navController.goToTalentDiscovery(); Navigator.pop(context); }),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _drawerItem(Icons.message_outlined, 'Messages', () { navController.goToMessages(); Navigator.pop(context); }),
+                  _drawerItem(Icons.folder_outlined, 'Proposals Received', () { navController.goToProposalsReceived(); Navigator.pop(context); }),
+                  _drawerItem(Icons.folder_special_outlined, 'My Projects', () { navController.goToMyProjects(); Navigator.pop(context); }),
+                  _drawerItem(Icons.work_outline, 'My Jobs', () { navController.goToMyJobs(); Navigator.pop(context); }),
+                  _drawerItem(Icons.live_tv_outlined, 'Live Projects', () { navController.goToLiveProjects(); Navigator.pop(context); }),
+                  _drawerItem(Icons.people_outline, 'Hired Candidates', () { navController.goToHiredCandidates(); Navigator.pop(context); }),
+                  _drawerItem(Icons.assignment_outlined, 'Job Applications', () { navController.goToJobApplications(); Navigator.pop(context); }),
+                  _drawerItem(Icons.bar_chart_outlined, 'My Stats', () { navController.goToMyStats(); Navigator.pop(context); }),
+                  _drawerItem(Icons.person_outline, 'Profile', () { navController.goToProfile(); Navigator.pop(context); }),
+                  _drawerItem(Icons.build_outlined, 'Hub Dashboard', () { navController.goToHubDashboard(); Navigator.pop(context); }),
+                  _drawerItem(Icons.settings_outlined, 'Settings', () { navController.goToSettings(); Navigator.pop(context); }),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _drawerItem(Icons.logout_outlined, 'Log Out', _handleLogout, color: Colors.red),
+                  const SizedBox(height: 12),
+                  Text('© 2024 Templink · v2.1.0',
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _navIcon(IconData icon, int index) {
-    final selected = currentIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => currentIndex = index),
-      child: Icon(
-        icon,
-        color: selected ? Colors.white : Colors.white54,
-        size: 24,
-      ),
+  Widget _drawerItem(IconData icon, String title, VoidCallback onTap, {Color? color}) {
+    return ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -1),
+      leading: Icon(icon, color: color ?? Colors.grey.shade600, size: 20),
+      title: Text(title, style: TextStyle(fontSize: 13, color: color ?? Colors.black87)),
+      trailing: Icon(Icons.chevron_right, color: Colors.grey.shade300, size: 16),
+      onTap: onTap,
     );
   }
 
-  Widget _buildHomeContent() {
+  Future<void> _handleLogout() async {
+    Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+    try {
+      if (!kIsWeb) await NotificationService.instance.logout();
+      if (Get.isRegistered<ChatSocketController>()) {
+        Get.find<ChatSocketController>().disconnect();
+        Get.delete<ChatSocketController>(force: true);
+      }
+      if (Get.isRegistered<CallController>()) {
+        Get.find<CallController>().resetForLogout();
+        Get.delete<CallController>(force: true);
+      }
+      if (Get.isRegistered<VideoCallController>()) {
+        Get.find<VideoCallController>().resetForLogout();
+        Get.delete<VideoCallController>(force: true);
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('auth_token');
+      await prefs.remove('auth_user');
+      await prefs.remove('auth_role');
+      await prefs.remove('auth_user_id');
+      if (Get.isDialogOpen ?? false) Get.back();
+      Get.offAll(() => const LoginScreen());
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      Get.snackbar('Error', 'Logout failed: ${e.toString()}',
+          snackPosition: SnackPosition.TOP, backgroundColor: Colors.red, colorText: Colors.white);
+    }
+  }
+}
+
+// ==================== HOME CONTENT WEB ====================
+class HomeContentWeb extends StatelessWidget {
+  const HomeContentWeb({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final homeController = Get.find<EmployeeHomeController>();
+    final navController = Get.find<EmployerNavigationController>();
+
     return RefreshIndicator(
       onRefresh: () => Future.wait([
         homeController.fetchProjects(page: 1, resetList: true),
         homeController.fetchTalents(),
       ]),
-      // ✅ CHANGE 3: controller diya SingleChildScrollView ko
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            _topBar(homeController),
-            const SizedBox(height: 20),
-            _projectsTabBar(),
-            const SizedBox(height: 20),
-            if (selectedProjectTab == 0) ...[
-              _buildTalentTimeFilter(),
-            ] else ...[
-              _buildProjectTimeFilter(),
-            ],
-            const SizedBox(height: 16),
-            if (selectedProjectTab == 0) ...[
-              _recommendedSection(),
-            ] else ...[
-              _currentProjectsSection(),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTalentTimeFilter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Obx(() => DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: selectedTalentTimeFilter.value,
-              icon: Icon(Icons.arrow_drop_down, color: primary),
-              iconSize: 24,
-              elevation: 16,
-              style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500),
-              onChanged: (String? newValue) {
-                if (newValue != null) {
-                  selectedTalentTimeFilter.value = newValue;
-                }
-              },
-              items: timeFilters.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Row(
-                    children: [
-                      Icon(
-                        _getTimeFilterIcon(value),
-                        size: 18,
-                        color: selectedTalentTimeFilter.value == value
-                            ? primary
-                            : Colors.grey.shade600,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(value),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          )),
-    );
-  }
-
-  Widget _buildProjectTimeFilter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Obx(() => DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: selectedProjectTimeFilter.value,
-              icon: Icon(Icons.arrow_drop_down, color: primary),
-              iconSize: 24,
-              elevation: 16,
-              style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500),
-              onChanged: (String? newValue) {
-                if (newValue != null) {
-                  selectedProjectTimeFilter.value = newValue;
-                }
-              },
-              items: timeFilters.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Row(
-                    children: [
-                      Icon(
-                        _getTimeFilterIcon(value),
-                        size: 18,
-                        color: selectedProjectTimeFilter.value == value
-                            ? primary
-                            : Colors.grey.shade600,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(value),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          )),
-    );
-  }
-
-  IconData _getTimeFilterIcon(String filter) {
-    switch (filter) {
-      case 'Today':
-        return Icons.today;
-      case 'Yesterday':
-        return Icons.history;
-      case 'This Week':
-        return Icons.date_range;
-      case 'This Month':
-        return Icons.calendar_month;
-      case 'Last Month':
-        return Icons.calendar_view_month;
-      default:
-        return Icons.access_time;
-    }
-  }
-
-  Widget _topBar(EmployeeHomeController controller) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            InkWell(
-              onTap: () {
-                _scaffoldKey.currentState?.openDrawer();
-              },
-              child: Obx(
-                () => ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    controller.imageUrl.value.isNotEmpty
-                        ? controller.imageUrl.value
-                        : 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                    width: 44,
-                    height: 44,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      width: 44,
-                      height: 44,
-                      color: Colors.grey.shade300,
-                      child: const Icon(Icons.person, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 600;
+          final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 1000;
+          return SingleChildScrollView(
+            padding: EdgeInsets.all(isMobile ? 14 : 20),
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Welcome Back',
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                _WebWelcomeBanner(
+                  homeController: homeController,
+                  navController: navController,
+                  isMobile: isMobile,
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: isMobile ? 14 : 18),
+                _ProjectsTabBar(navController: navController),
+                const SizedBox(height: 14),
                 Obx(
-                  () => Text(
-                    controller.fullName.value,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                    ),
-                  ),
+                  () => navController.selectedProjectTab.value == 0
+                      ? const _TalentFilterSection()
+                      : const _ProjectFilterSection(),
                 ),
+                const SizedBox(height: 14),
+                Obx(
+                  () => navController.selectedProjectTab.value == 0
+                      ? _TalentsGridSection(isMobile: isMobile, isTablet: isTablet)
+                      : _ProjectsGridSection(isMobile: isMobile, isTablet: isTablet, navController: navController),
+                ),
+                const SizedBox(height: 20),
               ],
             ),
-          ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ==================== WELCOME BANNER ====================
+class _WebWelcomeBanner extends StatelessWidget {
+  final EmployeeHomeController homeController;
+  final EmployerNavigationController navController;
+  final bool isMobile;
+
+  const _WebWelcomeBanner({
+    required this.homeController,
+    required this.navController,
+    this.isMobile = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => Container(
+        padding: EdgeInsets.all(isMobile ? 14 : 18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [primary, primary.withOpacity(0.78)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
         ),
-        Stack(
+        child: isMobile
+            ? _mobileBanner()
+            : _desktopBanner(),
+      ),
+    );
+  }
+
+  Widget _mobileBanner() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Welcome, ${homeController.fullName.value.split(' ').first}! 👋',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Find talent & manage your projects.',
+          style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.82)),
+        ),
+        const SizedBox(height: 12),
+        Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_none,
-                  color: Colors.black87, size: 26),
-              onPressed: () {
-                Get.to(() => const NotificationScreen());
-              },
+            Expanded(
+              child: _bannerButton(
+                label: 'Post a Job',
+                icon: Icons.add,
+                filled: true,
+                onTap: () => Get.to(() => SelectPostTypeScreen()),
+              ),
             ),
-            Positioned(
-              right: 6,
-              top: 6,
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _bannerButton(
+                label: 'Find Talent',
+                icon: Icons.search,
+                filled: false,
+                onTap: () => navController.goToTalentDiscovery(),
               ),
             ),
           ],
@@ -687,17 +1381,101 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
     );
   }
 
-  Widget _projectsTabBar() {
+  Widget _desktopBanner() {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Welcome back, ${homeController.fullName.value.split(' ').first}! 👋',
+                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Find top talent and manage your projects efficiently.',
+                style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.84)),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  _bannerButton(
+                    label: 'Post a Job',
+                    icon: Icons.add,
+                    filled: true,
+                    onTap: () => Get.to(() => SelectPostTypeScreen()),
+                  ),
+                  const SizedBox(width: 10),
+                  _bannerButton(
+                    label: 'Find Talent',
+                    icon: Icons.search,
+                    filled: false,
+                    onTap: () => navController.goToTalentDiscovery(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Icon(Icons.dashboard_outlined, size: 64, color: Colors.white.withOpacity(0.15)),
+      ],
+    );
+  }
+
+  Widget _bannerButton({
+    required String label,
+    required IconData icon,
+    required bool filled,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: filled ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: filled ? null : Border.all(color: Colors.white, width: 1.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: filled ? primary : Colors.white),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: filled ? primary : Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== TAB BAR ====================
+class _ProjectsTabBar extends StatelessWidget {
+  final EmployerNavigationController navController;
+
+  const _ProjectsTabBar({required this.navController});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(4),
+      height: 40,
       decoration: BoxDecoration(
-        color: primary.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(30),
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          _tabButton("Top Talent", 0),
-          _tabButton("Temp Projects", 1),
+          _tabButton('Top Talent', 0),
+          _tabButton('Temp Projects', 1),
         ],
       ),
     );
@@ -705,251 +1483,397 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
 
   Widget _tabButton(String title, int index) {
     return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => selectedProjectTab = index),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(26),
-            color: selectedProjectTab == index ? primary : Colors.transparent,
-            boxShadow: selectedProjectTab == index
-                ? [
-                    BoxShadow(
-                      color: primary.withOpacity(0.35),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
-                color: selectedProjectTab == index ? Colors.white : primary,
+      child: Obx(() {
+        final selected = navController.selectedProjectTab.value == index;
+        return GestureDetector(
+          onTap: () => navController.selectedProjectTab.value = index,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            decoration: BoxDecoration(
+              color: selected ? primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: selected
+                  ? [BoxShadow(color: primary.withOpacity(0.25), blurRadius: 6, offset: const Offset(0, 2))]
+                  : null,
+            ),
+            child: Center(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : Colors.black54,
+                ),
               ),
             ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ==================== FILTER SECTIONS ====================
+class _TalentFilterSection extends StatelessWidget {
+  const _TalentFilterSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final timeFilters = ['All Time', 'Today', 'Yesterday', 'This Week', 'This Month', 'Last Month'];
+    final selectedTimeFilter = 'All Time'.obs;
+
+    return Row(
+      children: [
+        _FilterDropdown(filters: timeFilters, selected: selectedTimeFilter),
+        const Spacer(),
+      ],
+    );
+  }
+}
+
+class _ProjectFilterSection extends StatelessWidget {
+  const _ProjectFilterSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final timeFilters = ['All Time', 'Today', 'Yesterday', 'This Week', 'This Month', 'Last Month'];
+    final selectedTimeFilter = 'All Time'.obs;
+    final selectedFilter = 'All'.obs;
+
+    return Row(
+      children: [
+        _FilterDropdown(filters: timeFilters, selected: selectedTimeFilter),
+        const Spacer(),
+        Obx(() => Row(
+          children: ['All', 'Featured'].map((f) {
+            final selected = selectedFilter.value == f;
+            return Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: GestureDetector(
+                onTap: () => selectedFilter.value = f,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: selected ? primary.withOpacity(0.1) : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: selected ? primary.withOpacity(0.3) : Colors.grey.shade200,
+                    ),
+                  ),
+                  child: Text(
+                    f,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                      color: selected ? primary : Colors.black54,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        )),
+      ],
+    );
+  }
+}
+
+class _FilterDropdown extends StatelessWidget {
+  final List<String> filters;
+  final RxString selected;
+
+  const _FilterDropdown({required this.filters, required this.selected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Obx(
+        () => DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: selected.value,
+            icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade500, size: 16),
+            style: const TextStyle(color: Colors.black87, fontSize: 12),
+            onChanged: (val) => selected.value = val!,
+            items: filters
+                .map((value) => DropdownMenuItem(value: value, child: Text(value)))
+                .toList(),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _recommendedSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              "Recommended for You",
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87),
+// ==================== TALENTS GRID ====================
+class _TalentsGridSection extends StatelessWidget {
+  final bool isMobile;
+  final bool isTablet;
+
+  const _TalentsGridSection({this.isMobile = false, this.isTablet = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final homeController = Get.find<EmployeeHomeController>();
+    final navController = Get.find<EmployerNavigationController>();
+
+    return Obx(() {
+      if (homeController.isLoadingTalents.value) {
+        return const Center(
+          child: Padding(padding: EdgeInsets.symmetric(vertical: 30), child: CircularProgressIndicator()),
+        );
+      }
+
+      final talents = homeController.recommendedTalents;
+      if (talents.isEmpty) {
+        return _EmptyState(icon: Icons.people_outline, text: 'No talents found');
+      }
+
+      final crossAxisCount = isMobile ? 1 : (isTablet ? 2 : 3);
+      final displayCount = talents.length > 6 ? 6 : talents.length;
+
+      return Column(
+        children: [
+          _SectionHeader(
+            title: '${talents.length} Talents Found',
+            onSeeAll: () => navController.goToTalentDiscovery(),
+          ),
+          const SizedBox(height: 12),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: isMobile ? 2.8 : (isTablet ? 2.2 : 2.0),
             ),
-            InkWell(
-              onTap: () => Get.to(() => const TalentDiscoveryScreen()),
-              child: Text(
-                "See all",
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: primary),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: List.generate(talentFilters.length, (index) {
-              final filter = talentFilters[index];
-              return Obx(() => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(filter),
-                      selected: selectedTalentFilter.value == filter,
-                      onSelected: (selected) {
-                        selectedTalentFilter.value = filter;
-                      },
-                      backgroundColor: Colors.grey.shade100,
-                      selectedColor: primary.withOpacity(0.2),
-                      checkmarkColor: primary,
-                      labelStyle: TextStyle(
-                        color: selectedTalentFilter.value == filter
-                            ? primary
-                            : Colors.black87,
-                        fontWeight: selectedTalentFilter.value == filter
-                            ? FontWeight.w600
-                            : FontWeight.normal,
+            itemCount: displayCount,
+            itemBuilder: (context, index) =>
+                _TalentCard(talent: talents[index], navController: navController),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+// ==================== COMPACT TALENT CARD ====================
+class _TalentCard extends StatelessWidget {
+  final TalentModel talent;
+  final EmployerNavigationController navController;
+
+  const _TalentCard({required this.talent, required this.navController});
+
+  @override
+  Widget build(BuildContext context) {
+    final displaySkills = talent.skills.length > 3 ? talent.skills.sublist(0, 3) : talent.skills;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: talent.bgColor,
+            backgroundImage: talent.photoUrl.isNotEmpty ? NetworkImage(talent.photoUrl) : null,
+            child: talent.photoUrl.isEmpty
+                ? Text(
+                    talent.fullName.isNotEmpty ? talent.fullName[0].toUpperCase() : '?',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 10),
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        talent.fullName,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ));
-            }),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Obx(() {
-          if (selectedTalentTimeFilter.value != 'All Time') {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _getTimeFilterIcon(selectedTalentTimeFilter.value),
-                      size: 16,
-                      color: primary,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Showing: ${selectedTalentTimeFilter.value}',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: primary),
+                    const SizedBox(width: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Colors.amber, size: 12),
+                        const SizedBox(width: 2),
+                        Text(talent.ratingDisplay, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                      ],
                     ),
                   ],
                 ),
-              ),
-            );
-          }
-          return const SizedBox.shrink();
-        }),
-        Obx(() {
-          if (homeController.isLoadingTalents.value) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
-
-          if (homeController.talentsError.value != null) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Column(
-                children: [
-                  Text(homeController.talentsError.value!,
-                      style: const TextStyle(color: Colors.red)),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () => homeController.fetchTalents(),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          List<TalentModel> filteredTalents =
-              homeController.recommendedTalents;
-
-          if (selectedTalentFilter.value != 'All') {
-            filteredTalents = filteredTalents.where((t) {
-              switch (selectedTalentFilter.value) {
-                case 'Top Rated':
-                  final rating = t.employeeProfile['rating'];
-                  return rating != null && rating >= 4.5;
-                case 'Available':
-                  final availability = t.employeeProfile['availability'];
-                  return availability == 'AVAILABLE_NOW';
-                default:
-                  return true;
-              }
-            }).toList();
-          }
-
-          if (selectedTalentTimeFilter.value != 'All Time') {
-            filteredTalents = filteredTalents.where((t) {
-              final createdAt = t.createdAt;
-              if (createdAt == null) return false;
-              final now = DateTime.now();
-              final today = DateTime(now.year, now.month, now.day);
-              final yesterday = today.subtract(const Duration(days: 1));
-              final weekAgo = today.subtract(const Duration(days: 7));
-              final lastMonthStart = DateTime(now.year, now.month - 1, 1);
-              final lastMonthEnd = DateTime(now.year, now.month, 0);
-              switch (selectedTalentTimeFilter.value) {
-                case 'Today':
-                  return createdAt.isAfter(today);
-                case 'Yesterday':
-                  return createdAt.isAfter(yesterday) &&
-                      createdAt.isBefore(today);
-                case 'This Week':
-                  return createdAt.isAfter(weekAgo);
-                case 'This Month':
-                  return createdAt.month == now.month &&
-                      createdAt.year == now.year;
-                case 'Last Month':
-                  return createdAt.isAfter(lastMonthStart) &&
-                      createdAt.isBefore(lastMonthEnd);
-                default:
-                  return true;
-              }
-            }).toList();
-          }
-
-          if (filteredTalents.isEmpty) {
-            return Container(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              alignment: Alignment.center,
-              child: Column(
-                children: [
-                  Icon(Icons.people_outline,
-                      size: 48, color: Colors.grey.shade400),
-                  const SizedBox(height: 8),
-                  Text('No talents match this filter',
+                const SizedBox(height: 2),
+                Text(
+                  talent.title,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Text(
+                      talent.hourlyRateDisplay.isEmpty ? 'Rate TBD' : talent.hourlyRateDisplay,
                       style: TextStyle(
-                          fontSize: 14, color: Colors.grey.shade600)),
-                ],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: primary,
+                      ),
+                    ),
+                    const Spacer(),
+                    Wrap(
+                      spacing: 4,
+                      children: displaySkills
+                          .map(
+                            (skill) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(skill, style: const TextStyle(fontSize: 9, color: Colors.black54)),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    if (talent.skills.length > 3) ...[
+                      const SizedBox(width: 4),
+                      Text('+${talent.skills.length - 3}', style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // View button
+          GestureDetector(
+            onTap: () => navController.goToTalentProfile(talent),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: primary,
+                borderRadius: BorderRadius.circular(7),
               ),
-            );
-          }
-
-          return ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: filteredTalents.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 16),
-            itemBuilder: (context, index) {
-              return _talentCard(filteredTalents[index]);
-            },
-          );
-        }),
-      ],
+              child: const Text(
+                'View',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
 
-  Widget _talentCard(TalentModel talent) {
-    final displaySkills = talent.skills.length > 3
-        ? talent.skills.sublist(0, 3)
-        : talent.skills;
+// ==================== PROJECTS GRID ====================
+class _ProjectsGridSection extends StatelessWidget {
+  final bool isMobile;
+  final bool isTablet;
+  final EmployerNavigationController navController;
+
+  const _ProjectsGridSection({this.isMobile = false, this.isTablet = false, required this.navController});
+
+  @override
+  Widget build(BuildContext context) {
+    final homeController = Get.find<EmployeeHomeController>();
+
+    return Obx(() {
+      if (homeController.isLoadingProjects.value && homeController.projects.isEmpty) {
+        return const Center(
+          child: Padding(padding: EdgeInsets.symmetric(vertical: 30), child: CircularProgressIndicator()),
+        );
+      }
+
+      final projects = homeController.projects;
+      if (projects.isEmpty) {
+        return _EmptyState(icon: Icons.folder_open, text: 'No projects found');
+      }
+
+      final crossAxisCount = isMobile ? 1 : (isTablet ? 2 : 3);
+      final displayCount = projects.length > 6 ? 6 : projects.length;
+
+      return Column(
+        children: [
+        _SectionHeader(
+  title: '${projects.length} Projects Found',
+  onSeeAll: () {
+    // Yeh line change karo
+    navController.goToProjectsDiscovery(); // Direct navigation controller use karo
+  },
+),
+          const SizedBox(height: 12),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: isMobile ? 1.9 : (isTablet ? 1.6 : 1.5),
+            ),
+            itemCount: displayCount,
+            itemBuilder: (context, index) => _ProjectCard(project: projects[index]),
+          ),
+          if (homeController.isLoadingMoreProjects.value)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+        ],
+      );
+    });
+  }
+}
+
+// ==================== COMPACT PROJECT CARD ====================
+class _ProjectCard extends StatelessWidget {
+  final ProjectFeedModel project;
+
+  const _ProjectCard({required this.project});
+
+  @override
+  Widget build(BuildContext context) {
+    final displaySkills = project.skills.length > 3 ? project.skills.sublist(0, 3) : project.skills;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
@@ -957,615 +1881,188 @@ class _EmployeerHomeScreenState extends State<EmployeerHomeScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  height: 180,
-                  width: double.infinity,
-                  color: talent.bgColor,
-                  child: Stack(
-                    children: [
-                      Image.network(
-                        talent.projectImage,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: talent.bgColor,
-                            child: Center(
-                              child: Icon(Icons.image,
-                                  size: 48,
-                                  color: Colors.white.withOpacity(0.5)),
-                            ),
-                          );
-                        },
-                      ),
-                      Positioned(
-                        bottom: 12,
-                        right: 12,
-                        child: CircleAvatar(
-                          radius: 24,
-                          backgroundColor: Colors.white,
-                          child: CircleAvatar(
-                            radius: 22,
-                            backgroundImage: talent.photoUrl.isNotEmpty
-                                ? NetworkImage(talent.photoUrl)
-                                : null,
-                            child: talent.photoUrl.isEmpty
-                                ? Text(
-                                    talent.fullName.isNotEmpty
-                                        ? talent.fullName[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87),
-                                  )
-                                : null,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (talent.badge.isNotEmpty)
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: talent.badgeColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      talent.badge,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 14),
-                      const SizedBox(width: 4),
-                      Text(talent.rating,
-                          style: const TextStyle(
-                              color: Colors.black87,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            talent.title.toUpperCase(),
-            style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: primary,
-                letterSpacing: 0.5),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            talent.fullName,
-            style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: displaySkills.map((skill) {
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(skill,
-                    style: const TextStyle(
-                        fontSize: 11, color: Colors.black87)),
-              );
-            }).toList(),
-          ),
-          if (talent.skills.length > 3) ...[
-            const SizedBox(height: 4),
-            Text('+${talent.skills.length - 3} more',
-                style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey.shade500,
-                    fontWeight: FontWeight.w500)),
-          ],
-          const SizedBox(height: 12),
+          // Top row: badges
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('HOURLY RATE',
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade600,
-                          letterSpacing: 0.5)),
-                  const SizedBox(height: 2),
-                  Text(talent.hourlyRate,
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87)),
-                ],
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Get.to(() => TalentProfileScreen(talent: talent));
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                  elevation: 0,
-                ),
-                child: const Text('View Profile',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600)),
-              ),
+              if (project.featured)
+                _Badge(label: 'FEATURED', color: const Color(0xFF00BCD4)),
+              if (project.featured) const SizedBox(width: 6),
+              if (project.isVerified)
+                Icon(Icons.verified, color: Colors.blue.shade600, size: 14),
+              const Spacer(),
+              Icon(Icons.bookmark_border, color: Colors.grey.shade300, size: 16),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _currentProjectsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Recommended for you",
-          style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          "Based on your industry • ${_getIndustryText()}",
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-        const SizedBox(height: 16),
-        _categoryTabs(),
-        const SizedBox(height: 16),
-        Obx(() {
-          if (selectedProjectTimeFilter.value != 'All Time') {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(_getTimeFilterIcon(selectedProjectTimeFilter.value),
-                        size: 16, color: primary),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Showing: ${selectedProjectTimeFilter.value}',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: primary),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-          return const SizedBox.shrink();
-        }),
-        Obx(() {
-          if (homeController.isLoadingProjects.value &&
-              homeController.projects.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
-
-          if (homeController.projectsError.value != null) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Column(
-                children: [
-                  Text(homeController.projectsError.value!,
-                      style: const TextStyle(color: Colors.red)),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () => homeController.fetchProjects(
-                        page: 1, resetList: true),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          List<ProjectFeedModel> filteredProjects = homeController.projects;
-
-          if (selectedProjectFilter.value == 'Featured') {
-            filteredProjects =
-                filteredProjects.where((p) => p.featured).toList();
-          }
-
-          if (selectedProjectTimeFilter.value != 'All Time') {
-            filteredProjects = filteredProjects.where((p) {
-              final createdAt = p.createdAt;
-              if (createdAt == null) return false;
-              final now = DateTime.now();
-              final today = DateTime(now.year, now.month, now.day);
-              final yesterday = today.subtract(const Duration(days: 1));
-              final weekAgo = today.subtract(const Duration(days: 7));
-              final lastMonthStart = DateTime(now.year, now.month - 1, 1);
-              final lastMonthEnd = DateTime(now.year, now.month, 0);
-              switch (selectedProjectTimeFilter.value) {
-                case 'Today':
-                  return createdAt.isAfter(today);
-                case 'Yesterday':
-                  return createdAt.isAfter(yesterday) &&
-                      createdAt.isBefore(today);
-                case 'This Week':
-                  return createdAt.isAfter(weekAgo);
-                case 'This Month':
-                  return createdAt.month == now.month &&
-                      createdAt.year == now.year;
-                case 'Last Month':
-                  return createdAt.isAfter(lastMonthStart) &&
-                      createdAt.isBefore(lastMonthEnd);
-                default:
-                  return true;
-              }
-            }).toList();
-          }
-
-          return Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    selectedProjectFilter.value == 'Featured'
-                        ? "Featured Projects"
-                        : "Recommended Projects",
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87),
-                  ),
-                  InkWell(
-                    onTap: () =>
-                        Get.to(() => const ProjectsDiscoveryScreen()),
-                    child: Text("See all",
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: primary)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (filteredProjects.isEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  alignment: Alignment.center,
-                  child: Column(
-                    children: [
-                      Icon(Icons.folder_open,
-                          size: 48, color: Colors.grey.shade400),
-                      const SizedBox(height: 8),
-                      Text('No projects match this filter',
-                          style: TextStyle(
-                              fontSize: 14, color: Colors.grey.shade600)),
-                    ],
-                  ),
-                )
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filteredProjects.length +
-                      (homeController.isLoadingMoreProjects.value ? 1 : 0),
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    if (index == filteredProjects.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    return _projectCard(filteredProjects[index]);
-                  },
-                ),
-            ],
-          );
-        }),
-      ],
-    );
-  }
-
-  String _getIndustryText() => "Technology & Design";
-
-  Widget _categoryTabs() {
-    final tabs = ["Top Matches", "Urgent", "New", "Remote"];
-    return SizedBox(
-      height: 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: tabs.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final selected = index == selectedCategoryIndex;
-          return GestureDetector(
-            onTap: () => setState(() => selectedCategoryIndex = index),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected ? Colors.black87 : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: selected ? Colors.black87 : Colors.grey.shade300,
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                tabs[index],
-                style: TextStyle(
-                  color: selected ? Colors.white : Colors.black54,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _projectCard(ProjectFeedModel project) {
-    List<String> badges = [];
-    List<Color> badgeColors = [];
-    if (project.featured) {
-      badges.add('FEATURED');
-      badgeColors.add(const Color(0xFF00BCD4));
-    }
-    final displaySkills = project.skills.length > 5
-        ? project.skills.sublist(0, 5)
-        : project.skills;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+          const SizedBox(height: 6),
+          // Title
+          Text(
+            project.title,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    for (int i = 0; i < badges.length; i++)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: badgeColors[i],
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(badges[i],
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold)),
-                      ),
-                  ],
-                ),
-                Icon(Icons.bookmark_border,
-                    color: Colors.grey.shade500, size: 20),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    project.title,
-                    style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (project.isVerified) ...[
-                  const SizedBox(width: 8),
-                  Icon(Icons.verified, color: Colors.blue.shade700, size: 18),
-                ],
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              _getSubtitle(project),
-              style: TextStyle(
-                  fontSize: 13, color: Colors.grey.shade600, height: 1.4),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Column(
+          const SizedBox(height: 3),
+          // Description
+          Text(
+            project.description.length > 60
+                ? '${project.description.substring(0, 60)}...'
+                : project.description,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500, height: 1.4),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          Divider(height: 1, color: Colors.grey.shade100),
+          const SizedBox(height: 8),
+          // Budget & Timeline
+          Row(
+            children: [
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('BUDGET',
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade600,
-                            letterSpacing: 0.5)),
-                    const SizedBox(height: 4),
-                    Text(project.displayBudget,
-                        style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87)),
+                    Text('BUDGET', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.grey.shade400, letterSpacing: 0.5)),
+                    const SizedBox(height: 2),
+                    Text(project.displayBudget, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87)),
                   ],
                 ),
-                const SizedBox(width: 24),
-                Column(
+              ),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('TIMELINE',
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade600,
-                            letterSpacing: 0.5)),
-                    const SizedBox(height: 4),
+                    Text('TIMELINE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.grey.shade400, letterSpacing: 0.5)),
+                    const SizedBox(height: 2),
                     Row(
                       children: [
-                        Icon(Icons.schedule,
-                            size: 16, color: Colors.grey.shade600),
-                        const SizedBox(width: 6),
-                        Text(project.duration,
-                            style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade700)),
+                        Icon(Icons.schedule, size: 11, color: Colors.grey.shade400),
+                        const SizedBox(width: 3),
+                        Text(project.duration, style: const TextStyle(fontSize: 12, color: Colors.black87)),
                       ],
                     ),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('REQUIRED SKILLS',
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade600,
-                        letterSpacing: 0.5)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: displaySkills.map((skill) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: primary.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                            color: primary.withOpacity(0.2), width: 1),
-                      ),
-                      child: Text(skill,
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: primary,
-                              fontWeight: FontWeight.w500)),
-                    );
-                  }).toList(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Skills
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              ...displaySkills.map(
+                (skill) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: primary.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: primary.withOpacity(0.12)),
+                  ),
+                  child: Text(skill, style: TextStyle(fontSize: 10, color: primary)),
                 ),
-                if (project.skills.length > 5) ...[
-                  const SizedBox(height: 4),
-                  Text('+${project.skills.length - 5} more',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade500,
-                          fontWeight: FontWeight.w500)),
-                ],
-              ],
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Get.to(() => ProjectDetailScreen(project: project));
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  elevation: 0,
+              ),
+              if (project.skills.length > 3)
+                Text('+${project.skills.length - 3}', style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
+            ],
+          ),
+          const Spacer(),
+          // View button
+          SizedBox(
+            width: double.infinity,
+            child: GestureDetector(
+              onTap: () => Get.to(() => ProjectDetailScreen(project: project)),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: primary,
+                  borderRadius: BorderRadius.circular(7),
                 ),
-                child: const Text('View Details',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
+                child: const Text(
+                  'View Details',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  String _getSubtitle(ProjectFeedModel project) {
-    if (project.description.isEmpty) return 'No description provided';
-    if (project.description.length <= 60) return project.description;
-    return '${project.description.substring(0, 60)}...';
+// ==================== HELPERS ====================
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final VoidCallback onSeeAll;
+
+  const _SectionHeader({required this.title, required this.onSeeAll});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        GestureDetector(
+          onTap: onSeeAll,
+          child: Row(
+            children: [
+              Text('See All', style: TextStyle(fontSize: 12, color: primary, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 2),
+              Icon(Icons.arrow_forward_ios, size: 10, color: primary),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _Badge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.3),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _EmptyState({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          Icon(icon, size: 44, color: Colors.grey.shade200),
+          const SizedBox(height: 8),
+          Text(text, style: TextStyle(fontSize: 13, color: Colors.grey.shade400)),
+        ],
+      ),
+    );
   }
 }

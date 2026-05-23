@@ -15,10 +15,17 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:http/http.dart' as http;
 
 // ============================================
-// RESUME DASHBOARD SCREEN - COMPLETE FIXED VERSION
+// RESUME DASHBOARD SCREEN - WITH SIDEBAR SUPPORT
 // ============================================
 class ResumeDashboardScreen extends StatefulWidget {
-  const ResumeDashboardScreen({Key? key}) : super(key: key);
+  final VoidCallback? onBackPressed;
+  final bool showSidebar;
+
+  const ResumeDashboardScreen({
+    Key? key,
+    this.onBackPressed,
+    this.showSidebar = true,
+  }) : super(key: key);
 
   @override
   State<ResumeDashboardScreen> createState() => _ResumeDashboardScreenState();
@@ -42,7 +49,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
   // ============================================
   Future<void> _viewResume(ResumesModel resume) async {
     try {
-      // Show loading
       Get.dialog(
         const Center(
           child: Column(
@@ -59,10 +65,8 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
 
       print('📥 Original URL: ${resume.fileUrl}');
       
-      // Try multiple URL formats for Cloudinary
       List<String> urlsToTry = [];
       
-      // Add different URL variations
       if (resume.fileUrl.contains('image/upload')) {
         urlsToTry.add(resume.fileUrl.replaceFirst('image/upload', 'raw/upload'));
         urlsToTry.add(resume.fileUrl);
@@ -83,7 +87,7 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
             Uri.parse(url),
             headers: {
               'Accept': 'application/pdf',
-              'User-Agent': 'Mozilla/5.0', // Some Cloudinary URLs need this
+              'User-Agent': 'Mozilla/5.0',
             },
           ).timeout(
             const Duration(seconds: 15),
@@ -91,11 +95,9 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
           );
           
           print('📥 Status: ${response.statusCode}');
-          print('📥 Headers: ${response.headers['content-type']}');
           print('📥 Size: ${response.bodyBytes.length} bytes');
           
           if (response.statusCode == 200) {
-            // Check if we actually got PDF content
             if (response.bodyBytes.length > 1000) {
               pdfBytes = response.bodyBytes;
               successUrl = url;
@@ -104,10 +106,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
             } else {
               print('⚠️ File too small: ${response.bodyBytes.length} bytes');
             }
-          } else if (response.statusCode == 401) {
-            print('⚠️ URL requires authentication (401)');
-          } else if (response.statusCode == 404) {
-            print('⚠️ URL not found (404)');
           }
         } catch (e) {
           print('❌ Failed: $url - $e');
@@ -115,13 +113,11 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
         }
       }
       
-      Get.back(); // Close loading
+      Get.back();
       
       if (pdfBytes != null) {
-        // Save to temporary directory
         final tempDir = await getTemporaryDirectory();
         
-        // Ensure filename has .pdf extension
         String fileName = resume.fileName;
         if (!fileName.toLowerCase().endsWith('.pdf')) {
           fileName = '$fileName.pdf';
@@ -130,11 +126,9 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
         final tempFile = File('${tempDir.path}/$fileName');
         await tempFile.writeAsBytes(pdfBytes!);
         
-        // Verify file was saved
         if (await tempFile.exists()) {
           print('✅ File saved: ${tempFile.path}');
           
-          // Navigate to PDF viewer
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -143,17 +137,11 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
                 fileName: fileName,
               ),
             ),
-          ).then((_) {
-            // Clean up temp file after returning (optional)
-            // if (tempFile.existsSync()) {
-            //   tempFile.deleteSync();
-            // }
-          });
+          );
         } else {
           throw Exception('Failed to save file');
         }
       } else {
-        // If all attempts failed, show error with download option
         _showDownloadOption(resume);
       }
       
@@ -166,9 +154,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
     }
   }
 
-  // ============================================
-  // SHOW DOWNLOAD OPTION WHEN VIEW FAILS
-  // ============================================
   void _showDownloadOption(ResumesModel resume) {
     Get.dialog(
       AlertDialog(
@@ -236,9 +221,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
     );
   }
 
-  // ============================================
-  // DELETE RESUME
-  // ============================================
   void _confirmDelete(ResumesModel resume) {
     Get.dialog(
       AlertDialog(
@@ -272,9 +254,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
     );
   }
 
-  // ============================================
-  // SET DEFAULT RESUME
-  // ============================================
   Future<void> _setDefaultResume(ResumesModel resume) async {
     if (resume.isDefault) {
       Get.snackbar(
@@ -302,9 +281,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
     }
   }
 
-  // ============================================
-  // SHARE RESUME
-  // ============================================
   Future<void> _shareResume(ResumesModel resume) async {
     try {
       Get.dialog(
@@ -312,7 +288,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
         barrierDismissible: false,
       );
 
-      // Try to download first
       final response = await http.get(
         Uri.parse(resume.fileUrl.replaceFirst('image/upload', 'raw/upload')),
         headers: {'Accept': 'application/pdf'},
@@ -326,7 +301,7 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
       final tempFile = File('${tempDir.path}/${resume.fileName}');
       await tempFile.writeAsBytes(response.bodyBytes);
       
-      Get.back(); // Close loading
+      Get.back();
       
       await Share.shareXFiles(
         [XFile(tempFile.path)],
@@ -338,7 +313,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
         Get.back();
       }
       
-      // If download fails, share the URL
       await Share.share(
         'Check out my resume: ${resume.fileUrl}',
         subject: 'My Resume',
@@ -346,9 +320,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
     }
   }
 
-  // ============================================
-  // DOWNLOAD RESUME
-  // ============================================
   Future<void> _downloadResume(ResumesModel resume) async {
     try {
       Get.dialog(
@@ -356,7 +327,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
         barrierDismissible: false,
       );
 
-      // Try raw upload URL first
       String downloadUrl = resume.fileUrl.replaceFirst('image/upload', 'raw/upload');
       
       final response = await http.get(
@@ -365,7 +335,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
       ).timeout(const Duration(seconds: 30));
       
       if (response.statusCode != 200) {
-        // Try original URL
         final response2 = await http.get(
           Uri.parse(resume.fileUrl),
           headers: {'Accept': 'application/pdf'},
@@ -385,7 +354,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
         Get.back();
       }
       
-      // If all fails, open in browser
       Get.dialog(
         AlertDialog(
           title: const Text('Download via Browser'),
@@ -409,19 +377,14 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
     }
   }
 
-  // ============================================
-  // SAVE PDF TO DEVICE
-  // ============================================
   Future<void> _savePdfToDevice(Uint8List bytes, String fileName) async {
     try {
       if (Platform.isAndroid) {
-        // For Android - save to Downloads
         final downloadDir = Directory('/storage/emulated/0/Download');
         if (!await downloadDir.exists()) {
           await downloadDir.create(recursive: true);
         }
         
-        // Ensure unique filename
         String uniqueFileName = fileName;
         File file = File('${downloadDir.path}/$uniqueFileName');
         int counter = 1;
@@ -435,7 +398,7 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
         
         await file.writeAsBytes(bytes);
         
-        Get.back(); // Close loading
+        Get.back();
         
         Get.snackbar(
           '✅ Downloaded',
@@ -451,13 +414,12 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
           ),
         );
       } else {
-        // For iOS
         final directory = await getApplicationDocumentsDirectory();
         final filePath = '${directory.path}/$fileName';
         final file = File(filePath);
         await file.writeAsBytes(bytes);
         
-        Get.back(); // Close loading
+        Get.back();
         
         Get.snackbar(
           '✅ Downloaded',
@@ -481,10 +443,12 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: widget.showSidebar
+            ? null  // ✅ Web mein sidebar hai to back button mat dikhao
+            : IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: widget.onBackPressed ?? () => Navigator.pop(context),
+              ),
         title: const Text(
           'My Resumes',
           style: TextStyle(
@@ -501,7 +465,7 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.add, color: Colors.black),
             onPressed: () {
-              Get.to(() => ResumeTemplate());
+              Get.to(() => const ResumeTemplate());
             },
           ),
         ],
@@ -567,8 +531,7 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () {
-              // Navigate to resume builder
-              // Get.to(() => ResumeTemplateScreen());
+              Get.to(() => const ResumeTemplate());
             },
             icon: const Icon(Icons.add),
             label: const Text('Create Resume'),
@@ -604,7 +567,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
       ),
       child: Column(
         children: [
-          // Default badge
           if (isDefault)
             Container(
               width: double.infinity,
@@ -633,13 +595,11 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
               ),
             ),
           
-          // Card content
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // PDF Icon
                 Container(
                   width: 48,
                   height: 48,
@@ -656,7 +616,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
                 
                 const SizedBox(width: 16),
                 
-                // Resume details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -683,7 +642,6 @@ class _ResumeDashboardScreenState extends State<ResumeDashboardScreen> {
                   ),
                 ),
                 
-                // Actions Menu
                 PopupMenuButton<String>(
                   icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
                   onSelected: (value) {

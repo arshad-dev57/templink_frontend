@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -373,25 +372,25 @@ class ApplicationDetailScreen extends StatelessWidget {
       }
 
       // Initialize Stripe
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          merchantDisplayName: 'Templink',
-          paymentIntentClientSecret: paymentData['clientSecret'],
-          style: ThemeMode.light,
-          appearance: const PaymentSheetAppearance(
-            colors: PaymentSheetAppearanceColors(
-              primary: Color(0xFF0066B3),
-            ),
-          ),
-        ),
-      );
+      // await Stripe.instance.initPaymentSheet(
+      //   paymentSheetParameters: SetupPaymentSheetParameters(
+      //     merchantDisplayName: 'Templink',
+      //     paymentIntentClientSecret: paymentData['clientSecret'],
+      //     style: ThemeMode.light,
+      //     appearance: const PaymentSheetAppearance(
+      //       colors: PaymentSheetAppearanceColors(
+      //         primary: Color(0xFF0066B3),
+      //       ),
+      //     ),
+      //   ),
+      // );
 
       Get.dialog(
         const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
       );
 
-      await Stripe.instance.presentPaymentSheet();
+      // await Stripe.instance.presentPaymentSheet();
 
       final verifyResponse = await http.post(
         Uri.parse('$baseUrl/api/commission/verify-payment'),

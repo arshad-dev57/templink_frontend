@@ -1,4 +1,6 @@
-// lib/Employer/models/employer_interest_model.dart
+// lib/Employeer/model/employer_interest_model.dart
+import 'package:flutter/material.dart';
+
 class EmployerInterestModel {
   final String id;
   final String employeeId;
@@ -9,9 +11,10 @@ class EmployerInterestModel {
   final double salaryAmount;
   final String salaryPeriod;
   final String message;
-  final String status;
+  final String status;  // pending, interested, declined, hired, cancelled
   final DateTime createdAt;
-  final DateTime respondedAt;
+  final DateTime? respondedAt;
+  final double commissionAmount;
 
   EmployerInterestModel({
     required this.id,
@@ -25,7 +28,8 @@ class EmployerInterestModel {
     required this.message,
     required this.status,
     required this.createdAt,
-    required this.respondedAt,
+    this.respondedAt,
+    required this.commissionAmount,
   });
 
   factory EmployerInterestModel.fromJson(Map<String, dynamic> json) {
@@ -47,13 +51,14 @@ class EmployerInterestModel {
       salaryAmount: (json['salaryAmount'] ?? 0).toDouble(),
       salaryPeriod: json['salaryPeriod'] ?? 'monthly',
       message: json['message'] ?? '',
-      status: json['status'] ?? 'interested',
+      status: json['status'] ?? 'pending',
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
       respondedAt: json['respondedAt'] != null
           ? DateTime.parse(json['respondedAt'])
-          : DateTime.now(),
+          : null,
+      commissionAmount: (json['commissionAmount'] ?? 0).toDouble(),
     );
   }
 
@@ -71,6 +76,58 @@ class EmployerInterestModel {
         return 'yr';
       default:
         return 'mo';
+    }
+  }
+
+  // ✅ Helper methods for UI display
+  String get displayStatus {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'interested':
+        return 'Interested';
+      case 'declined':
+        return 'Declined';
+      case 'hired':
+        return 'Hired';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  }
+
+  Color get statusColor {
+    switch (status) {
+      case 'pending':
+        return Colors.orange;
+      case 'interested':
+        return Colors.green;
+      case 'declined':
+        return Colors.red;
+      case 'hired':
+        return Colors.purple;
+      case 'cancelled':
+        return Colors.grey;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData get statusIcon {
+    switch (status) {
+      case 'pending':
+        return Icons.pending_actions;
+      case 'interested':
+        return Icons.check_circle_outline;
+      case 'declined':
+        return Icons.cancel_outlined;
+      case 'hired':
+        return Icons.work;
+      case 'cancelled':
+        return Icons.cancel;
+      default:
+        return Icons.info_outline;
     }
   }
 }

@@ -52,55 +52,47 @@ class _EmployerContractScreenState extends State<EmployerContractScreen> {
     _pageController.dispose();
     super.dispose();
   }
-
-  Future<void> _loadContract() async {
-    if (widget.contractId != null) {
-      await contractController.getContract(widget.contractId!);
-    } else {
-      await contractController.getContractByProject(widget.projectId);
-    }
-
-    final contract = contractController.contract.value;
-    if (contract != null) {
-      print('📄 Contract Status: ${contract['status']}');
-      print('👤 Employer Signed: ${contractController.isEmployerSigned}');
-      print('👤 Employee Signed: ${contractController.isEmployeeSigned}');
-
-      // ✅ Agar proposal signing mode mein already sign ho chuka hai to back jao
-      if (widget.isProposalSigning && contractController.isEmployerSigned) {
-        print('✅ Already signed - going back');
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          Get.snackbar(
-            'ℹ️ Info',
-            'You have already signed this proposal',
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: Colors.blue,
-            colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) {
-              if (Navigator.canPop(context)) {
-                Navigator.pop(context);
-              } else {
-                Get.back();
-              }
-            }
-          });
-        });
-        return;
-      }
-    }
-
-    // ✅ Agar employer already sign kar chuka hai to agree to terms set karo
-    if (contractController.isEmployerSigned) {
-      setState(() {
-        _agreeToTerms = true;
-        _currentStep = 2;
-      });
-    }
+Future<void> _loadContract() async {
+  if (widget.contractId != null) {
+    await contractController.getContract(widget.contractId!);
+  } else {
+    await contractController.getContractByProject(widget.projectId);
   }
 
+  final contract = contractController.contract.value;
+  if (contract == null) return;
+
+  print('📄 Contract Status: ${contract['status']}');
+  print('👤 Employer Signed: ${contractController.isEmployerSigned}');
+
+  // ONLY redirect if explicitly in proposal signing mode, never on viewOnly
+  if (widget.isProposalSigning && !widget.viewOnly && contractController.isEmployerSigned) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Get.snackbar(
+        'ℹ️ Info',
+        'You have already signed this proposal',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          Navigator.canPop(context) ? Navigator.pop(context) : Get.back();
+        }
+      });
+    });
+    return;
+  }
+
+  // Only auto-advance step when actually signing, not on viewOnly
+  if (!widget.viewOnly && contractController.isEmployerSigned) {
+    setState(() {
+      _agreeToTerms = true;
+      _currentStep = 2;
+    });
+  }
+}
   // ==================== SAVE SIGNATURE ====================
   Future<void> _saveSignature() async {
     if (!_agreeToTerms) {

@@ -3,16 +3,27 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Controllers/call_kit_router.dart';
-import 'package:templink/Global_Screens/Chat_Screen.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:templink/Utils/responsive.dart';
 import 'package:templink/config/api_config.dart';
 import 'package:templink/Controllers/call_controller.dart';
 import 'package:templink/Controllers/video_call_controller.dart';
 import 'package:templink/Controllers/chat_list_controller.dart';
 import 'package:templink/Controllers/chat_socket_controller.dart';
+import 'package:templink/Global_Screens/Chat_Screen.dart';
+import 'package:templink/Employee/Screens/Employee_HomeScreen.dart';
 
 class ChatUsersListScreen extends StatefulWidget {
-  const ChatUsersListScreen({Key? key}) : super(key: key);
+  final VoidCallback? onBackPressed;
+  final bool showSidebar;
+  final Function(Map<String, dynamic>)? onChatSelected;
+
+  const ChatUsersListScreen({
+    Key? key,
+    this.onBackPressed,
+    this.showSidebar = true,
+    this.onChatSelected,
+  }) : super(key: key);
 
   @override
   State<ChatUsersListScreen> createState() => _ChatUsersListScreenState();
@@ -42,8 +53,8 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      baseUrl  = ApiConfig.baseUrl;
-      myToken  = prefs.getString('auth_token') ?? '';
+      baseUrl = ApiConfig.baseUrl;
+      myToken = prefs.getString('auth_token') ?? '';
       myUserId = prefs.getString('auth_user_id') ?? '';
 
       final userJson = prefs.getString('auth_user');
@@ -52,8 +63,12 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
           final userData = jsonDecode(userJson);
           myName = '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'.trim();
           if (myName.isEmpty) myName = 'User';
-        } catch (_) { myName = 'User'; }
-      } else { myName = 'User'; }
+        } catch (_) {
+          myName = 'User';
+        }
+      } else {
+        myName = 'User';
+      }
 
       if (myToken.isEmpty || myUserId.isEmpty) {
         Get.snackbar('Error', 'Authentication failed. Please login again.',
@@ -67,7 +82,11 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
         socketC = Get.find<ChatSocketController>();
       } else {
         socketC = Get.put(
-          ChatSocketController(socketBaseUrl: baseUrl, token: myToken, myUserId: myUserId),
+          ChatSocketController(
+            socketBaseUrl: baseUrl,
+            token: myToken,
+            myUserId: myUserId,
+          ),
           permanent: true,
         );
       }
@@ -91,11 +110,8 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
         await videoCtrl.init(myUserId);
       }
 
-      // ── CallKitRouter — SINGLE listener for ALL CallKit events ──
-      // Ye ensure karta hai ke audio call ka accept sirf CallController
-      // ko jaye aur video call ka accept sirf VideoCallController ko.
-      // Dono controllers mein ab _listenCallKitEvents() nahi hai.
-      CallKitRouter.init(); // ← NEW
+      // ── CallKitRouter ─────────────────────────────────────
+      CallKitRouter.init();
 
       _setupSocketListeners();
       setState(() => _isLoading = false);
@@ -118,6 +134,32 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
     super.dispose();
   }
 
+  // Helper to navigate to chat screen via EmployeeHomeScreen
+  void _navigateToChat(Map<String, dynamic> user) {
+    final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+    
+    if (isWeb && widget.showSidebar == false) {
+      // Web par - callback use karo
+      if (widget.onChatSelected != null) {
+        widget.onChatSelected!(user);
+      }
+    } else {
+      // Mobile par - direct Get.to
+      Get.to(() => ChatScreen(
+        userName: user['name'] ?? 'User',
+        userOnline: user['online'] ?? false,
+        toUserId: user['userId'] ?? '',
+        baseUrl: baseUrl,
+        myToken: myToken,
+        myUserId: myUserId,
+        initialConversationId: user['conversationId']?.toString(),
+        initialMessages: user['cachedMessages'],
+        onBackPressed: () => Get.back(),
+        showSidebar: widget.showSidebar,
+      ));
+    }
+  }
+
   // ── Last message preview text ─────────────────────────────
   String _lastMessagePreview(String lastMessage) {
     if (lastMessage.isEmpty) return 'No messages yet';
@@ -126,14 +168,22 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
 
   // ── Last message icon ─────────────────────────────────────
   Widget? _lastMessageIcon(String lastMessage) {
-    if (lastMessage.startsWith('📷')) return const Icon(Icons.image_rounded, size: 14, color: Color(0xFF10B981));
-    if (lastMessage.startsWith('🎥')) return const Icon(Icons.videocam_rounded, size: 14, color: Color(0xFF8B5CF6));
-    if (lastMessage.startsWith('🎤')) return const Icon(Icons.audiotrack_rounded, size: 14, color: Color(0xFFF59E0B));
-    if (lastMessage.startsWith('📄')) return const Icon(Icons.picture_as_pdf_rounded, size: 14, color: Color(0xFFEF4444));
-    if (lastMessage.startsWith('📝')) return const Icon(Icons.description_rounded, size: 14, color: Color(0xFF3B82F6));
-    if (lastMessage.startsWith('📊')) return const Icon(Icons.table_chart_rounded, size: 14, color: Color(0xFF059669));
-    if (lastMessage.startsWith('🗜️')) return const Icon(Icons.folder_zip_rounded, size: 14, color: Color(0xFF6B7280));
-    if (lastMessage.startsWith('📎')) return const Icon(Icons.attach_file_rounded, size: 14, color: Color(0xFF6B7280));
+    if (lastMessage.startsWith('📷'))
+      return const Icon(Icons.image_rounded, size: 14, color: Color(0xFF10B981));
+    if (lastMessage.startsWith('🎥'))
+      return const Icon(Icons.videocam_rounded, size: 14, color: Color(0xFF8B5CF6));
+    if (lastMessage.startsWith('🎤'))
+      return const Icon(Icons.audiotrack_rounded, size: 14, color: Color(0xFFF59E0B));
+    if (lastMessage.startsWith('📄'))
+      return const Icon(Icons.picture_as_pdf_rounded, size: 14, color: Color(0xFFEF4444));
+    if (lastMessage.startsWith('📝'))
+      return const Icon(Icons.description_rounded, size: 14, color: Color(0xFF3B82F6));
+    if (lastMessage.startsWith('📊'))
+      return const Icon(Icons.table_chart_rounded, size: 14, color: Color(0xFF059669));
+    if (lastMessage.startsWith('🗜️'))
+      return const Icon(Icons.folder_zip_rounded, size: 14, color: Color(0xFF6B7280));
+    if (lastMessage.startsWith('📎'))
+      return const Icon(Icons.attach_file_rounded, size: 14, color: Color(0xFF6B7280));
     return null;
   }
 
@@ -159,7 +209,7 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
     if (t == null || t.toString().isEmpty) return "";
     try {
       final date = DateTime.parse(t.toString());
-      final now  = DateTime.now();
+      final now = DateTime.now();
       final diff = now.difference(date);
       if (diff.inDays == 0) {
         return '${date.hour % 12 == 0 ? 12 : date.hour % 12}:${date.minute.toString().padLeft(2, '0')} ${date.hour >= 12 ? 'PM' : 'AM'}';
@@ -171,11 +221,16 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
       } else {
         return '${date.day}/${date.month}/${date.year}';
       }
-    } catch (_) { return ""; }
+    } catch (_) {
+      return "";
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    Responsive.init(context);
+    final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+
     if (_isLoading) {
       return Scaffold(
         backgroundColor: Colors.white,
@@ -195,325 +250,411 @@ class _ChatUsersListScreenState extends State<ChatUsersListScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
+    // Web layout with sidebar support (when showSidebar is false)
+    if (isWeb && !widget.showSidebar) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: Column(
           children: [
-            // ── Connection banner ─────────────────────────────
-            Obx(() {
-              if (!socketC.isConnected.value) {
-                return Container(
-                  margin: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.wifi_off, size: 16, color: Colors.orange.shade700),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text('Connecting to chat server...',
-                            style: TextStyle(color: Colors.orange.shade700, fontSize: 12)),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return const SizedBox();
-            }),
-
-            // ── Header ───────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Messages',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.grey[900],
-                            letterSpacing: -0.5,
-                          )),
-                      Obx(() {
-                        final total = listC.totalUnreadCount;
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            IconButton(
-                              onPressed: () => listC.loadConversations(),
-                              icon: Icon(Icons.refresh_rounded, color: Colors.grey[600], size: 24),
-                            ),
-                            if (total > 0)
-                              Positioned(
-                                top: 4, right: 4,
-                                child: Container(
-                                  width: 18, height: 18,
-                                  decoration: const BoxDecoration(color: primary, shape: BoxShape.circle),
-                                  child: Center(
-                                    child: Text(
-                                      total > 99 ? '99+' : total.toString(),
-                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        );
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Obx(() => Text(
-                    '${listC.conversations.length} conversation${listC.conversations.length == 1 ? '' : 's'}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  )),
-                ],
-              ),
-            ),
-
-            // ── Search bar ────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.grey[200]!, width: 1.5),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (val) => setState(() => searchQuery = val),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                  decoration: InputDecoration(
-                    hintText: 'Search messages...',
-                    hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                    prefixIcon: Padding(
-                      padding: const EdgeInsets.only(left: 16, right: 12),
-                      child: Icon(Icons.search_rounded, color: primary, size: 24),
-                    ),
-                    suffixIcon: searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.close, color: Colors.grey),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => searchQuery = '');
-                            },
-                          )
-                        : null,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            Padding(
-              padding: EdgeInsets.fromLTRB(20, searchQuery.isEmpty ? 0 : 16, 20, 12),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  searchQuery.isEmpty ? 'All Messages' : 'Search Results',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[800]),
-                ),
-              ),
-            ),
-
-            // ── Conversations list ────────────────────────────
+            _buildWebTopBar(),
             Expanded(
-              child: Obx(() {
-                if (listC.isLoading.value) {
-                  return const Center(child: CircularProgressIndicator(color: primary));
-                }
-
-                final filtered = listC.conversations.where((u) {
-                  return (u["name"] ?? "")
-                      .toString()
-                      .toLowerCase()
-                      .contains(searchQuery.toLowerCase());
-                }).toList();
-
-                if (filtered.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
-                        const SizedBox(height: 16),
-                        Text(
-                          searchQuery.isEmpty ? 'No conversations yet' : 'No conversations found',
-                          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                        ),
-                        if (searchQuery.isEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text('Start chatting with talents and employers',
-                              style: TextStyle(fontSize: 14, color: Colors.grey[500])),
-                        ],
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) =>
-                      Divider(height: 1, color: Colors.grey[100], indent: 72),
-                  itemBuilder: (context, index) {
-                    final user        = filtered[index];
-                    final name        = (user["name"] ?? "Unknown User").toString();
-                    final toUserId    = (user["userId"] ?? "").toString();
-                    final unread      = (user["unread"] ?? 0) as int;
-                    final lastMessage = (user["lastMessage"] ?? "No messages yet").toString();
-                    final time        = _formatTime(user["time"]);
-                    final imageUrl    = user["image"]?.toString();
-                    final isOnline    = user["online"] ?? false;
-                    final convId      = (user["conversationId"] ?? "").toString();
-                    final cachedMsgs  = listC.getCachedMessages(convId);
-
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () async {
-                        await Get.to(() => ChatScreen(
-                          userName: name,
-                          userOnline: isOnline,
-                          toUserId: toUserId,
-                          baseUrl: baseUrl,
-                          myToken: myToken,
-                          myUserId: myUserId,
-                          initialConversationId: convId.isNotEmpty ? convId : null,
-                          initialMessages: cachedMsgs.isNotEmpty ? cachedMsgs : null,
-                        ));
-                        listC.loadConversations();
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Row(
-                          children: [
-                            // ── Avatar + online dot ───────────
-                            Stack(
-                              children: [
-                                _buildAvatar(imageUrl, name, size: 56),
-                                if (isOnline)
-                                  Positioned(
-                                    bottom: 2, right: 2,
-                                    child: Container(
-                                      width: 14, height: 14,
-                                      decoration: BoxDecoration(
-                                        color: Colors.green,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white, width: 2),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(width: 16),
-
-                            // ── Name + last message ───────────
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          name,
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w600,
-                                            color: Colors.grey[900],
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (time.isNotEmpty)
-                                        Text(
-                                          time,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: unread > 0 ? primary : Colors.grey[500],
-                                            fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.normal,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      if (_lastMessageIcon(lastMessage) != null) ...[
-                                        _lastMessageIcon(lastMessage)!,
-                                        const SizedBox(width: 4),
-                                      ],
-                                      Expanded(
-                                        child: Text(
-                                          _lastMessagePreview(lastMessage),
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: unread > 0 ? Colors.grey[800] : Colors.grey[600],
-                                            fontWeight: unread > 0 ? FontWeight.w500 : FontWeight.normal,
-                                            height: 1.4,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // ── Unread badge ──────────────────
-                            if (unread > 0) ...[
-                              const SizedBox(width: 12),
-                              Container(
-                                constraints: const BoxConstraints(minWidth: 24),
-                                height: 24,
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                                decoration: BoxDecoration(
-                                  color: primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: primary.withOpacity(0.3),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    unread > 99 ? '99+' : unread.toString(),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }),
+              child: _buildContent(),
             ),
           ],
         ),
+      );
+    }
+
+    // Mobile layout (original)
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: _buildContent(),
       ),
+    );
+  }
+
+  // Web Top Bar
+  Widget _buildWebTopBar() {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (widget.onBackPressed != null)
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              onPressed: widget.onBackPressed,
+            ),
+          const Text(
+            'Messages',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const Spacer(),
+          Obx(() {
+            final total = listC.totalUnreadCount;
+            return Stack(
+              children: [
+                IconButton(
+                  onPressed: () => listC.loadConversations(),
+                  icon: Icon(Icons.refresh_rounded, color: Colors.grey[600], size: 22),
+                ),
+                if (total > 0)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      child: Center(
+                        child: Text(
+                          total > 9 ? '9+' : total.toString(),
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // Main Content (shared between web and mobile)
+  Widget _buildContent() {
+    return Column(
+      children: [
+        // Connection banner
+        Obx(() {
+          if (!socketC.isConnected.value) {
+            return Container(
+              margin: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.wifi_off, size: 16, color: Colors.orange.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Connecting to chat server...',
+                        style: TextStyle(color: Colors.orange.shade700, fontSize: 12)),
+                  ),
+                ],
+              ),
+            );
+          }
+          return const SizedBox();
+        }),
+
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Messages',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[900],
+                        letterSpacing: -0.5,
+                      )),
+                  Obx(() {
+                    final total = listC.totalUnreadCount;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        IconButton(
+                          onPressed: () => listC.loadConversations(),
+                          icon: Icon(Icons.refresh_rounded, color: Colors.grey[600], size: 24),
+                        ),
+                        if (total > 0)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Container(
+                              width: 18,
+                              height: 18,
+                              decoration: const BoxDecoration(color: primary, shape: BoxShape.circle),
+                              child: Center(
+                                child: Text(
+                                  total > 99 ? '99+' : total.toString(),
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Obx(() => Text(
+                '${listC.conversations.length} conversation${listC.conversations.length == 1 ? '' : 's'}',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              )),
+            ],
+          ),
+        ),
+
+        // Search bar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey[200]!, width: 1.5),
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) => setState(() => searchQuery = val),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: 'Search messages...',
+                hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                prefixIcon: Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 12),
+                  child: Icon(Icons.search_rounded, color: primary, size: 24),
+                ),
+                suffixIcon: searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => searchQuery = '');
+                        },
+                      )
+                    : null,
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        Padding(
+          padding: EdgeInsets.fromLTRB(20, searchQuery.isEmpty ? 0 : 16, 20, 12),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              searchQuery.isEmpty ? 'All Messages' : 'Search Results',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+            ),
+          ),
+        ),
+
+        // Conversations list
+        Expanded(
+          child: Obx(() {
+            if (listC.isLoading.value) {
+              return const Center(child: CircularProgressIndicator(color: primary));
+            }
+
+            final filtered = listC.conversations.where((u) {
+              return (u["name"] ?? "")
+                  .toString()
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase());
+            }).toList();
+
+            if (filtered.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
+                    const SizedBox(height: 16),
+                    Text(
+                      searchQuery.isEmpty ? 'No conversations yet' : 'No conversations found',
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    ),
+                    if (searchQuery.isEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text('Start chatting with talents and employers',
+                          style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+                    ],
+                  ],
+                ),
+              );
+            }
+
+            return ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: filtered.length,
+              separatorBuilder: (_, __) =>
+                  Divider(height: 1, color: Colors.grey[100], indent: 72),
+              itemBuilder: (context, index) {
+                final user = filtered[index];
+                final name = (user["name"] ?? "Unknown User").toString();
+                final toUserId = (user["userId"] ?? "").toString();
+                final unread = (user["unread"] ?? 0) as int;
+                final lastMessage = (user["lastMessage"] ?? "No messages yet").toString();
+                final time = _formatTime(user["time"]);
+                final imageUrl = user["image"]?.toString();
+                final isOnline = user["online"] ?? false;
+                final convId = (user["conversationId"] ?? "").toString();
+                final cachedMsgs = listC.getCachedMessages(convId);
+
+                return InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    // Prepare user data for navigation
+                    final userData = {
+                      'name': name,
+                      'online': isOnline,
+                      'userId': toUserId,
+                      'conversationId': convId,
+                      'cachedMessages': cachedMsgs,
+                    };
+                    _navigateToChat(userData);
+                    // Load conversations in background
+                    listC.loadConversations();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      children: [
+                        Stack(
+                          children: [
+                            _buildAvatar(imageUrl, name, size: 56),
+                            if (isOnline)
+                              Positioned(
+                                bottom: 2,
+                                right: 2,
+                                child: Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: 16),
+
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w600,
+                                        color: Colors.grey[900],
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (time.isNotEmpty)
+                                    Text(
+                                      time,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: unread > 0 ? primary : Colors.grey[500],
+                                        fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.normal,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  if (_lastMessageIcon(lastMessage) != null) ...[
+                                    _lastMessageIcon(lastMessage)!,
+                                    const SizedBox(width: 4),
+                                  ],
+                                  Expanded(
+                                    child: Text(
+                                      _lastMessagePreview(lastMessage),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: unread > 0 ? Colors.grey[800] : Colors.grey[600],
+                                        fontWeight: unread > 0 ? FontWeight.w500 : FontWeight.normal,
+                                        height: 1.4,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        if (unread > 0) ...[
+                          const SizedBox(width: 12),
+                          Container(
+                            constraints: const BoxConstraints(minWidth: 24),
+                            height: 24,
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            decoration: BoxDecoration(
+                              color: primary,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: primary.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                unread > 99 ? '99+' : unread.toString(),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          }),
+        ),
+      ],
     );
   }
 }

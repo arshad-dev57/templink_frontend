@@ -17,7 +17,6 @@ class EmployeeHomeController extends GetxController {
   var userRole = ''.obs;
   var isLoading = false.obs;
 
-  // ==================== STATIC CATEGORIES ====================
   final List<Map<String, dynamic>> categoryList = [
     {
       'name': 'IT & Networking',
@@ -81,35 +80,39 @@ class EmployeeHomeController extends GetxController {
   var selectedSubcategory = ''.obs;
   final currentSubcategories = <String>[].obs;
 
-  // ==================== JOBS ====================
+  // ==================== JOBS (LAZY LOAD / INFINITE SCROLL) ====================
   final isLoadingJobs = false.obs;
   final jobs = <JobPostModel>[].obs;
   final jobsError = RxnString();
   final String jobsPath = '/api/jobposts/jobs';
 
   // Jobs Pagination
-  final currentPage = 1.obs;
-  final totalPages = 1.obs;
-  final totalCount = 0.obs;
-  final int limit = 10;
-  final isLoadingMore = false.obs;
+  final jobsCurrentPage = 1.obs;
+  final jobsTotalPages = 1.obs;
+  final jobsTotalCount = 0.obs;
+  final int jobsLimit = 10;
+  final isLoadingMoreJobs = false.obs;
+  
+  bool get hasMoreJobs => jobsCurrentPage.value < jobsTotalPages.value;
 
   final filteredJobsByCategory = <JobPostModel>[].obs;
 
-  // ==================== PROJECTS ====================
+  // ==================== PROJECTS (WEB PAGINATION WITH PAGES) ====================
   final isLoadingProjects = false.obs;
   final projects = <ProjectFeedModel>[].obs;
   final projectsError = RxnString();
   final String projectsPath = '/api/projects/all';
   
-  // ✅ PROJECTS PAGINATION - SIRF YEH ADD KIYA HAI
   final projectsCurrentPage = 1.obs;
   final projectsTotalPages = 1.obs;
   final projectsTotalCount = 0.obs;
   final int projectsLimit = 6;
   final isLoadingMoreProjects = false.obs;
+  
+  bool get hasMoreProjectsPages => projectsCurrentPage.value < projectsTotalPages.value;
+  bool get hasPrevProjectsPage => projectsCurrentPage.value > 1;
+  bool get hasNextProjectsPage => projectsCurrentPage.value < projectsTotalPages.value;
 
-  // ==================== TALENTS ====================
   final isLoadingTalents = false.obs;
   final talents = <TalentModel>[].obs;
   final recommendedTalents = <TalentModel>[].obs;
@@ -151,7 +154,7 @@ class EmployeeHomeController extends GetxController {
 
       if (subs.isNotEmpty) {
         selectedSubcategory.value = subs.first;
-        currentPage.value = 1;
+        jobsCurrentPage.value = 1;
         fetchJobs(page: 1, resetList: true);
       }
     }
@@ -159,7 +162,7 @@ class EmployeeHomeController extends GetxController {
 
   Future<void> setSelectedSubcategory(String subcategory) async {
     selectedSubcategory.value = subcategory;
-    currentPage.value = 1;
+    jobsCurrentPage.value = 1;
     await fetchJobs(page: 1, resetList: true);
   }
 
@@ -168,9 +171,9 @@ class EmployeeHomeController extends GetxController {
     fetchJobs(page: 1, resetList: true);
   }
 
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   // USER DATA
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   Future<void> loadUserData() async {
     try {
       isLoading.value = true;
@@ -213,9 +216,6 @@ class EmployeeHomeController extends GetxController {
     userRole.value = '';
   }
 
-  // ─────────────────────────────────────────────
-  // FETCH ALL
-  // ─────────────────────────────────────────────
   Future<void> fetchAll() async {
     await Future.wait([
       fetchJobs(page: 1, resetList: true),
@@ -229,19 +229,20 @@ class EmployeeHomeController extends GetxController {
     final token = prefs.getString('auth_token');
     return {
       'Accept': 'application/json',
+      'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
 
-  // ─────────────────────────────────────────────
-  // FETCH JOBS with pagination
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  // FETCH JOBS - LAZY LOAD (INFINITE SCROLL)
+  // ─────────────────────────────────────────────────────────
   Future<void> fetchJobs({int page = 1, bool resetList = true}) async {
     try {
       if (page == 1) {
         isLoadingJobs.value = true;
       } else {
-        isLoadingMore.value = true;
+        isLoadingMoreJobs.value = true;
       }
       jobsError.value = null;
 
@@ -249,7 +250,7 @@ class EmployeeHomeController extends GetxController {
 
       final queryParams = <String, String>{
         'page': page.toString(),
-        'limit': limit.toString(),
+        'limit': jobsLimit.toString(),
       };
 
       if (selectedSubcategory.value.isNotEmpty) {
@@ -265,7 +266,7 @@ class EmployeeHomeController extends GetxController {
           .get(uri, headers: headers)
           .timeout(const Duration(seconds: 25));
 
-      print("📡 Jobs response: ${res.statusCode}");
+      print("📡 Jobs response status: ${res.statusCode}");
 
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
@@ -275,12 +276,14 @@ class EmployeeHomeController extends GetxController {
           jobsList = decoded['jobs'] ?? [];
           final pagination = decoded['pagination'];
           if (pagination != null) {
-            currentPage.value = pagination['currentPage'] ?? page;
-            totalPages.value = pagination['totalPages'] ?? 1;
-            totalCount.value = pagination['totalCount'] ?? 0;
+            jobsCurrentPage.value = pagination['currentPage'] ?? page;
+            jobsTotalPages.value = pagination['totalPages'] ?? 1;
+            jobsTotalCount.value = pagination['totalItems'] ?? 0;
           }
         } else if (decoded is List) {
           jobsList = decoded;
+          jobsTotalCount.value = jobsList.length;
+          jobsTotalPages.value = (jobsList.length / jobsLimit).ceil();
         }
 
         final newJobs = jobsList
@@ -295,7 +298,7 @@ class EmployeeHomeController extends GetxController {
 
         filteredJobsByCategory.assignAll(jobs);
 
-        print("✅ Loaded ${newJobs.length} jobs | Page $page/${totalPages.value} | Total: ${totalCount.value}");
+        print("✅ Loaded ${newJobs.length} jobs | Page $page/${jobsTotalPages.value} | Total: ${jobsTotalCount.value}");
       } else {
         jobsError.value = 'Failed to load jobs (${res.statusCode})';
         print("❌ Jobs error: ${res.statusCode} | ${res.body}");
@@ -305,23 +308,23 @@ class EmployeeHomeController extends GetxController {
       print("❌ Jobs exception: $e");
     } finally {
       isLoadingJobs.value = false;
-      isLoadingMore.value = false;
+      isLoadingMoreJobs.value = false;
     }
   }
 
-  Future<void> loadNextPage() async {
-    if (currentPage.value >= totalPages.value) return;
-    await fetchJobs(page: currentPage.value + 1, resetList: false);
+  // ✅ CORRECTED METHOD NAME
+  Future<void> loadNextJobsPage() async {
+    if (!hasMoreJobs) return;
+    if (isLoadingMoreJobs.value) return;
+    await fetchJobs(page: jobsCurrentPage.value + 1, resetList: false);
   }
 
-  bool get hasMorePages => currentPage.value < totalPages.value;
-
-  // ─────────────────────────────────────────────
-  // PROJECTS WITH PAGINATION - SIRF YEH CHANGE KIYA HAI
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  // FETCH PROJECTS - WEB PAGINATION (PAGE NUMBERS)
+  // ─────────────────────────────────────────────────────────
   Future<void> fetchProjects({int page = 1, bool resetList = true}) async {
     try {
-      if (page == 1) {
+      if (resetList) {
         isLoadingProjects.value = true;
       } else {
         isLoadingMoreProjects.value = true;
@@ -344,7 +347,7 @@ class EmployeeHomeController extends GetxController {
           .get(uri, headers: headers)
           .timeout(const Duration(seconds: 25));
       
-      print("📡 Projects response: ${res.statusCode}");
+      print("📡 Projects response status: ${res.statusCode}");
       
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
@@ -366,19 +369,21 @@ class EmployeeHomeController extends GetxController {
           }
         } else if (decoded is List) {
           projectsList = decoded;
+          projectsTotalCount.value = projectsList.length;
+          projectsTotalPages.value = (projectsList.length / projectsLimit).ceil();
         }
         
         final newProjects = projectsList
             .map((e) => ProjectFeedModel.fromJson(Map<String, dynamic>.from(e)))
             .toList();
         
-        if (resetList || page == 1) {
+        if (resetList) {
           projects.assignAll(newProjects);
         } else {
           projects.addAll(newProjects);
         }
         
-        print("✅ Loaded ${newProjects.length} projects | Total: ${projects.length}");
+        print("✅ Loaded ${newProjects.length} projects | Page $page/${projectsTotalPages.value}");
       } else {
         projectsError.value = 'Failed to load projects (${res.statusCode})';
         print("❌ Projects error: ${res.statusCode} | ${res.body}");
@@ -392,24 +397,93 @@ class EmployeeHomeController extends GetxController {
     }
   }
   
-  // ✅ Load next page for projects
+  // ✅ CORRECTED METHOD NAMES
   Future<void> loadNextProjectsPage() async {
-    if (projectsCurrentPage.value >= projectsTotalPages.value) return;
+    if (!hasMoreProjectsPages) return;
     if (isLoadingMoreProjects.value) return;
-    await fetchProjects(page: projectsCurrentPage.value + 1, resetList: false);
+    await fetchProjects(page: projectsCurrentPage.value + 1, resetList: true);
   }
   
-  // ✅ Check more pages
-  bool get hasMoreProjectsPages => projectsCurrentPage.value < projectsTotalPages.value;
+  Future<void> goToProjectsPage(int page) async {
+    if (page < 1 || page > projectsTotalPages.value) return;
+    if (isLoadingProjects.value) return;
+    await fetchProjects(page: page, resetList: true);
+  }
   
-  // ✅ Refresh projects
+  Future<void> nextProjectsPage() async {
+    if (hasNextProjectsPage) {
+      await goToProjectsPage(projectsCurrentPage.value + 1);
+    }
+  }
+  
+  Future<void> prevProjectsPage() async {
+    if (hasPrevProjectsPage) {
+      await goToProjectsPage(projectsCurrentPage.value - 1);
+    }
+  }
+  
+  // Refresh projects
   Future<void> refreshProjects() async {
     await fetchProjects(page: 1, resetList: true);
   }
 
-  // ─────────────────────────────────────────────
-  // TALENTS
-  // ─────────────────────────────────────────────
+// Add these observables
+var talentsCurrentPage = 1.obs;
+var talentsTotalPages = 1.obs;
+var talentsTotalCount = 0.obs;
+var talentsLimit = 6.obs;
+
+// Add paginated fetch method
+Future<void> fetchTalentsPaginated({int page = 1, int limit = 6, bool resetList = true}) async {
+  try {
+    if (resetList) {
+      isLoadingTalents.value = true;
+    }
+    talentsError.value = null;
+    
+    final headers = await _buildHeaders();
+    final uri = Uri.parse('$baseUrl/api/toptalent/all?page=$page&limit=$limit');
+    
+    final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 25));
+    
+    if (res.statusCode == 200) {
+      final decoded = jsonDecode(res.body);
+      
+      if (decoded['success'] == true) {
+        final List talentsList = decoded['talents'] ?? [];
+        final newTalents = talentsList.map((e) => TalentModel.fromJson(Map<String, dynamic>.from(e))).toList();
+        
+        if (resetList) {
+          talents.assignAll(newTalents);
+        } else {
+          talents.addAll(newTalents);
+        }
+        
+        recommendedTalents.assignAll(talents);
+        
+        // Update pagination info
+        if (decoded['pagination'] != null) {
+          talentsCurrentPage.value = decoded['pagination']['currentPage'] ?? page;
+          talentsTotalPages.value = decoded['pagination']['totalPages'] ?? 1;
+          talentsTotalCount.value = decoded['pagination']['totalItems'] ?? talents.length;
+        } else {
+          talentsTotalCount.value = talents.length;
+          talentsTotalPages.value = (talentsTotalCount.value / limit).ceil();
+        }
+        
+        print("✅ Loaded ${newTalents.length} talents | Page $page/${talentsTotalPages.value}");
+      }
+    } else {
+      talentsError.value = 'Failed to load talents (${res.statusCode})';
+    }
+  } catch (e) {
+    talentsError.value = e.toString();
+    print("❌ Exception fetching talents: $e");
+  } finally {
+    isLoadingTalents.value = false;
+  }
+}
+
   Future<void> fetchTalents() async {
     try {
       isLoadingTalents.value = true;
@@ -419,29 +493,54 @@ class EmployeeHomeController extends GetxController {
       final res = await http
           .get(uri, headers: headers)
           .timeout(const Duration(seconds: 25));
-          print("talent response ${res.body}");
+      
+      print("📡 TALENT API RESPONSE STATUS: ${res.statusCode}");
+      
       if (res.statusCode == 200) {
-
         final decoded = jsonDecode(res.body);
+        
         final List list = (decoded is Map && decoded['talents'] is List)
             ? decoded['talents']
             : (decoded is List ? decoded : <dynamic>[]);
+        
         final allTalents = list
             .map((e) => TalentModel.fromJson(Map<String, dynamic>.from(e)))
             .toList();
+        
         talents.assignAll(allTalents);
         recommendedTalents.assignAll(allTalents);
-        print('✅ Loaded ${talents.length} talents');
+        print('✅ Loaded ${talents.length} talents successfully');
       } else {
         talentsError.value = 'Failed to load talents (${res.statusCode})';
+        print("❌ Talents error: ${res.statusCode}");
       }
     } catch (e) {
       talentsError.value = e.toString();
-      print('❌ Talents exception: $e');
+      print("❌ Exception in fetchTalents: $e");
     } finally {
       isLoadingTalents.value = false;
     }
   }
-
-  Future<void> refreshAll() async => await fetchAll();
+  
+  // Refresh all data
+  Future<void> refreshAll() async {
+    await fetchAll();
+  }
+  
+  // Reset jobs pagination for category change
+  void resetJobsPagination() {
+    jobsCurrentPage.value = 1;
+    jobsTotalPages.value = 1;
+    jobsTotalCount.value = 0;
+    jobs.clear();
+    filteredJobsByCategory.clear();
+  }
+  
+  // Reset projects pagination
+  void resetProjectsPagination() {
+    projectsCurrentPage.value = 1;
+    projectsTotalPages.value = 1;
+    projectsTotalCount.value = 0;
+    projects.clear();
+  }
 }

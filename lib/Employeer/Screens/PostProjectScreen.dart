@@ -175,7 +175,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
 
   Color _getNextButtonColor() {
     if (controller.currentStep.value == 1) {
-      // Step 2 mein check karo ke milestones total max budget ke barabar hai ya nahi
       final maxBudget = double.tryParse(controller.maxBudgetController.text) ?? 0;
       final totalMilestones = controller.milestonesList.fold<double>(
         0, (sum, m) => sum + (m['amount'] as double)
@@ -183,7 +182,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
       
       const double tolerance = 0.5;
       
-      // Agar milestones hain aur total max budget ke barabar nahi hai to button grey karo
       if (controller.milestonesList.isNotEmpty && 
           (totalMilestones - maxBudget).abs() > tolerance) {
         return Colors.grey;
@@ -198,11 +196,9 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
         controller.nextStep();
       }
     } else if (controller.currentStep.value == 1) {
-      // Step 2 ke liye extra validation
       if (controller.validateStep2()) {
         controller.nextStep();
       } else {
-        // Agar validation fail ho to user ko dikhao
         _showBudgetMismatchDialog();
       }
     }
@@ -309,8 +305,126 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
     }
   }
 
+  // ==================== SEARCHABLE CATEGORY DROPDOWN WIDGET ====================
+  Widget _buildSearchableCategoryDropdown() {
+    return Obx(() => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Search Input Field
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: TextField(
+            controller: controller.categorySearchController,
+            onChanged: (value) => controller.filterCategories(value),
+            decoration: InputDecoration(
+              hintText: 'Search or type category...',
+              prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+              suffixIcon: controller.categorySearchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        controller.categorySearchController.clear();
+                        controller.filterCategories('');
+                        controller.showCategoryList.value = false;
+                      },
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 12),
+        
+        // Category List (show when searching or when toggled)
+        if (controller.showCategoryList.value && controller.filteredCategories.isNotEmpty)
+          Container(
+            constraints: const BoxConstraints(
+              maxHeight: 250,
+              minHeight: 50,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: controller.filteredCategories.length,
+              itemBuilder: (context, index) {
+                final category = controller.filteredCategories[index];
+                final isSelected = controller.selectedCategory.value == category;
+                
+                return ListTile(
+                  dense: true,
+                  title: Text(
+                    category,
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected ? primary : Colors.black87,
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? Icon(Icons.check_circle, color: primary, size: 18)
+                      : null,
+                  onTap: () {
+                    controller.selectedCategory.value = category;
+                    controller.categorySearchController.text = category;
+                    controller.showCategoryList.value = false;
+                    controller.filterCategories('');
+                  },
+                );
+              },
+            ),
+          ),
+        
+        // Selected category chip
+        if (controller.selectedCategory.value != null && controller.selectedCategory.value!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: primary.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle, color: primary, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Selected: ${controller.selectedCategory.value}',
+                    style: TextStyle(fontSize: 13, color: primary, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      controller.selectedCategory.value = '';
+                      controller.categorySearchController.clear();
+                      controller.showCategoryList.value = false;
+                    },
+                    child: Icon(Icons.close, size: 16, color: primary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    ));
+  }
+
   Widget _buildStep1() {
-    return Obx(() => SingleChildScrollView(
+    return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -379,6 +493,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
             ),
             const SizedBox(height: 24),
 
+            // Project Category - SEARCHABLE DROPDOWN
             const Text(
               'Project Category',
               style: TextStyle(
@@ -388,40 +503,10 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: DropdownButtonFormField<String>(
-                value: controller.selectedCategory.value,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                ),
-                hint: const Text('Select a category'),
-                icon: const Icon(Icons.keyboard_arrow_down),
-                items: [
-                  'UI/UX Design',
-                  'Web Development',
-                  'Mobile Development',
-                  'Graphic Design',
-                  'Marketing',
-                ].map((category) {
-                  return DropdownMenuItem(
-                    value: category,
-                    child: Text(category),
-                  );
-                }).toList(),
-                onChanged: (value) => controller.selectedCategory.value = value,
-              ),
-            ),
+            _buildSearchableCategoryDropdown(),
             const SizedBox(height: 24),
 
+            // Project Description
             const Text(
               'Project Description',
               style: TextStyle(
@@ -507,7 +592,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                         : Colors.grey[500],
                   ),
                 ),
-                Text(
+             Text(
                   '${controller.descriptionController.text.length}/5000',
                   style: TextStyle(
                     fontSize: 13,
@@ -521,7 +606,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
           ],
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildStep2() {
@@ -724,7 +809,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                             ),
                           ),
                           onChanged: (value) {
-                            // Trigger rebuild to update button color
                             controller.update();
                           },
                         ),
@@ -749,7 +833,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                             ),
                           ),
                           onChanged: (value) {
-                            // Trigger rebuild to update button color
                             controller.update();
                           },
                         ),
@@ -847,9 +930,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
     ));
   }
 
-  // Milestones Section with Budget Validation
-  // Milestones Section with Budget Validation
-   // Milestones Section with Budget Validation - WITHOUT Obx
   Widget _buildMilestonesSection() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -871,7 +951,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              // Simple condition, no Obx
               !controller.showMilestoneForm.value
                   ? TextButton.icon(
                       onPressed: () {
@@ -1322,7 +1401,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
               ),
             ),
             
-            // Budget validation status
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Container(
@@ -1355,7 +1433,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
               ),
             ),
 
-            // Warning if not equal
             if (_isBudgetMismatch())
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -1390,7 +1467,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
     );
   }
 
-  // Helper methods for budget status (no Obx needed)
   double _getTotalMilestones() {
     return controller.milestonesList.fold<double>(
       0, (sum, m) => sum + (m['amount'] as double)
@@ -1443,6 +1519,7 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
     }
     return '❌ Total (\$${total.toStringAsFixed(0)}) exceeds max budget by \$${(total - maxBudget).toStringAsFixed(0)}';
   }
+  
   Widget _buildBudgetTypeButton(String type) {
     return Obx(() => GestureDetector(
       onTap: () => controller.budgetType.value = type,
@@ -1499,7 +1576,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
       return;
     }
 
-    // ✅ STRICT VALIDATION: Total must not exceed max budget
     final maxBudget = double.tryParse(controller.maxBudgetController.text) ?? 0;
     
     if (maxBudget <= 0) {
@@ -1518,7 +1594,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
     );
     final newTotal = currentTotal + amount;
 
-    // Check if total would exceed max budget
     if (newTotal > maxBudget + 0.01) {
       Get.snackbar(
         '❌ Budget Exceeded',
@@ -1531,7 +1606,6 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
       return;
     }
 
-    // Add milestone to list
     Map<String, dynamic> newMilestone = {
       'title': controller.milestoneTitleController.text,
       'description': controller.milestoneDescController.text,
@@ -1544,14 +1618,12 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
     
     controller.milestonesList.add(newMilestone);
 
-    // Clear form
     controller.milestoneTitleController.clear();
     controller.milestoneDescController.clear();
     controller.milestoneAmountController.clear();
     controller.selectedMilestoneDueDate.value = null;
     controller.showMilestoneForm.value = false;
     
-    // Show success message
     Get.snackbar(
       '✅ Success',
       'Milestone added successfully',
@@ -1781,115 +1853,110 @@ class _PostProjectScreenState extends State<PostProjectScreen> {
             const SizedBox(height: 16),
             
             // File requirement warning
-            Obx(() {
-              if (controller.mediaFiles.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 16),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange[300]!),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.warning_amber, color: Colors.orange[700], size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '⚠️ At least one file is required before publishing',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.orange[700],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            }),
-            
-            // Selected Files List
-            if (controller.mediaFiles.isNotEmpty)
-              ...controller.mediaFiles.asMap().entries.map((entry) {
-                int index = entry.key;
-                MediaFile file = entry.value;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            if (controller.mediaFiles.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[200]!),
+                    color: Colors.orange[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange[300]!),
                   ),
                   child: Row(
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: controller.getFileColor(file.fileName).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          controller.getFileIcon(file.fileName),
-                          color: controller.getFileColor(file.fileName),
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
+                      Icon(Icons.warning_amber, color: Colors.orange[700], size: 20),
+                      const SizedBox(width: 8),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              file.fileName,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: controller.getFileColor(file.fileName).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    file.fileType.split('/').last.toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: controller.getFileColor(file.fileName),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                        child: Text(
+                          '⚠️ At least one file is required before publishing',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.orange[700],
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.grey),
-                        onPressed: () => controller.removeFile(index),
                       ),
                     ],
                   ),
-                );
-              }),
+                ),
+              ),
+            
+            // Selected Files List
+            ...controller.mediaFiles.asMap().entries.map((entry) {
+              int index = entry.key;
+              MediaFile file = entry.value;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: controller.getFileColor(file.fileName).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        controller.getFileIcon(file.fileName),
+                        color: controller.getFileColor(file.fileName),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            file.fileName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: controller.getFileColor(file.fileName).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  file.fileType.split('/').last.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: controller.getFileColor(file.fileName),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.grey),
+                      onPressed: () => controller.removeFile(index),
+                    ),
+                  ],
+                ),
+              );
+            }),
             
             const SizedBox(height: 24),
             

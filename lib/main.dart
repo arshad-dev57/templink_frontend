@@ -1,43 +1,49 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:templink/Global_Screens/Splash_screen.dart';
 import 'package:templink/Services/Notificaton_Service.dart';
+import 'package:templink/Utils/responsive.dart';
+import 'package:templink/paymenttesting_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Stripe
-  Stripe.publishableKey =
-      "pk_test_51QY8GUFfoWN8tK9rycKFo91v04ba0VTvnmtz2t8QyyG6GCmFgkzNPduXu72mt3TFuoqyliOKgI6U9ve3PMBCXfTE0045P6hGKg";
-  await Stripe.instance.applySettings();
+  // // Initialize Stripe
+  // Stripe.publishableKey =
+  //     "pk_test_51QY8GUFfoWN8tK9rycKFo91v04ba0VTvnmtz2t8QyyG6GCmFgkzNPduXu72mt3TFuoqyliOKgI6U9ve3PMBCXfTE0045P6hGKg";
+  // await Stripe.instance.applySettings();
   
   // Initialize app services
   await _initializeApp();
   
   runApp(const MyApp());
   
-  // Initialize notification service after app is built
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    print("🟡 Initializing NotificationService from main post frame");
-    await NotificationService.instance.init();
-    await NotificationService.instance.debugPrintState(from: "main_postframe");
-    
-    // Check if user is already logged in
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('auth_user_id');
-    
-    if (userId != null && userId.isNotEmpty) {
-      print("🟡 User already logged in with ID: $userId, setting up OneSignal");
+  // ✅ Web ke liye notification service initialize nahi karenge
+  if (!kIsWeb) {
+    // Initialize notification service after app is built (only for mobile)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      print("🟡 Initializing NotificationService from main post frame (Mobile only)");
+      await NotificationService.instance.init();
+      await NotificationService.instance.debugPrintState(from: "main_postframe");
       
+      // Check if user is already logged in
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('auth_user_id');
       
-      await NotificationService.instance.login(userId);
-      await NotificationService.instance.verifyDeviceRegistration();
-           
-    }
-  });
+      if (userId != null && userId.isNotEmpty) {
+        print("🟡 User already logged in with ID: $userId, setting up OneSignal");
+        
+        await NotificationService.instance.login(userId);
+        await NotificationService.instance.verifyDeviceRegistration();
+      }
+    });
+  } else {
+    print("🟢 Running on Web - Notifications disabled");
+  }
 }
 
 Future<void> _initializeApp() async {
@@ -73,7 +79,12 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.green,
         useMaterial3: true,
       ),
-      home: SplashScreen(),
+      home:  SplashScreen(),
+      builder: (context, child) {
+        // Initialize responsive utility
+        Responsive.init(context);
+        return child!;
+      },
     );
   }
 }
