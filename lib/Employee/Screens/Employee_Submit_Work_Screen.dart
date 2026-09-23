@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:get/get.dart';
 import 'package:file_picker/file_picker.dart';
+import 'dart:html'
+  if (dart.library.io) '../../Utils/html_stub.dart' as html;
 import 'package:templink/Employee/Controllers/Employee_Active_Project_Controller.dart';
 import 'package:templink/Employee/Controllers/Employee_home_controller.dart';
 import 'package:templink/Employee/models/Employee_Active_Project_model.dart';
@@ -35,8 +38,16 @@ class _EmployeeSubmitWorkScreenState extends State<EmployeeSubmitWorkScreen> {
   final descriptionController = TextEditingController();
   final notesController = TextEditingController();
 
-  final selectedFiles = <File>[].obs;
+  // Store files for both platforms
+  final selectedFiles = <dynamic>[].obs;
   bool _sidebarExpanded = true;
+
+  @override
+  void dispose() {
+    descriptionController.dispose();
+    notesController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +235,7 @@ class _EmployeeSubmitWorkScreenState extends State<EmployeeSubmitWorkScreen> {
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
-                  ),
+                  ),  
                   const Spacer(),
                   GestureDetector(
                     onTap: () => setState(() => _sidebarExpanded = !_sidebarExpanded),
@@ -626,7 +637,7 @@ class _EmployeeSubmitWorkScreenState extends State<EmployeeSubmitWorkScreen> {
           ),
           const SizedBox(height: 8),
 
-          // ✅ File type chips — user ko pata ho kya accept hoga
+          // File type chips
           Wrap(
             spacing: 8,
             children: [
@@ -640,7 +651,7 @@ class _EmployeeSubmitWorkScreenState extends State<EmployeeSubmitWorkScreen> {
 
           const SizedBox(height: 12),
 
-          // ✅ Upload button — file picker se sab types
+          // Upload button - works on both platforms
           InkWell(
             onTap: _pickFiles,
             borderRadius: BorderRadius.circular(12),
@@ -657,7 +668,7 @@ class _EmployeeSubmitWorkScreenState extends State<EmployeeSubmitWorkScreen> {
                   Icon(Icons.cloud_upload, size: 40, color: primary.withOpacity(0.5)),
                   const SizedBox(height: 8),
                   Text(
-                    'Tap to upload files',
+                    'Click to upload files',
                     style: TextStyle(
                       color: Colors.grey[700],
                       fontWeight: FontWeight.w500,
@@ -675,16 +686,13 @@ class _EmployeeSubmitWorkScreenState extends State<EmployeeSubmitWorkScreen> {
 
           const SizedBox(height: 12),
 
-          // ✅ Selected files list
+          // Selected files list
           Obx(() => selectedFiles.isNotEmpty
               ? Column(
                   children: selectedFiles.map((file) {
-                    final fileName = file.path.split('/').last;
-                    final fileSize = file.lengthSync();
-                    final fileSizeStr = fileSize > 1024 * 1024
-                        ? '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB'
-                        : '${(fileSize / 1024).toStringAsFixed(1)} KB';
-
+                    final fileName = _getFileName(file);
+                    final fileSizeStr = _getFileSize(file);
+                    
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(10),
@@ -695,16 +703,15 @@ class _EmployeeSubmitWorkScreenState extends State<EmployeeSubmitWorkScreen> {
                       ),
                       child: Row(
                         children: [
-                          // ✅ File icon with color
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: _getFileColor(file.path).withOpacity(0.1),
+                              color: _getFileColor(fileName).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
-                              _getFileIcon(file.path),
-                              color: _getFileColor(file.path),
+                              _getFileIcon(fileName),
+                              color: _getFileColor(fileName),
                               size: 20,
                             ),
                           ),
@@ -733,7 +740,6 @@ class _EmployeeSubmitWorkScreenState extends State<EmployeeSubmitWorkScreen> {
                               ],
                             ),
                           ),
-                          // ✅ Remove button
                           IconButton(
                             icon: Icon(Icons.close,
                                 size: 18, color: Colors.grey[500]),
@@ -801,32 +807,79 @@ class _EmployeeSubmitWorkScreenState extends State<EmployeeSubmitWorkScreen> {
     );
   }
 
-  // ==================== HELPER METHODS ====================
+  // ==================== PLATFORM-SPECIFIC FILE HANDLING ====================
 
-  // ✅ File picker — har tarah ki file pick hogi
+  /// Get file name from different file types
+  String _getFileName(dynamic file) {
+    if (file is File) {
+      return file.path.split('/').last;
+    } else if (file is html.File) {
+      return file.name;
+    }
+    return 'Unknown file';
+  }
+
+  /// Get file size string
+  String _getFileSize(dynamic file) {
+    int sizeInBytes = 0;
+    if (file is File) {
+      sizeInBytes = file.lengthSync();
+    } else if (file is html.File) {
+      sizeInBytes = file.size;
+    }
+    
+    if (sizeInBytes > 1024 * 1024) {
+      return '${(sizeInBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    } else {
+      return '${(sizeInBytes / 1024).toStringAsFixed(1)} KB';
+    }
+  }
+
+  /// Platform-specific file picker
   Future<void> _pickFiles() async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.any, // ✅ Sab types allow
-    );
+    if (kIsWeb) {
+      // Web platform - use html file picker
+      final html.FileUploadInputElement uploadInput = html.FileUploadInputElement();
+      uploadInput.multiple = true;
+      uploadInput.accept = '*/*'; 
+      uploadInput.click();
 
-    if (result != null) {
-      for (var file in result.files) {
-        if (file.path != null) {
-          // ✅ Duplicate check — same file dobara na aye
-          final alreadyAdded = selectedFiles
-              .any((f) => f.path.split('/').last == file.name);
-          if (!alreadyAdded) {
-            selectedFiles.add(File(file.path!));
+      uploadInput.onChange.listen((e) {
+        final files = uploadInput.files;
+        if (files != null && files.isNotEmpty) {
+          for (var i = 0; i < files.length; i++) {
+            final file = files[i];
+            final alreadyAdded = selectedFiles.any((f) => _getFileName(f) == file.name);
+            if (!alreadyAdded) {
+              selectedFiles.add(file);
+            }
+          }
+          setState(() {});
+        }
+      });
+    } else {
+      // Mobile platform - use file_picker
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.any,
+      );
+
+      if (result != null) {
+        for (var file in result.files) {
+          if (file.path != null) {
+            final alreadyAdded = selectedFiles
+                .any((f) => _getFileName(f) == file.name);
+            if (!alreadyAdded) {
+              selectedFiles.add(File(file.path!));
+            }
           }
         }
       }
     }
   }
 
-  // ✅ File icon by extension
-  IconData _getFileIcon(String path) {
-    final ext = path.split('.').last.toLowerCase();
+  IconData _getFileIcon(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
     switch (ext) {
       case 'jpg':
       case 'jpeg':
@@ -860,9 +913,8 @@ class _EmployeeSubmitWorkScreenState extends State<EmployeeSubmitWorkScreen> {
     }
   }
 
-  // ✅ File color by extension
-  Color _getFileColor(String path) {
-    final ext = path.split('.').last.toLowerCase();
+  Color _getFileColor(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
     switch (ext) {
       case 'jpg':
       case 'jpeg':
@@ -999,9 +1051,10 @@ class _EmployeeSubmitWorkScreenState extends State<EmployeeSubmitWorkScreen> {
       Get.back();
       Get.snackbar(
         'Error',
-        'Failed to submit work. Please try again.',
+        'Failed to submit work. Please try again.\n${e.toString()}',
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        duration: const Duration(seconds: 3),
       );
     }
   }

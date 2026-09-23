@@ -1,4 +1,5 @@
-import 'dart:html' as html;
+import 'dart:html'
+  if (dart.library.io) '../Utils/html_stub.dart' as html;
 
 class StripePaymentService {
   static void openPaymentPage({

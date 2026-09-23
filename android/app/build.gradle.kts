@@ -33,9 +33,8 @@ android {
             // Abhi debug signing rakhi hui hai (testing ok)
             signingConfig = signingConfigs.getByName("debug")
 
-            // ✅ IMPORTANT: R8/Proguard enable
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
 
             // ✅ IMPORTANT: proguard rules apply karna
             proguardFiles(

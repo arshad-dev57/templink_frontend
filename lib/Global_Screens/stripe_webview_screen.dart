@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_flutter_web/webview_flutter_web.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../Utils/colors.dart';
+import 'webview_platform.dart';
 
 class StripeWebViewScreen extends StatefulWidget {
   final String projectId;
@@ -34,8 +34,7 @@ class _StripeWebViewScreenState extends State<StripeWebViewScreen> {
   @override
   void initState() {
     super.initState();
-    // Register web implementation
-    WebViewPlatform.instance = WebWebViewPlatform();
+    registerWebViewPlatform();
     _initializePayment();
   }
 

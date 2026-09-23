@@ -33,12 +33,10 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
   String _searchQuery = '';
   String _sortBy = 'Recommended';
   bool _isGridView = true;
-  bool _showCategoryDropdown = false;
-  bool _showCountryDropdown = false;
   String _tempCategory = '';
   String _tempCountry = '';
 
-  // Categories list (exactly as you specified)
+  // Categories list
   final List<String> _allCategories = [
     'All Categories',
     'IT & Networking',
@@ -57,7 +55,7 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
     'Finance & Investment',
   ];
 
-  // Countries list (fetched from API)
+  // Countries list
   List<CountryModel> _countries = [];
   List<CountryModel> _filteredCountries = [];
   bool _isLoadingCountries = false;
@@ -87,15 +85,13 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
   int _currentPage = 1;
   int _totalPages = 1;
   int _totalItems = 0;
-  bool _isLoadingMore = false;
-  final ScrollController _scrollController = ScrollController();
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _loadTalents();
     _fetchCountries();
-    _scrollController.addListener(_onScroll);
   }
 
   @override
@@ -103,7 +99,6 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
     _searchController.dispose();
     _categorySearchController.dispose();
     _countrySearchController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -137,8 +132,6 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
         }
         
         countries.sort((a, b) => a.name.compareTo(b.name));
-        
-        // Add "All Countries" at the beginning
         countries.insert(0, CountryModel(name: 'All Countries', code: '', flagUrl: ''));
         
         setState(() {
@@ -174,26 +167,12 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
     });
   }
 
-  void _onScroll() {
-    if (!_isLoadingMore &&
-        _currentPage < _totalPages &&
-        _scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 200) {
-      _loadMoreTalents();
-    }
-  }
-
   Future<void> _loadTalents({int page = 1, bool reset = true}) async {
-    try {
-      if (reset) {
-        if (mounted) {
-          setState(() {
-            _currentPage = 1;
-            _isLoadingMore = false;
-          });
-        }
-      }
+    setState(() {
+      _isLoading = true;
+    });
 
+    try {
       await homeController.fetchTalentsPaginated(
           page: page, limit: 6, resetList: reset);
 
@@ -202,33 +181,20 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
           _currentPage = homeController.talentsCurrentPage.value;
           _totalPages = homeController.talentsTotalPages.value;
           _totalItems = homeController.talentsTotalCount.value;
-          _isLoadingMore = false;
+          _isLoading = false;
         });
       }
     } catch (e) {
       print("Error loading talents: $e");
       if (mounted) {
-        setState(() => _isLoadingMore = false);
+        setState(() => _isLoading = false);
       }
     }
-  }
-
-  Future<void> _loadMoreTalents() async {
-    if (_isLoadingMore || _currentPage >= _totalPages) return;
-    if (mounted) {
-      setState(() => _isLoadingMore = true);
-    }
-    await _loadTalents(page: _currentPage + 1, reset: false);
   }
 
   void _goToPage(int page) {
     if (page >= 1 && page <= _totalPages && page != _currentPage) {
       _loadTalents(page: page, reset: true);
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
     }
   }
 
@@ -237,21 +203,18 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
 
     List<TalentModel> filtered = List.from(homeController.talents);
 
-    // Filter by category
     if (_selectedCategory != 'All Categories') {
       filtered = filtered.where((talent) {
         return talent.category == _selectedCategory;
       }).toList();
     }
 
-    // Filter by country
     if (_selectedCountry != 'All Countries') {
       filtered = filtered.where((talent) {
         return talent.country == _selectedCountry;
       }).toList();
     }
 
-    // Filter by search query
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
       filtered = filtered.where((talent) {
@@ -261,7 +224,6 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
       }).toList();
     }
 
-    // Sort
     switch (_sortBy) {
       case 'Rating: High to Low':
         filtered.sort((a, b) => b.rating.compareTo(a.rating));
@@ -300,42 +262,25 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
         children: [
           _buildWebTopBar(),
           Expanded(
-            child: Obx(() {
-              if (homeController.isLoadingTalents.value &&
-                  homeController.talents.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (homeController.talentsError.value != null) {
-                return _buildErrorWidget();
-              }
-
-              final talents = _filteredTalents;
-
-              if (talents.isEmpty && !homeController.isLoadingTalents.value) {
-                return _buildEmptyState();
-              }
-
-              return Column(
-                children: [
-                  _buildStatsBar(talents),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: _isGridView
-                        ? _buildTalentGrid(talents)
-                        : _buildTalentTable(talents),
+            child: _isLoading && homeController.talents.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                    children: [
+                      Expanded(
+                        child: _isGridView
+                            ? _buildTalentGrid(_filteredTalents)
+                            : _buildTalentTable(_filteredTalents),
+                      ),
+                      if (_totalPages > 1) _buildWebPagination(),
+                    ],
                   ),
-                  if (_totalPages > 1) _buildPagination(),
-                ],
-              );
-            }),
           ),
         ],
       ),
     );
   }
 
-  // ==================== WEB TOP BAR (WITH SEARCHABLE DROPDOWNS) ====================
+  // ==================== WEB TOP BAR ====================
   Widget _buildWebTopBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -352,20 +297,13 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Find Talent',
-            style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B)),
-          ),
+          
           const SizedBox(height: 12),
           Wrap(
             spacing: 12,
             runSpacing: 10,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              // Search bar
               ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: 200, maxWidth: 280),
                 child: SizedBox(
@@ -404,14 +342,8 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
                   ),
                 ),
               ),
-
-              // Searchable Category Dropdown Button
               _buildSearchableCategoryButton(),
-
-              // Searchable Country Dropdown Button
               _buildSearchableCountryButton(),
-
-              // Sort dropdown
               _buildDropdown<String>(
                 value: _sortBy,
                 items: _sortOptions,
@@ -428,8 +360,6 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
                   ),
                 ),
               ),
-
-              // View toggle buttons
               Container(
                 height: 42,
                 decoration: BoxDecoration(
@@ -447,7 +377,6 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
               ),
             ],
           ),
-          // Selected filters row
           if (_selectedCategory != 'All Categories' || _selectedCountry != 'All Countries')
             Padding(
               padding: const EdgeInsets.only(top: 12),
@@ -884,10 +813,7 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            '$_totalItems ${_totalItems == 1 ? 'Talent' : 'Talents'} total',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-          ),
+       
           Container(
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -914,8 +840,8 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
     );
   }
 
-  // ==================== PAGINATION ====================
-  Widget _buildPagination() {
+  // ==================== WEB PAGINATION (OLD DESIGN) ====================
+  Widget _buildWebPagination() {
     if (_totalPages <= 1) return const SizedBox.shrink();
 
     return Container(
@@ -928,58 +854,44 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           GestureDetector(
-            onTap:
-                _currentPage > 1 ? () => _goToPage(_currentPage - 1) : null,
+            onTap: _currentPage > 1 ? () => _goToPage(_currentPage - 1) : null,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
-                color:
-                    _currentPage > 1 ? primary : Colors.grey.shade200,
+                color: _currentPage > 1 ? primary : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(Icons.chevron_left,
                   size: 20,
-                  color: _currentPage > 1
-                      ? Colors.white
-                      : Colors.grey.shade500),
+                  color: _currentPage > 1 ? Colors.white : Colors.grey.shade500),
             ),
           ),
-          ..._buildPageNumbersSafe(),
+          ..._buildWebPageNumbers(),
           GestureDetector(
-            onTap: _currentPage < _totalPages
-                ? () => _goToPage(_currentPage + 1)
-                : null,
+            onTap: _currentPage < _totalPages ? () => _goToPage(_currentPage + 1) : null,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               margin: const EdgeInsets.only(left: 8),
               decoration: BoxDecoration(
-                color: _currentPage < _totalPages
-                    ? primary
-                    : Colors.grey.shade200,
+                color: _currentPage < _totalPages ? primary : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(Icons.chevron_right,
                   size: 20,
-                  color: _currentPage < _totalPages
-                      ? Colors.white
-                      : Colors.grey.shade500),
+                  color: _currentPage < _totalPages ? Colors.white : Colors.grey.shade500),
             ),
           ),
           const SizedBox(width: 16),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               'Page $_currentPage of $_totalPages',
-              style:
-                  TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ),
         ],
@@ -987,12 +899,12 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
     );
   }
 
-  List<Widget> _buildPageNumbersSafe() {
+  List<Widget> _buildWebPageNumbers() {
     List<Widget> buttons = [];
 
     if (_totalPages <= 7) {
       for (int i = 1; i <= _totalPages; i++) {
-        buttons.add(_buildPageButton(i));
+        buttons.add(_buildWebPageButton(i));
       }
       return buttons;
     }
@@ -1008,7 +920,7 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
     }
 
     if (startPage > 1) {
-      buttons.add(_buildPageButton(1));
+      buttons.add(_buildWebPageButton(1));
       if (startPage > 2) {
         buttons.add(const Padding(
             padding: EdgeInsets.symmetric(horizontal: 4),
@@ -1017,7 +929,7 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
     }
 
     for (int i = startPage; i <= endPage; i++) {
-      buttons.add(_buildPageButton(i));
+      buttons.add(_buildWebPageButton(i));
     }
 
     if (endPage < _totalPages) {
@@ -1026,20 +938,19 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
             padding: EdgeInsets.symmetric(horizontal: 4),
             child: Text('...')));
       }
-      buttons.add(_buildPageButton(_totalPages));
+      buttons.add(_buildWebPageButton(_totalPages));
     }
 
     return buttons;
   }
 
-  Widget _buildPageButton(int page) {
+  Widget _buildWebPageButton(int page) {
     final isSelected = page == _currentPage;
     return GestureDetector(
       onTap: () => _goToPage(page),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? primary : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -1050,8 +961,7 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
           page.toString(),
           style: TextStyle(
             color: isSelected ? Colors.white : Colors.grey.shade700,
-            fontWeight:
-                isSelected ? FontWeight.bold : FontWeight.normal,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             fontSize: 13,
           ),
         ),
@@ -1077,7 +987,6 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
             (availableWidth - (cardSpacing * (columns - 1))) / columns;
 
         return SingleChildScrollView(
-          controller: _scrollController,
           padding: const EdgeInsets.all(padding),
           child: Wrap(
             spacing: cardSpacing,
@@ -1364,7 +1273,6 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
   // ==================== TALENT TABLE ====================
   Widget _buildTalentTable(List<TalentModel> talents) {
     return SingleChildScrollView(
-      controller: _scrollController,
       padding: const EdgeInsets.all(24),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -1545,7 +1453,7 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
     );
   }
 
-  // ==================== MOBILE LAYOUT ====================
+  // ==================== MOBILE LAYOUT (WITH PAGINATION BUTTONS) ====================
   Widget _buildMobileLayout() {
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -1559,151 +1467,234 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
                 fontWeight: FontWeight.bold)),
         leading: widget.showSidebar
             ? IconButton(
-                icon:
-                    const Icon(Icons.arrow_back, color: Colors.black),
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
                 onPressed: () => navController.goBack())
             : null,
         bottom: PreferredSize(
             preferredSize: const Size.fromHeight(1),
             child: Container(color: Colors.grey[200], height: 1)),
       ),
-      body: Obx(() {
-        if (homeController.isLoadingTalents.value &&
-            homeController.talents.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (homeController.talentsError.value != null) {
-          return _buildErrorWidget();
-        }
-        final talents = _filteredTalents;
-        if (talents.isEmpty &&
-            !homeController.isLoadingTalents.value) {
-          return _buildEmptyState();
-        }
-        return Column(
-          children: [
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                children: [
-                  Row(
+      body: _isLoading && homeController.talents.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: (value) =>
-                              setState(() => _searchQuery = value),
-                          decoration: InputDecoration(
-                            hintText: 'Search talents...',
-                            prefixIcon: Icon(Icons.search,
-                                color: Colors.grey[400]),
-                            filled: true,
-                            fillColor: Colors.grey[100],
-                            border: OutlineInputBorder(
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: (value) =>
+                                  setState(() => _searchQuery = value),
+                              decoration: InputDecoration(
+                                hintText: 'Search talents...',
+                                prefixIcon: Icon(Icons.search,
+                                    color: Colors.grey[400]),
+                                filled: true,
+                                fillColor: Colors.grey[100],
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: () => _showCategoryDialog(),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none),
-                            contentPadding:
-                                const EdgeInsets.symmetric(vertical: 10),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      GestureDetector(
-                        onTap: () => _showCategoryDialog(),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.category, size: 18, color: primary),
-                              const SizedBox(width: 4),
-                              Text(
-                                _selectedCategory == 'All Categories' ? 'Category' : _selectedCategory.substring(0, 8),
-                                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                               ),
-                              Icon(Icons.arrow_drop_down, color: primary),
-                            ],
+                              child: Row(
+                                children: [
+                                  Icon(Icons.category, size: 18, color: primary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _selectedCategory == 'All Categories' ? 'Category' : _selectedCategory.substring(0, 8),
+                                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                  ),
+                                  Icon(Icons.arrow_drop_down, color: primary),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => _showCountryDialog(),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.public, size: 18, color: primary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _selectedCountry == 'All Countries' ? 'Country' : _selectedCountry.substring(0, 8),
+                                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                  ),
+                                  Icon(Icons.arrow_drop_down, color: primary),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(12)),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _sortBy,
+                                icon: Icon(Icons.arrow_drop_down, color: primary),
+                                onChanged: (value) =>
+                                    setState(() => _sortBy = value!),
+                                items: _sortOptions
+                                    .map((opt) => DropdownMenuItem(
+                                        value: opt, child: Text(opt)))
+                                    .toList(),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Row(
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: Colors.white,
+                  child: Row(
                     children: [
-                      GestureDetector(
-                        onTap: () => _showCountryDialog(),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.public, size: 18, color: primary),
-                              const SizedBox(width: 4),
-                              Text(
-                                _selectedCountry == 'All Countries' ? 'Country' : _selectedCountry.substring(0, 8),
-                                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                              ),
-                              Icon(Icons.arrow_drop_down, color: primary),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(12)),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _sortBy,
-                            icon:
-                                Icon(Icons.arrow_drop_down, color: primary),
-                            onChanged: (value) =>
-                                setState(() => _sortBy = value!),
-                            items: _sortOptions
-                                .map((opt) => DropdownMenuItem(
-                                    value: opt, child: Text(opt)))
-                                .toList(),
-                          ),
-                        ),
-                      ),
+                      Text('${_filteredTalents.length} talents found',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                     ],
                   ),
-                ],
-              ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(14),
+                    itemCount: _filteredTalents.length,
+                    itemBuilder: (context, index) =>
+                        _buildMobileTalentCard(_filteredTalents[index]),
+                  ),
+                ),
+                if (_totalPages > 1) _buildMobilePagination(),
+                const SizedBox(height: 10),
+              ],
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 8),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  Text('${talents.length} talents found',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey[600])),
-                ],
+    );
+  }
+
+  // ==================== MOBILE PAGINATION ====================
+  Widget _buildMobilePagination() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          GestureDetector(
+            onTap: _currentPage > 1 ? () => _goToPage(_currentPage - 1) : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _currentPage > 1 ? primary : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
               ),
+              child: Icon(Icons.chevron_left,
+                  size: 20,
+                  color: _currentPage > 1 ? Colors.white : Colors.grey.shade500),
             ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(14),
-                itemCount: talents.length,
-                itemBuilder: (context, index) =>
-                    _buildMobileTalentCard(talents[index]),
+          ),
+          const SizedBox(width: 12),
+          ..._buildMobilePageNumbers(),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: _currentPage < _totalPages ? () => _goToPage(_currentPage + 1) : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _currentPage < _totalPages ? primary : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
               ),
+              child: Icon(Icons.chevron_right,
+                  size: 20,
+                  color: _currentPage < _totalPages ? Colors.white : Colors.grey.shade500),
             ),
-          ],
-        );
-      }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildMobilePageNumbers() {
+    List<Widget> buttons = [];
+    
+    if (_totalPages <= 3) {
+      for (int i = 1; i <= _totalPages; i++) {
+        buttons.add(_buildMobilePageButton(i));
+      }
+    } else {
+      int startPage = _currentPage > 1 ? _currentPage - 1 : 1;
+      int endPage = startPage + 2;
+      if (endPage > _totalPages) {
+        endPage = _totalPages;
+        startPage = endPage - 2;
+        if (startPage < 1) startPage = 1;
+      }
+      
+      for (int i = startPage; i <= endPage; i++) {
+        buttons.add(_buildMobilePageButton(i));
+      }
+    }
+    
+    return buttons;
+  }
+
+  Widget _buildMobilePageButton(int page) {
+    final isSelected = page == _currentPage;
+    return GestureDetector(
+      onTap: () => _goToPage(page),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        constraints: const BoxConstraints(minWidth: 32),
+        decoration: BoxDecoration(
+          color: isSelected ? primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: isSelected ? primary : Colors.grey.shade300),
+        ),
+        child: Center(
+          child: Text(
+            page.toString(),
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.grey.shade700,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1876,49 +1867,6 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // ==================== ERROR & EMPTY STATES ====================
-  Widget _buildErrorWidget() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-              homeController.talentsError.value ??
-                  'Something went wrong',
-              style: TextStyle(color: Colors.grey[600])),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => _loadTalents(page: 1, reset: true),
-            child: const Text('Retry'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search_off, size: 80, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text('No talents found',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[600])),
-          const SizedBox(height: 8),
-          Text('Try adjusting your search or filters',
-              style:
-                  TextStyle(fontSize: 14, color: Colors.grey[500])),
         ],
       ),
     );

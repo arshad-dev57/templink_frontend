@@ -1,6 +1,8 @@
-// lib/Employee/controllers/Employee_Active_Project_Controller.dart
+// lib/Employee/Controllers/Employee_Active_Project_Controller.dart
 import 'dart:io';
-
+import 'dart:html'
+  if (dart.library.io) '../../Utils/html_stub.dart' as html;
+import 'dart:typed_data';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -425,7 +427,6 @@ class EmployeeActiveProjectController extends GetxController {
     return completed;
   }
 
- 
   Future<void> refreshData() async {
     print('\n🔄 ===== REFRESHING DATA =====');
     await Future.wait([
@@ -434,90 +435,137 @@ class EmployeeActiveProjectController extends GetxController {
     ]);
     print('🔄 ===== DATA REFRESHED =====\n');
   }
-  // In EmployeeActiveProjectController
 
-Future<bool> submitWork({
-  required String projectId,
-  required String milestoneId,
-  required String description,
-  String? notes,
-  List<File>? attachments,
-}) async {
-  print('\n🟡 ===== SUBMIT WORK STARTED =====');
-
-  try {
-    isLoading.value = true;
-    
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
-    var request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl/api/submissions/submit'),
-    );
-    
-    request.headers['Authorization'] = 'Bearer $token';
-    
-    // Add text fields
-    request.fields['projectId'] = projectId;
-    request.fields['milestoneId'] = milestoneId;
-    request.fields['description'] = description;
-    if (notes != null) request.fields['notes'] = notes;
-    
-    // Add files
-    if (attachments != null) {
-      for (var file in attachments) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'attachments',
-            file.path,
-          ),
-        );
-      }
-    }
-    
-    print('📡 Sending request to: $baseUrl/api/submissions/submit');
+  // ==================== SUBMIT WORK WITH FILES (Web + Mobile Compatible) ====================
+  
+  /// Submit work with file attachments - works on both Web and Mobile
+  Future<bool> submitWork({
+    required String projectId,
+    required String milestoneId,
+    required String description,
+    String? notes,
+    List<dynamic>? attachments, // Can be List<File> (mobile) or List<html.File> (web)
+  }) async {
+    print('\n🟡 ===== SUBMIT WORK STARTED =====');
     print('📦 Project ID: $projectId');
     print('📦 Milestone ID: $milestoneId');
-    print('📦 Files: ${attachments?.length ?? 0}');
-    
-    var response = await request.send();
-    var responseData = await response.stream.bytesToString();
-    var jsonResponse = jsonDecode(responseData);
-    
-    print('📡 Response status: ${response.statusCode}');
-    print('📦 Response: $jsonResponse');
-    
-    if (response.statusCode == 201) {
-      print('✅ Work submitted successfully');
+    print('📦 Description: $description');
+    print('📦 Notes: $notes');
+    print('📦 Attachments count: ${attachments?.length ?? 0}');
+
+    try {
+      isLoading.value = true;
       
-      // Refresh project details
-      await fetchProjectDetails(projectId);
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
       
-      return true;
-    } else {
-      print('❌ Submission failed: ${jsonResponse['message']}');
+      if (token == null) {
+        print('❌ No token found');
+        Get.snackbar('Error', 'Please login again', backgroundColor: Colors.red, colorText: Colors.white);
+        return false;
+      }
+
+      // Create multipart request
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/api/submissions/submit'),
+      );
+      
+      request.headers['Authorization'] = 'Bearer $token';
+      
+      // Add text fields
+      request.fields['projectId'] = projectId;
+      request.fields['milestoneId'] = milestoneId;
+      request.fields['description'] = description;
+      if (notes != null && notes.isNotEmpty) {
+        request.fields['notes'] = notes;
+      }
+      
+      // Add attachments based on platform
+      if (attachments != null && attachments.isNotEmpty) {
+        for (var attachment in attachments) {
+          try {
+            // Check if it's a mobile File
+            if (attachment is File) {
+              print('📎 Adding mobile file: ${attachment.path}');
+              request.files.add(
+                await http.MultipartFile.fromPath(
+                  'attachments',
+                  attachment.path,
+                ),
+              );
+            }
+            // Check if it's a web html.File
+            else if (attachment is html.File) {
+              print('📎 Adding web file: ${attachment.name}');
+              final reader = html.FileReader();
+              reader.readAsArrayBuffer(attachment);
+              await reader.onLoad.first;
+              final bytes = reader.result as ByteBuffer;
+              request.files.add(
+                http.MultipartFile.fromBytes(
+                  'attachments',
+                  bytes.asUint8List(),
+                  filename: attachment.name,
+                ),
+              );
+            }
+          } catch (e) {
+            print('❌ Error adding attachment: $e');
+          }
+        }
+      }
+      
+      print('📡 Sending request to: $baseUrl/api/submissions/submit');
+      print('📦 Fields: ${request.fields}');
+      print('📦 Files: ${request.files.length}');
+      
+      // Send request
+      var response = await request.send();
+      var responseData = await response.stream.bytesToString();
+      var jsonResponse = jsonDecode(responseData);
+      
+      print('📡 Response status: ${response.statusCode}');
+      print('📦 Response: $jsonResponse');
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ Work submitted successfully');
+        
+        // Refresh project details
+        await fetchProjectDetails(projectId);
+        
+        Get.snackbar(
+          'Success',
+          'Work submitted successfully!',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
+        return true;
+      } else {
+        print('❌ Submission failed: ${jsonResponse['message']}');
+        Get.snackbar(
+          'Error',
+          jsonResponse['message'] ?? 'Failed to submit work',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return false;
+      }
+      
+    } catch (e) {
+      print('❌ Error submitting work: $e');
+      print('📌 Stack trace: ${StackTrace.current}');
       Get.snackbar(
         'Error',
-        jsonResponse['message'] ?? 'Failed to submit work',
+        'Network error: ${e.toString()}',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
       return false;
+    } finally {
+      isLoading.value = false;
+      print('🟡 ===== SUBMIT WORK ENDED =====\n');
     }
-    
-  } catch (e) {
-    print('❌ Error submitting work: $e');
-    Get.snackbar(
-      'Error',
-      'Network error. Please try again.',
-      backgroundColor: Colors.red,
-      colorText: Colors.white,
-    );
-    return false;
-  } finally {
-    isLoading.value = false;
-    print('🟡 ===== SUBMIT WORK ENDED =====\n');
   }
-}
 }

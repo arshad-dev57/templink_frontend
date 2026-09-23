@@ -3,32 +3,25 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:templink/Employee/Controllers/Employee_home_controller.dart';
 import 'package:templink/Employee/models/project_model.dart';
+import 'package:templink/Employeer/Screens/Employeer_homescreen.dart';
 import 'package:templink/Employeer/Screens/project_detail_screen.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:templink/Utils/responsive.dart';
 
-class ProjectsDiscoveryScreen extends StatelessWidget {
+class ProjectsDiscoveryScreen extends StatefulWidget {
   final bool showSidebar;
   
   const ProjectsDiscoveryScreen({super.key, this.showSidebar = false});
 
   @override
-  Widget build(BuildContext context) {
-    return const _ProjectsDiscoveryContent();
-  }
+  State<ProjectsDiscoveryScreen> createState() => _ProjectsDiscoveryScreenState();
 }
 
-class _ProjectsDiscoveryContent extends StatefulWidget {
-  const _ProjectsDiscoveryContent();
-
-  @override
-  State<_ProjectsDiscoveryContent> createState() => _ProjectsDiscoveryContentState();
-}
-
-class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
+class _ProjectsDiscoveryScreenState extends State<ProjectsDiscoveryScreen> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _categorySearchController = TextEditingController();
   final EmployeeHomeController homeController = Get.find<EmployeeHomeController>();
-  final ScrollController _scrollController = ScrollController();
+  final EmployerNavigationController navController = Get.find<EmployerNavigationController>();
 
   String _selectedCategory = 'All Projects';
   String _searchQuery = '';
@@ -36,6 +29,12 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
   String _tempCategory = '';
   bool _showCategoryDropdown = false;
   bool _isGridView = true;
+  bool _isLoading = false;
+  
+  // Pagination
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalItems = 0;
   
   final List<String> _allCategories = [
     'All Projects',
@@ -207,19 +206,44 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (homeController.projects.isEmpty) {
-        homeController.fetchProjects(page: 1, resetList: true);
-      }
-    });
+    _loadProjects();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     _categorySearchController.dispose();
-    _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadProjects({int page = 1, bool reset = true}) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await homeController.fetchProjects(page: page, resetList: reset);
+
+      if (mounted) {
+        setState(() {
+          _currentPage = homeController.projectsCurrentPage.value;
+          _totalPages = homeController.projectsTotalPages.value;
+          _totalItems = homeController.projectsTotalCount.value;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Error loading projects: $e");
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _goToPage(int page) {
+    if (page >= 1 && page <= _totalPages && page != _currentPage) {
+      _loadProjects(page: page, reset: true);
+    }
   }
 
   List<ProjectFeedModel> get _filteredProjects {
@@ -262,31 +286,35 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _buildTopBar(),
-        Expanded(
-          child: Obx(() {
-            if (homeController.isLoadingProjects.value && homeController.projects.isEmpty) {
-              return _buildLoadingState();
-            }
-
-            final filteredProjects = _filteredProjects;
-            
-            if (filteredProjects.isEmpty) {
-              return _buildEmptyState();
-            }
-            
-            return RefreshIndicator(
-              onRefresh: () => homeController.fetchProjects(page: 1, resetList: true),
-              color: primary,
-              child: _isGridView 
-                  ? _buildGridView(filteredProjects)
-                  : _buildTableView(filteredProjects),
-            );
-          }),
-        ),
-      ],
+    Responsive.init(context);
+    final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+    
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: Column(
+        children: [
+          _buildTopBar(),
+          Expanded(
+            child: _isLoading && homeController.projects.isEmpty
+                ? _buildLoadingState()
+                : Column(
+                    children: [
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: () => _loadProjects(page: 1, reset: true),
+                          color: primary,
+                          child: _isGridView 
+                              ? _buildGridView(_filteredProjects)
+                              : _buildTableView(_filteredProjects),
+                        ),
+                      ),
+                      if (_totalPages > 1) 
+                        isWeb ? _buildWebPagination() : _buildMobilePagination(),
+                    ],
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -316,9 +344,11 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
                   children: [
                     _buildStatsCounter(),
                     const Spacer(),
+                    _buildViewToggleButton(),
+                    const SizedBox(width: 8),
                     Text(
-                      '${_filteredProjects.length} projects found',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      '${_filteredProjects.length} shown',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -333,7 +363,14 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
                 const SizedBox(width: 12),
                 _buildSortDropdown(),
                 const SizedBox(width: 12),
+                _buildViewToggleButton(),
+                const SizedBox(width: 12),
                 _buildStatsCounter(),
+                const SizedBox(width: 8),
+                Text(
+                  '${_filteredProjects.length} of $_totalItems shown',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
               ],
             );
           }
@@ -433,6 +470,46 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
     );
   }
 
+  Widget _buildViewToggleButton() {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () => setState(() => _isGridView = true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _isGridView ? primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.grid_view, size: 18, color: _isGridView ? Colors.white : Colors.grey[600]),
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () => setState(() => _isGridView = false),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: !_isGridView ? primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.table_rows, size: 18, color: !_isGridView ? Colors.white : Colors.grey[600]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatsCounter() {
     return Container(
       height: 44,
@@ -443,7 +520,7 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
       ),
       child: Center(
         child: Text(
-          '${_filteredProjects.length}',
+          '$_totalItems',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primary),
         ),
       ),
@@ -567,6 +644,235 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
     );
   }
 
+  // ==================== WEB PAGINATION ====================
+  Widget _buildWebPagination() {
+    if (_totalPages <= 1) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          GestureDetector(
+            onTap: _currentPage > 1 ? () => _goToPage(_currentPage - 1) : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: _currentPage > 1 ? primary : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.chevron_left,
+                  size: 20,
+                  color: _currentPage > 1 ? Colors.white : Colors.grey.shade500),
+            ),
+          ),
+          ..._buildWebPageNumbers(),
+          GestureDetector(
+            onTap: _currentPage < _totalPages ? () => _goToPage(_currentPage + 1) : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              margin: const EdgeInsets.only(left: 8),
+              decoration: BoxDecoration(
+                color: _currentPage < _totalPages ? primary : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.chevron_right,
+                  size: 20,
+                  color: _currentPage < _totalPages ? Colors.white : Colors.grey.shade500),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Page $_currentPage of $_totalPages',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildWebPageNumbers() {
+    List<Widget> buttons = [];
+
+    if (_totalPages <= 7) {
+      for (int i = 1; i <= _totalPages; i++) {
+        buttons.add(_buildWebPageButton(i));
+      }
+      return buttons;
+    }
+
+    int startPage = _currentPage - 2;
+    if (startPage < 1) startPage = 1;
+
+    int endPage = startPage + 4;
+    if (endPage > _totalPages) {
+      endPage = _totalPages;
+      startPage = endPage - 4;
+      if (startPage < 1) startPage = 1;
+    }
+
+    if (startPage > 1) {
+      buttons.add(_buildWebPageButton(1));
+      if (startPage > 2) {
+        buttons.add(const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Text('...')));
+      }
+    }
+
+    for (int i = startPage; i <= endPage; i++) {
+      buttons.add(_buildWebPageButton(i));
+    }
+
+    if (endPage < _totalPages) {
+      if (endPage < _totalPages - 1) {
+        buttons.add(const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Text('...')));
+      }
+      buttons.add(_buildWebPageButton(_totalPages));
+    }
+
+    return buttons;
+  }
+
+  Widget _buildWebPageButton(int page) {
+    final isSelected = page == _currentPage;
+    return GestureDetector(
+      onTap: () => _goToPage(page),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: isSelected ? primary : Colors.grey.shade300),
+        ),
+        child: Text(
+          page.toString(),
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== MOBILE PAGINATION ====================
+  Widget _buildMobilePagination() {
+    if (_totalPages <= 1) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          GestureDetector(
+            onTap: _currentPage > 1 ? () => _goToPage(_currentPage - 1) : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _currentPage > 1 ? primary : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.chevron_left,
+                  size: 20,
+                  color: _currentPage > 1 ? Colors.white : Colors.grey.shade500),
+            ),
+          ),
+          const SizedBox(width: 12),
+          ..._buildMobilePageNumbers(),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: _currentPage < _totalPages ? () => _goToPage(_currentPage + 1) : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _currentPage < _totalPages ? primary : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.chevron_right,
+                  size: 20,
+                  color: _currentPage < _totalPages ? Colors.white : Colors.grey.shade500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildMobilePageNumbers() {
+    List<Widget> buttons = [];
+    
+    if (_totalPages <= 3) {
+      for (int i = 1; i <= _totalPages; i++) {
+        buttons.add(_buildMobilePageButton(i));
+      }
+    } else {
+      int startPage = _currentPage > 1 ? _currentPage - 1 : 1;
+      int endPage = startPage + 2;
+      if (endPage > _totalPages) {
+        endPage = _totalPages;
+        startPage = endPage - 2;
+        if (startPage < 1) startPage = 1;
+      }
+      
+      for (int i = startPage; i <= endPage; i++) {
+        buttons.add(_buildMobilePageButton(i));
+      }
+    }
+    
+    return buttons;
+  }
+
+  Widget _buildMobilePageButton(int page) {
+    final isSelected = page == _currentPage;
+    return GestureDetector(
+      onTap: () => _goToPage(page),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        constraints: const BoxConstraints(minWidth: 32),
+        decoration: BoxDecoration(
+          color: isSelected ? primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: isSelected ? primary : Colors.grey.shade300),
+        ),
+        child: Center(
+          child: Text(
+            page.toString(),
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.grey.shade700,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== GRID VIEW ====================
   Widget _buildGridView(List<ProjectFeedModel> projects) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -574,7 +880,6 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
         final crossAxisCount = isSmallScreen ? 1 : 3;
         
         return GridView.builder(
-          controller: _scrollController,
           padding: const EdgeInsets.all(20),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
@@ -589,9 +894,9 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
     );
   }
 
+  // ==================== TABLE VIEW ====================
   Widget _buildTableView(List<ProjectFeedModel> projects) {
     return SingleChildScrollView(
-      controller: _scrollController,
       scrollDirection: Axis.horizontal,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -672,6 +977,7 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
     );
   }
 
+  // ==================== LOADING STATE ====================
   Widget _buildLoadingState() {
     return const Center(
       child: Column(
@@ -685,49 +991,7 @@ class _ProjectsDiscoveryContentState extends State<_ProjectsDiscoveryContent> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(color: primary.withOpacity(0.1), shape: BoxShape.circle),
-            child: Icon(Icons.work_off_outlined, size: 50, color: primary),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            _searchQuery.isNotEmpty ? 'No matching projects found' : 'No projects available',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _searchQuery.isNotEmpty ? 'Try adjusting your search or filters' : 'Check back later for new opportunities',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-          ),
-          if (_searchQuery.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              onPressed: () {
-                _searchController.clear();
-                setState(() => _searchQuery = '');
-              },
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Clear Search'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: primary,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                side: BorderSide(color: primary),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
+  // ==================== PROJECT CARD ====================
   Widget _buildProjectCard(ProjectFeedModel project) {
     final bool hasFeatured = project.featured;
     final displaySkills = project.skills.length > 4 ? project.skills.sublist(0, 4) : project.skills;

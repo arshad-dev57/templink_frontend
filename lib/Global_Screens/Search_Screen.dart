@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:templink/Controllers/search_controller.dart';
-import 'package:templink/Employee/models/project_model.dart' as project_model; // ✅ Alias for project model
-import 'package:templink/Employee/models/Employee_jobs_model.dart' as job_model; // ✅ Alias for job model
+import 'package:templink/Employee/models/project_model.dart' as project_model; 
+import 'package:templink/Employee/models/Employee_jobs_model.dart' as job_model;
 import 'package:templink/Employeer/Screens/project_detail_screen.dart';
 import 'package:templink/Employee/Screens/Employee_Job_Detail_Screen.dart';
 import 'package:templink/Employeer/Screens/talent_profile.dart';
 import 'package:templink/Employeer/model/talent_model.dart';
 import 'package:templink/Utils/colors.dart';
+import 'package:templink/Utils/responsive.dart';
+import 'package:templink/Employeer/Screens/Employeer_homescreen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({Key? key}) : super(key: key);
@@ -42,12 +44,13 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+    
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-     
         title: const Text(
           'Search',
           style: TextStyle(
@@ -520,14 +523,13 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  // ✅ FIXED: Using import aliases to avoid EmployerSnapshot conflict
   void _navigateToDetail(Map<String, dynamic> item) {
     final type = item['type'];
     final id = item['id']?.toString() ?? '';
+    final isWeb = Responsive.isDesktop(Get.context!) || Responsive.isTablet(Get.context!);
     
     switch(type) {
       case 'project':
-        // ✅ Using project_model alias
         final project = project_model.ProjectFeedModel(
           id: id,
           title: item['title'] ?? '',
@@ -546,7 +548,7 @@ class _SearchScreenState extends State<SearchScreen> {
           createdAt: item['createdAt'] != null ? DateTime.tryParse(item['createdAt'].toString()) : null,
           updatedAt: item['updatedAt'] != null ? DateTime.tryParse(item['updatedAt'].toString()) : null,
           topLevelProposalsCount: item['proposalsCount'],
-          employerSnapshot: project_model.EmployerSnapshot( // ✅ Using project's EmployerSnapshot
+          employerSnapshot: project_model.EmployerSnapshot(
             userId: item['employerId'] ?? '',
             firstName: item['employerFirstName'] ?? '',
             lastName: item['employerLastName'] ?? '',
@@ -576,12 +578,17 @@ class _SearchScreenState extends State<SearchScreen> {
             sizeLabel: item['sizeLabel'] ?? '',
           ),
         );
-        print('✅ Navigating to ProjectDetailScreen with project: ${project.title}');
-        Get.to(() => ProjectDetailScreen(project: project));
-        break;
         
+        // ✅ FIX: Web par navigation controller use karo
+        if (isWeb && Get.isRegistered<EmployerNavigationController>()) {
+          final navController = Get.find<EmployerNavigationController>();
+          navController.goToProjectDetailScreen(project);
+        } else {
+          Get.to(() => ProjectDetailScreen(project: project));
+        }
+        break;
+
       case 'job':
-        // ✅ Using job_model alias
         final job = job_model.JobPostModel(
           id: id,
           title: item['title'] ?? '',
@@ -597,7 +604,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ? DateTime.tryParse(item['postedDate'].toString()) 
               : DateTime.now(),
           urgency: item['urgency'] ?? false,
-          employerSnapshot: job_model.EmployerSnapshot( // ✅ Using job's EmployerSnapshot
+          employerSnapshot: job_model.EmployerSnapshot(
             userId: item['employerId'] ?? '',
             firstName: item['employerFirstName'] ?? '',
             lastName: item['employerLastName'] ?? '',
@@ -610,7 +617,6 @@ class _SearchScreenState extends State<SearchScreen> {
             employerCountry: item['employerCountry'] ?? '',
             companySize: item['companySize'] ?? '',
             workModel: item['workModel'] ?? '',
-           
             phone: item['phone'] ?? '',
             companyEmail: item['companyEmail'] ?? '',
             website: item['website'] ?? '',
@@ -624,12 +630,10 @@ class _SearchScreenState extends State<SearchScreen> {
             sizeLabel: item['sizeLabel'] ?? '',
           ),
         );
-        print('✅ Navigating to JobDetailScreen with job: ${job.title}');
         Get.to(() => JobDetailScreen(job: job));
         break;
         
       case 'talent':
-        // ✅ COMPLETE TALENT MODEL
         final nameParts = (item['name'] ?? '').toString().split(' ');
         final firstName = nameParts.isNotEmpty ? nameParts[0] : '';
         final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
@@ -640,7 +644,7 @@ class _SearchScreenState extends State<SearchScreen> {
           lastName: lastName,
           email: item['email'] ?? '',
           country: item['country'] ?? '',
-title: item['title'] ?? 'Professional',
+          title: item['title'] ?? 'Professional',
           bio: item['bio'] ?? '',
           skills: List<String>.from(item['skills'] ?? []),
           experienceLevel: item['experienceLevel'] ?? '',
@@ -654,8 +658,14 @@ title: item['title'] ?? 'Professional',
           educations: [],
           portfolioProjects: [],
         );
-        print('✅ Navigating to TalentProfileScreen with talent: ${talent.fullName}');
-        Get.to(() => TalentProfileScreen(talent: talent));
+        
+        // ✅ FIX: Web par navigation controller use karo
+        if (isWeb && Get.isRegistered<EmployerNavigationController>()) {
+          final navController = Get.find<EmployerNavigationController>();
+          navController.goToTalentProfile(talent);
+        } else {
+          Get.to(() => TalentProfileScreen(talent: talent));
+        }
         break;
     }
   }

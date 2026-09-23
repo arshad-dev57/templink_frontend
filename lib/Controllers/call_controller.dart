@@ -596,9 +596,6 @@ class CallController extends GetxController {
     callerId.value    = '';
   }
 
-  // ════════════════════════════════════════════════════════════
-  //  LOGOUT
-  // ════════════════════════════════════════════════════════════
   void resetForLogout() {
     try {
       _stopSound();

@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:path/path.dart';
 import 'package:templink/Employee/Screens/Employee_Place_Bid_Screen.dart';
 import 'package:templink/Employee/models/project_model.dart';
 import 'package:templink/Utils/colors.dart';
@@ -25,36 +24,27 @@ class ProjectDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     Responsive.init(context);
     final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
-    final isDesktop = Responsive.isDesktop(context);
 
-    // ✅ WEB LAYOUT WITH SIDEBAR
+    // ✅ WEB WITH SIDEBAR - SIRF CONTENT (NO SCAFFOLD, NO ROW)
     if (isWeb && showSidebar) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        body: Row(
+      return Container(
+        color: const Color(0xFFF5F7FA),
+        child: Column(
           children: [
-            // Sidebar placeholder - actually sidebar parent se aayega
-            // Isliye hum sirf Expanded use karte hain
+            _buildWebTopBar(),
             Expanded(
-              child: Column(
-                children: [
-                  _buildWebTopBar(),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: _buildBody(),
-                    ),
-                  ),
-                  _buildBottomBar(project),
-                ],
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: _buildBody(),
               ),
             ),
+            _buildBottomBar(),
           ],
         ),
       );
     }
 
-    // ✅ WEB WITHOUT SIDEBAR (Direct navigation)
+    // ✅ WEB WITHOUT SIDEBAR
     if (isWeb && !showSidebar) {
       return Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
@@ -67,7 +57,7 @@ class ProjectDetailScreen extends StatelessWidget {
                 child: _buildBody(),
               ),
             ),
-            _buildBottomBar(project),
+            _buildBottomBar(),
           ],
         ),
       );
@@ -76,18 +66,15 @@ class ProjectDetailScreen extends StatelessWidget {
     // ✅ MOBILE LAYOUT
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: _buildAppBar(),
+      appBar: _buildMobileAppBar(),
       body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildBody(),
-          ],
-        ),
+        child: _buildBody(),
       ),
-      bottomNavigationBar: _buildBottomBar(project),
+      bottomNavigationBar: _buildBottomBar(),
     );
   }
 
+  // ==================== WEB TOP BAR ====================
   Widget _buildWebTopBar() {
     return Container(
       height: 64,
@@ -132,7 +119,8 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  // ==================== MOBILE APP BAR ====================
+  PreferredSizeWidget _buildMobileAppBar() {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
@@ -167,15 +155,14 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
+  // ==================== BODY ====================
   Widget _buildBody() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildTitleSection(),
         const SizedBox(height: 12),
-        Builder(
-          builder: (context) => _buildInfoGrid(context),
-        ),
+        _buildInfoGrid(),
         const SizedBox(height: 12),
         _buildCategoryAndSkills(),
         const SizedBox(height: 12),
@@ -197,180 +184,6 @@ class ProjectDetailScreen extends StatelessWidget {
         const SizedBox(height: 30),
       ],
     );
-  }
-
-  Widget _buildMilestonesSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                'Project Milestones',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${project.milestoneCount}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.blue.shade700,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'Total: \$${project.totalMilestoneAmount.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.blue.shade700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ...project.milestones.asMap().entries.map((entry) {
-            int index = entry.key;
-            Milestone milestone = entry.value;
-            return _buildMilestoneItem(milestone, index + 1);
-          }).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMilestoneItem(Milestone milestone, int number) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: milestone.statusColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: milestone.statusColor.withOpacity(0.3)),
-                ),
-                child: Center(
-                  child: Text(
-                    number.toString(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: milestone.statusColor,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      milestone.title,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: milestone.statusColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            milestone.displayStatus,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: milestone.statusColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '\$${milestone.amount.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.green.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            milestone.description,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey.shade700,
-              height: 1.4,
-            ),
-          ),
-          if (milestone.dueDate != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 12,
-                  color: Colors.grey.shade500,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Due: ${_formatDate(milestone.dueDate!)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
   }
 
   Widget _buildTitleSection() {
@@ -423,10 +236,7 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoGrid(BuildContext context) {
-    final isDesktop = Responsive.isDesktop(context);
-    final crossAxisCount = isDesktop ? 4 : 2;
-    
+  Widget _buildInfoGrid() {
     return Container(
       padding: const EdgeInsets.all(20),
       color: Colors.white,
@@ -442,53 +252,50 @@ class ProjectDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  SizedBox(
-                    width: (constraints.maxWidth / crossAxisCount) - 16,
-                    child: _infoTile(
-                      icon: Icons.attach_money,
-                      color: Colors.green,
-                      label: 'BUDGET',
-                      value: project.displayBudget,
-                      subValue: project.budgetType,
-                    ),
-                  ),
-                  SizedBox(
-                    width: (constraints.maxWidth / crossAxisCount) - 16,
-                    child: _infoTile(
-                      icon: Icons.access_time,
-                      color: Colors.blue,
-                      label: 'DURATION',
-                      value: project.duration,
-                    ),
-                  ),
-                  SizedBox(
-                    width: (constraints.maxWidth / crossAxisCount) - 16,
-                    child: _infoTile(
-                      icon: Icons.military_tech_outlined,
-                      color: Colors.purple,
-                      label: 'LEVEL',
-                      value: project.experienceLevel,
-                    ),
-                  ),
-                  SizedBox(
-                    width: (constraints.maxWidth / crossAxisCount) - 16,
-                    child: _infoTile(
-                      icon: Icons.timeline,
-                      color: Colors.orange,
-                      label: 'STATUS',
-                      value: 'Active',
-                      subValue: 'Accepting Proposals',
-                    ),
-                  ),
-                ],
-              );
-            },
+          Row(
+            children: [
+              Expanded(
+                child: _infoTile(
+                  icon: Icons.attach_money,
+                  color: Colors.green,
+                  label: 'BUDGET',
+                  value: project.displayBudget,
+                  subValue: project.budgetType,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _infoTile(
+                  icon: Icons.access_time,
+                  color: Colors.blue,
+                  label: 'DURATION',
+                  value: project.duration,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _infoTile(
+                  icon: Icons.military_tech_outlined,
+                  color: Colors.purple,
+                  label: 'LEVEL',
+                  value: project.experienceLevel,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _infoTile(
+                  icon: Icons.timeline,
+                  color: Colors.orange,
+                  label: 'STATUS',
+                  value: 'Active',
+                  subValue: 'Accepting Proposals',
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -637,6 +444,182 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildMilestonesSection() {
+    if (project.milestones.isEmpty) return const SizedBox();
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Project Milestones',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${project.milestones.length}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Total: \$${project.totalMilestoneAmount.toStringAsFixed(0)}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ...project.milestones.asMap().entries.map((entry) {
+            int index = entry.key;
+            Milestone milestone = entry.value;
+            return _buildMilestoneItem(milestone, index + 1);
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMilestoneItem(Milestone milestone, int number) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: milestone.statusColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: milestone.statusColor.withOpacity(0.3)),
+                ),
+                child: Center(
+                  child: Text(
+                    number.toString(),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: milestone.statusColor,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      milestone.title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: milestone.statusColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            milestone.displayStatus,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: milestone.statusColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '\$${milestone.amount.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            milestone.description,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade700,
+              height: 1.4,
+            ),
+          ),
+          if (milestone.dueDate != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 12,
+                  color: Colors.grey.shade500,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Due: ${_formatDate(milestone.dueDate!)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
   Widget _buildDeliverables() {
     if (project.deliverables.isEmpty) return const SizedBox();
 
@@ -688,6 +671,8 @@ class ProjectDetailScreen extends StatelessWidget {
   }
 
   Widget _buildAttachments() {
+    if (project.media.isEmpty) return const SizedBox();
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -1111,7 +1096,8 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomBar(ProjectFeedModel project) {
+  // ==================== BOTTOM BAR ====================
+  Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1145,11 +1131,10 @@ class ProjectDetailScreen extends StatelessWidget {
             Expanded(
               child: ElevatedButton(
                 onPressed: () {
-                  // ✅ Proper navigation with back support
                   Get.to(() => SubmitProposalScreen(
                     project: project,
                     onBackPressed: () => Get.back(),
-                    showSidebar: true,
+                    showSidebar: showSidebar,
                   ));
                 },
                 style: ElevatedButton.styleFrom(

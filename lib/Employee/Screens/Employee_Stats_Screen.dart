@@ -1,17 +1,27 @@
+// lib/Employeer/Screens/MyStatsScreen.dart
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:templink/Employee/Controllers/employee_stats_controller.dart';
+import 'package:templink/Employee/Screens/wallet_screen.dart';
 import 'package:templink/Global_Screens/Coins_purchase_screen.dart';
 import 'package:templink/Utils/colors.dart';
 import 'package:templink/Utils/responsive.dart';
 
 class MyStatsScreen extends StatefulWidget {
-    final VoidCallback? onNavigateToCoins;  // YEH LINE ADD KARO
-  final VoidCallback? onBackPressed;     // YEH LINE ADD KARO
-  final bool showSidebar;     
-  const MyStatsScreen({Key? key, this.onNavigateToCoins, this.onBackPressed, this.showSidebar = true}) : super(key: key);
+  final VoidCallback? onNavigateToCoins;
+  final VoidCallback? onNavigateToWallet;
+  final VoidCallback? onBackPressed;
+  final bool showSidebar;
+  
+  const MyStatsScreen({
+    Key? key,
+    this.onNavigateToCoins,
+    this.onNavigateToWallet,
+    this.onBackPressed,
+    this.showSidebar = true,
+  }) : super(key: key);
 
   @override
   State<MyStatsScreen> createState() => _MyStatsScreenState();
@@ -73,6 +83,11 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
       ),
       child: Row(
         children: [
+          if (widget.showSidebar && widget.onBackPressed != null)
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              onPressed: widget.onBackPressed,
+            ),
           const Text(
             "My Stats",
             style: TextStyle(
@@ -142,7 +157,7 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
           flex: 1,
           child: Column(
             children: [
-              _buildPointsCard(),
+              _buildBalanceCard(),
               const SizedBox(height: 20),
               _buildRecentActivity(),
             ],
@@ -158,7 +173,7 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
       children: [
         _buildEarningsCard(),
         const SizedBox(height: 20),
-        _buildPointsCard(),
+        _buildBalanceCard(),
         const SizedBox(height: 20),
         _buildProposalsCard(),
         const SizedBox(height: 20),
@@ -213,7 +228,7 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                 const SizedBox(height: 24),
                 _buildEarningsCard(),
                 const SizedBox(height: 20),
-                _buildPointsCard(),
+                _buildBalanceCard(),
                 const SizedBox(height: 20),
                 _buildProposalsCard(),
                 const SizedBox(height: 20),
@@ -226,6 +241,273 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
           ),
         );
       }),
+    );
+  }
+
+  // ==================== BALANCE CARD (Points + Wallet with separate buttons) ====================
+  Widget _buildBalanceCard() {
+    final totalPoints = controller.pointsBalance.value;
+    final totalPointsTarget = 2000;
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [primary.withOpacity(0.1), primary.withOpacity(0.05)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: primary.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: primary,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "My Balance",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    Text(
+                      "Points & Wallet Balance",
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Points Section with Buy Coins Button
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.bolt,
+                  color: Colors.orange,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "Points Balance",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        // Buy Coins Button - Separate
+                        GestureDetector(
+                          onTap: () {
+                            final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+                            if (isWeb && widget.onNavigateToCoins != null) {
+                              widget.onNavigateToCoins!();
+                            } else {
+                              Get.to(() => const CoinsPurchaseScreen());
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: primary.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: primary.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.add_circle_outline, color: primary, size: 16),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "Buy Coins",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "${controller.pointsBalance.value}",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: LinearProgressIndicator(
+                            value: totalPoints / totalPointsTarget,
+                            backgroundColor: Colors.grey.shade200,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                            borderRadius: BorderRadius.circular(4),
+                            minHeight: 6,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "${((totalPoints / totalPointsTarget) * 100).toInt()}%",
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Divider
+          Divider(color: Colors.grey.shade300, height: 1),
+          
+          const SizedBox(height: 16),
+          
+          // Wallet Section with Go to Wallet Button
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet,
+                  color: Colors.green,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "Wallet Balance",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        // Go to Wallet Button - Separate
+                        GestureDetector(
+                          onTap: () {
+                            final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+                            if (isWeb && widget.onNavigateToWallet != null) {
+                              widget.onNavigateToWallet!();
+                            } else {
+                              Get.to(() => const WalletScreen());
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.green.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.arrow_forward, color: Colors.green, size: 14),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "Go to Wallet",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      controller.formatCurrency(controller.walletBalance.value),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "Available for withdrawals",
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -348,96 +630,6 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
               color: Colors.grey.shade600,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // ==================== POINTS CARD ====================
-  Widget _buildPointsCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: primary.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: primary.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: primary,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.bolt,
-              color: Colors.white,
-              size: 30,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Points Available",
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "You have ${controller.pointsBalance.value} points remaining",
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: LinearProgressIndicator(
-                        value: controller.pointsBalance.value / 200,
-                        backgroundColor: Colors.grey.shade300,
-                        valueColor: AlwaysStoppedAnimation<Color>(primary),
-                        borderRadius: BorderRadius.circular(4),
-                        minHeight: 8,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      "${controller.pointsBalance.value}/200",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-         // MyStatsScreen.dart - _buildPointsCard() method mein:
-
-IconButton(
-  icon: Icon(Icons.add_circle_outline, color: primary, size: 24),
-  onPressed: () {
-    final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
-    
-    if (isWeb && widget.onNavigateToCoins != null) {
-      widget.onNavigateToCoins!();  // Callback call karo
-    } else {
-      Get.to(() => CoinsPurchaseScreen());
-    }
-  },
-),
         ],
       ),
     );

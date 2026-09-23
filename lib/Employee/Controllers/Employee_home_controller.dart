@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,6 +7,7 @@ import 'package:templink/Employee/models/Employee_jobs_model.dart';
 import 'package:templink/Employee/models/project_model.dart';
 import 'package:templink/Employeer/model/talent_model.dart';
 import 'package:templink/config/api_config.dart';
+import 'package:flutter/foundation.dart';
 
 class EmployeeHomeController extends GetxController {
   final String baseUrl = ApiConfig.baseUrl;
@@ -97,7 +99,9 @@ class EmployeeHomeController extends GetxController {
 
   final filteredJobsByCategory = <JobPostModel>[].obs;
 
-  // ==================== PROJECTS (WEB PAGINATION WITH PAGES) ====================
+  // ==================== PROJECTS (Platform-based Pagination) ====================
+  // For Web/Desktop: Button-based pagination
+  // For Mobile/Tablet: Lazy loading (infinite scroll)
   final isLoadingProjects = false.obs;
   final projects = <ProjectFeedModel>[].obs;
   final projectsError = RxnString();
@@ -112,6 +116,17 @@ class EmployeeHomeController extends GetxController {
   bool get hasMoreProjectsPages => projectsCurrentPage.value < projectsTotalPages.value;
   bool get hasPrevProjectsPage => projectsCurrentPage.value > 1;
   bool get hasNextProjectsPage => projectsCurrentPage.value < projectsTotalPages.value;
+  
+  // Track platform for pagination mode
+  final bool _isWebOrDesktop = kIsWeb || 
+      (Get.context != null && 
+       (MediaQuery.of(Get.context!).size.width >= 900));
+  
+  // For web/desktop - button pagination
+  bool get useButtonPagination => _isWebOrDesktop;
+  
+  // For mobile/tablet - lazy loading
+  bool get useLazyLoading => !_isWebOrDesktop;
 
   final isLoadingTalents = false.obs;
   final talents = <TalentModel>[].obs;
@@ -235,7 +250,7 @@ class EmployeeHomeController extends GetxController {
   }
 
   // ─────────────────────────────────────────────────────────
-  // FETCH JOBS - LAZY LOAD (INFINITE SCROLL)
+  // FETCH JOBS - LAZY LOAD (INFINITE SCROLL) - For All Platforms
   // ─────────────────────────────────────────────────────────
   Future<void> fetchJobs({int page = 1, bool resetList = true}) async {
     try {
@@ -312,7 +327,6 @@ class EmployeeHomeController extends GetxController {
     }
   }
 
-  // ✅ CORRECTED METHOD NAME
   Future<void> loadNextJobsPage() async {
     if (!hasMoreJobs) return;
     if (isLoadingMoreJobs.value) return;
@@ -320,14 +334,18 @@ class EmployeeHomeController extends GetxController {
   }
 
   // ─────────────────────────────────────────────────────────
-  // FETCH PROJECTS - WEB PAGINATION (PAGE NUMBERS)
+  // FETCH PROJECTS - Platform-specific Pagination
+  // Web/Desktop: Button-based (page numbers)
+  // Mobile/Tablet: Lazy loading (infinite scroll)
   // ─────────────────────────────────────────────────────────
   Future<void> fetchProjects({int page = 1, bool resetList = true}) async {
     try {
       if (resetList) {
         isLoadingProjects.value = true;
       } else {
-        isLoadingMoreProjects.value = true;
+        if (useLazyLoading) {
+          isLoadingMoreProjects.value = true;
+        }
       }
       projectsError.value = null;
       
@@ -397,10 +415,10 @@ class EmployeeHomeController extends GetxController {
     }
   }
   
-  // ✅ CORRECTED METHOD NAMES
+  // For Web/Desktop - Button-based pagination methods
   Future<void> loadNextProjectsPage() async {
     if (!hasMoreProjectsPages) return;
-    if (isLoadingMoreProjects.value) return;
+    if (isLoadingProjects.value) return;
     await fetchProjects(page: projectsCurrentPage.value + 1, resetList: true);
   }
   
@@ -422,104 +440,123 @@ class EmployeeHomeController extends GetxController {
     }
   }
   
+  // For Mobile/Tablet - Lazy loading method
+  Future<void> loadMoreProjectsIfNeeded(int index) async {
+    if (!useLazyLoading) return; // Only for mobile/tablet
+    if (isLoadingMoreProjects.value) return;
+    if (!hasMoreProjectsPages) return;
+    
+    // Trigger when reaching 2 items from the end
+    if (index >= projects.length - 2) {
+      await fetchProjects(page: projectsCurrentPage.value + 1, resetList: false);
+    }
+  }
+  
   // Refresh projects
   Future<void> refreshProjects() async {
     await fetchProjects(page: 1, resetList: true);
   }
 
-// Add these observables
-var talentsCurrentPage = 1.obs;
-var talentsTotalPages = 1.obs;
-var talentsTotalCount = 0.obs;
-var talentsLimit = 6.obs;
+  // ─────────────────────────────────────────────────────────
+  // TALENTS - Web/Desktop: Button Pagination, Mobile/Tablet: Lazy Loading
+  // ─────────────────────────────────────────────────────────
+  var talentsCurrentPage = 1.obs;
+  var talentsTotalPages = 1.obs;
+  var talentsTotalCount = 0.obs;
+  var talentsLimit = 6.obs;
+  final isLoadingMoreTalents = false.obs;
+  
+  bool get hasMoreTalentsPages => talentsCurrentPage.value < talentsTotalPages.value;
+  bool get hasPrevTalentsPage => talentsCurrentPage.value > 1;
+  bool get hasNextTalentsPage => talentsCurrentPage.value < talentsTotalPages.value;
 
-// Add paginated fetch method
-Future<void> fetchTalentsPaginated({int page = 1, int limit = 6, bool resetList = true}) async {
-  try {
-    if (resetList) {
-      isLoadingTalents.value = true;
-    }
-    talentsError.value = null;
-    
-    final headers = await _buildHeaders();
-    final uri = Uri.parse('$baseUrl/api/toptalent/all?page=$page&limit=$limit');
-    
-    final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 25));
-    
-    if (res.statusCode == 200) {
-      final decoded = jsonDecode(res.body);
-      
-      if (decoded['success'] == true) {
-        final List talentsList = decoded['talents'] ?? [];
-        final newTalents = talentsList.map((e) => TalentModel.fromJson(Map<String, dynamic>.from(e))).toList();
-        
-        if (resetList) {
-          talents.assignAll(newTalents);
-        } else {
-          talents.addAll(newTalents);
-        }
-        
-        recommendedTalents.assignAll(talents);
-        
-        // Update pagination info
-        if (decoded['pagination'] != null) {
-          talentsCurrentPage.value = decoded['pagination']['currentPage'] ?? page;
-          talentsTotalPages.value = decoded['pagination']['totalPages'] ?? 1;
-          talentsTotalCount.value = decoded['pagination']['totalItems'] ?? talents.length;
-        } else {
-          talentsTotalCount.value = talents.length;
-          talentsTotalPages.value = (talentsTotalCount.value / limit).ceil();
-        }
-        
-        print("✅ Loaded ${newTalents.length} talents | Page $page/${talentsTotalPages.value}");
-      }
-    } else {
-      talentsError.value = 'Failed to load talents (${res.statusCode})';
-    }
-  } catch (e) {
-    talentsError.value = e.toString();
-    print("❌ Exception fetching talents: $e");
-  } finally {
-    isLoadingTalents.value = false;
-  }
-}
-
-  Future<void> fetchTalents() async {
+  Future<void> fetchTalentsPaginated({int page = 1, int limit = 6, bool resetList = true}) async {
     try {
-      isLoadingTalents.value = true;
+      if (resetList) {
+        isLoadingTalents.value = true;
+      } else {
+        if (useLazyLoading) {
+          isLoadingMoreTalents.value = true;
+        }
+      }
       talentsError.value = null;
-      final headers = await _buildHeaders();
-      final uri = Uri.parse('$baseUrl$talentsPath');
-      final res = await http
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 25));
       
-      print("📡 TALENT API RESPONSE STATUS: ${res.statusCode}");
+      final headers = await _buildHeaders();
+      final uri = Uri.parse('$baseUrl/api/toptalent/all?page=$page&limit=$limit');
+      
+      final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 25));
       
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
         
-        final List list = (decoded is Map && decoded['talents'] is List)
-            ? decoded['talents']
-            : (decoded is List ? decoded : <dynamic>[]);
-        
-        final allTalents = list
-            .map((e) => TalentModel.fromJson(Map<String, dynamic>.from(e)))
-            .toList();
-        
-        talents.assignAll(allTalents);
-        recommendedTalents.assignAll(allTalents);
-        print('✅ Loaded ${talents.length} talents successfully');
+        if (decoded['success'] == true) {
+          final List talentsList = decoded['talents'] ?? [];
+          final newTalents = talentsList.map((e) => TalentModel.fromJson(Map<String, dynamic>.from(e))).toList();
+          
+          if (resetList) {
+            talents.assignAll(newTalents);
+          } else {
+            talents.addAll(newTalents);
+          }
+          
+          recommendedTalents.assignAll(talents);
+          
+          // Update pagination info
+          if (decoded['pagination'] != null) {
+            talentsCurrentPage.value = decoded['pagination']['currentPage'] ?? page;
+            talentsTotalPages.value = decoded['pagination']['totalPages'] ?? 1;
+            talentsTotalCount.value = decoded['pagination']['totalItems'] ?? talents.length;
+          } else {
+            talentsTotalCount.value = talents.length;
+            talentsTotalPages.value = (talentsTotalCount.value / limit).ceil();
+          }
+          
+          print("✅ Loaded ${newTalents.length} talents | Page $page/${talentsTotalPages.value}");
+        }
       } else {
         talentsError.value = 'Failed to load talents (${res.statusCode})';
-        print("❌ Talents error: ${res.statusCode}");
       }
     } catch (e) {
       talentsError.value = e.toString();
-      print("❌ Exception in fetchTalents: $e");
+      print("❌ Exception fetching talents: $e");
     } finally {
       isLoadingTalents.value = false;
+      isLoadingMoreTalents.value = false;
     }
+  }
+  
+  // For Web/Desktop - Button pagination for talents
+  Future<void> nextTalentsPage() async {
+    if (!hasNextTalentsPage) return;
+    if (isLoadingTalents.value) return;
+    await fetchTalentsPaginated(page: talentsCurrentPage.value + 1, resetList: true);
+  }
+  
+  Future<void> prevTalentsPage() async {
+    if (!hasPrevTalentsPage) return;
+    if (isLoadingTalents.value) return;
+    await fetchTalentsPaginated(page: talentsCurrentPage.value - 1, resetList: true);
+  }
+  
+  Future<void> goToTalentsPage(int page) async {
+    if (page < 1 || page > talentsTotalPages.value) return;
+    if (isLoadingTalents.value) return;
+    await fetchTalentsPaginated(page: page, resetList: true);
+  }
+  
+  // For Mobile/Tablet - Lazy loading for talents
+  Future<void> loadMoreTalentsIfNeeded(int index) async {
+    if (!useLazyLoading) return;
+    if (isLoadingMoreTalents.value) return;
+    if (!hasMoreTalentsPages) return;
+    
+    if (index >= talents.length - 2) {
+      await fetchTalentsPaginated(page: talentsCurrentPage.value + 1, resetList: false);
+    }
+  }
+
+  Future<void> fetchTalents() async {
+    await fetchTalentsPaginated(page: 1, resetList: true);
   }
   
   // Refresh all data

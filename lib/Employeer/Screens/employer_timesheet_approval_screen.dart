@@ -4,7 +4,6 @@ import 'package:templink/Employeer/Controller/employer_timesheet_controller.dart
 import 'package:templink/Utils/colors.dart';
 import 'package:templink/Utils/responsive.dart';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
 const _bg = Color(0xFFF7F8FA);
 const _surface = Colors.white;
 const _border = Color(0xFFE5E7EB);
@@ -905,7 +904,6 @@ class _EmployerTimesheetApprovalScreenState extends State<EmployerTimesheetAppro
     );
   }
 
-  // ==================== REJECT DIALOG ====================
   void _showRejectDialog(Map<String, dynamic> timesheet) {
     TextEditingController reasonController = TextEditingController();
     
@@ -962,7 +960,6 @@ class _EmployerTimesheetApprovalScreenState extends State<EmployerTimesheetAppro
     );
   }
 
-  // ==================== EMPTY STATE ====================
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -983,7 +980,6 @@ class _EmployerTimesheetApprovalScreenState extends State<EmployerTimesheetAppro
     );
   }
 
-  // ==================== SNACKBAR ====================
   void _showSnackbar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

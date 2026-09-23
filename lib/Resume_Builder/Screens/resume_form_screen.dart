@@ -2,7 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:html' as html;
+import 'dart:html'
+  if (dart.library.io) '../../Utils/html_stub.dart' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

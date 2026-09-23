@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:templink/Employeer/Screens/Forgot_Password_Screen.dart';
 import 'package:templink/Global_Screens/usertype_screen.dart';
 import 'package:templink/Utils/colors.dart';
-
+import 'package:templink/Utils/responsive.dart';
 import '../Controllers/login_controller.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -55,7 +55,6 @@ class _LoginScreenState extends State<LoginScreen> {
     loginController.loginuser(
       email: _emailController.text.trim(),
       pass: _passwordController.text,
-     
     );
   }
 
@@ -88,46 +87,269 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Responsive.init(context);
+    final isDesktop = Responsive.isDesktop(context);
+    final isTablet = Responsive.isTablet(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: null,
-        centerTitle: true,
-        title: const Text(
-          "Templink",
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // For desktop: Split screen layout
+            if (isDesktop) {
+              return Row(
+                children: [
+                  // Left Side - Login Form (50% width)
+                  Expanded(
+                    flex: 1,
+                    child: _buildFormContent(
+                      isDesktop: true,
+                      isTablet: false,
+                    ),
+                  ),
+                  // Right Side - Image (50% width)
+                  Expanded(
+                    flex: 1,
+                    child: _buildImageSection(),
+                  ),
+                ],
+              );
+            }
+            // For tablet: Split screen with smaller image
+            else if (isTablet) {
+              return Row(
+                children: [
+                  // Left Side - Form (60% width)
+                  Expanded(
+                    flex: 6,
+                    child: _buildFormContent(
+                      isDesktop: false,
+                      isTablet: true,
+                    ),
+                  ),
+                  // Right Side - Image (40% width)
+                  Expanded(
+                    flex: 4,
+                    child: _buildImageSection(),
+                  ),
+                ],
+              );
+            }
+            // For mobile: Full screen form
+            else {
+              return _buildFormContent(
+                isDesktop: false,
+                isTablet: false,
+              );
+            }
+          },
         ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+    );
+  }
+
+  // ✅ Image Section (Same as Forgot Password)
+  Widget _buildImageSection() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF4CAF50),
+            Color(0xFF2E7D32),
+          ],
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(
+            'https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800&h=1200&fit=crop',
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: const Color(0xFF4CAF50),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.work_outline,
+                        size: 80,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Templink',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              );
+            },
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.3),
+                  Colors.black.withOpacity(0.6),
+                ],
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: Responsive.isDesktop(context) ? 40 : 30,
+                  vertical: Responsive.isDesktop(context) ? 40 : 30,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.work_outline,
+                      size: Responsive.isDesktop(context) ? 80 : 70,
+                      color: Colors.white,
+                    ),
+                    SizedBox(height: Responsive.isDesktop(context) ? 24 : 20),
+                    Text(
+                      'Find Your Dream Job',
+                      style: TextStyle(
+                        fontSize: Responsive.isDesktop(context) ? 36 : 30,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        height: 1.2,
+                      ),
+                      softWrap: true,
+                    ),
+                    SizedBox(height: Responsive.isDesktop(context) ? 16 : 14),
+                    Text(
+                      'Connect with top employers and take your career to the next level',
+                      style: TextStyle(
+                        fontSize: Responsive.isDesktop(context) ? 18 : 16,
+                        color: Colors.white.withOpacity(0.9),
+                        height: 1.4,
+                      ),
+                      softWrap: true,
+                    ),
+                    SizedBox(height: Responsive.isDesktop(context) ? 32 : 24),
+                    _buildFeatureItem(Icons.verified_outlined, 'Thousands of Jobs'),
+                    SizedBox(height: Responsive.isDesktop(context) ? 16 : 12),
+                    _buildFeatureItem(Icons.people_outline, 'Top Companies Hiring'),
+                    SizedBox(height: Responsive.isDesktop(context) ? 16 : 12),
+                    _buildFeatureItem(Icons.support_agent_outlined, '24/7 Career Support'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          color: Colors.white,
+          size: Responsive.isDesktop(context) ? 24 : 22,
+        ),
+        SizedBox(width: Responsive.isDesktop(context) ? 12 : 10),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: Responsive.isDesktop(context) ? 16 : 14,
+              color: Colors.white.withOpacity(0.95),
+              height: 1.3,
+            ),
+            softWrap: true,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ✅ Form Content
+  Widget _buildFormContent({
+    required bool isDesktop,
+    required bool isTablet,
+  }) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(
+          horizontal: isDesktop
+              ? 40.0
+              : (isTablet ? 32.0 : 24.0),
+          vertical: isDesktop ? 40.0 : 24.0,
+        ),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: isDesktop ? 480.0 : (isTablet ? 500.0 : double.infinity),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              SizedBox(height: isDesktop ? 16 : 24),
+              
+              // Logo or Title
+              if (!isDesktop)
+                Center(
+                  child: Text(
+                    'Templink',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: primary,
+                    ),
+                  ),
+                ),
+              
+              SizedBox(height: isDesktop ? 32 : 40),
+              
               if (!_isEmailSubmitted) ...[
-                _buildEmailScreen(),
+                _buildEmailScreen(isDesktop),
                 const SizedBox(height: 40),
-                _buildSocialLoginSection(),
+                _buildSocialLoginSection(isDesktop),
                 const SizedBox(height: 40),
                 Center(
                   child: GestureDetector(
-                    onTap: () => Get.offAll(() => RegisterChoiceScreen()),
+                    onTap: () => Get.offAll(() => const RegisterChoiceScreen()),
                     child: RichText(
-                      text: const TextSpan(
+                      text: TextSpan(
                         text: "Don't have a Templink account? ",
-                        style: TextStyle(fontSize: 14, color: Colors.black87),
+                        style: TextStyle(
+                          fontSize: isDesktop ? 14 : 14,
+                          color: Colors.black87,
+                        ),
                         children: [
                           TextSpan(
                             text: "Sign Up",
                             style: TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF14A800),
+                              fontSize: isDesktop ? 14 : 14,
+                              color: primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -137,11 +359,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                _buildPrivacyNotice(),
+                _buildPrivacyNotice(isDesktop),
               ] else ...[
-                _buildPasswordScreen(),
+                _buildPasswordScreen(isDesktop),
               ],
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -149,22 +370,38 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildEmailScreen() {
+  Widget _buildEmailScreen(bool isDesktop) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 40),
-        const Text(
+        Text(
+          "Welcome Back",
+          style: TextStyle(
+            fontSize: isDesktop ? 28 : 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Sign in to continue to your account",
+          style: TextStyle(
+            fontSize: isDesktop ? 14 : 14,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(height: 32),
+        Text(
           "Username or email",
           style: TextStyle(
-            fontSize: 14,
+            fontSize: isDesktop ? 14 : 14,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
           ),
         ),
         const SizedBox(height: 8),
         Container(
-          height: 48,
+          height: isDesktop ? 48 : 48,
           decoration: BoxDecoration(
             border: Border.all(
               color: _showEmailError ? Colors.red : Colors.grey.shade400,
@@ -175,12 +412,12 @@ class _LoginScreenState extends State<LoginScreen> {
           child: TextField(
             controller: _emailController,
             focusNode: _emailFocusNode,
-            style: const TextStyle(fontSize: 16, color: Colors.black87),
+            style: TextStyle(fontSize: isDesktop ? 16 : 16, color: Colors.black87),
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16),
               border: InputBorder.none,
-              hintText: "Username or Email",
-              hintStyle: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+              hintText: "Email address",
+              hintStyle: TextStyle(fontSize: isDesktop ? 16 : 16, color: Colors.grey.shade500),
             ),
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.done,
@@ -194,7 +431,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const Icon(Icons.error_outline, color: Colors.red, size: 16),
               const SizedBox(width: 8),
               Text(
-                "Oops! Email is incorrect",
+                "Please enter a valid email address",
                 style: TextStyle(fontSize: 13, color: Colors.red.shade700),
               ),
             ],
@@ -203,7 +440,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 32),
         SizedBox(
           width: double.infinity,
-          height: 48,
+          height: isDesktop ? 48 : 48,
           child: ElevatedButton(
             onPressed: _handleEmailSubmit,
             style: ElevatedButton.styleFrom(
@@ -221,42 +458,48 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildPasswordScreen() {
+  Widget _buildPasswordScreen(bool isDesktop) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 40),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Welcome",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _emailController.text,
-              style: const TextStyle(fontSize: 16, color: primary),
-            ),
-          ],
+        Text(
+          "Welcome Back",
+          style: TextStyle(
+            fontSize: isDesktop ? 28 : 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _emailController.text,
+          style: TextStyle(
+            fontSize: isDesktop ? 16 : 16,
+            color: primary,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 32),
-        const Text(
+        Text(
           "Password",
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+          style: TextStyle(
+            fontSize: isDesktop ? 14 : 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 48,
+          height: isDesktop ? 48 : 48,
           child: TextField(
             controller: _passwordController,
             focusNode: _passwordFocusNode,
             obscureText: !_showPassword,
             textAlignVertical: TextAlignVertical.center,
-            style: const TextStyle(fontSize: 16, color: Colors.black87),
+            style: TextStyle(fontSize: isDesktop ? 16 : 16, color: Colors.black87),
             decoration: InputDecoration(
               hintText: "Enter your password",
-              hintStyle: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+              hintStyle: TextStyle(fontSize: isDesktop ? 16 : 16, color: Colors.grey.shade500),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               enabledBorder: OutlineInputBorder(
@@ -290,51 +533,59 @@ class _LoginScreenState extends State<LoginScreen> {
               onTap: _goBackToEmail,
               child: Text(
                 "Not you?",
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: isDesktop ? 14 : 14,
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             GestureDetector(
               onTap: _handleForgotPassword,
-              child: const Text(
+              child: Text(
                 "Forgot password?",
-                style: TextStyle(fontSize: 14, color: primary, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: isDesktop ? 14 : 14,
+                  color: primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 32),
 
-        // ✅ Login Button with GetX loading
+        // Login Button with GetX loading
         Obx(() => SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: loginController.isLoading.value ? null : _handleLogin,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  elevation: 0,
-                ),
-                child: loginController.isLoading.value
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Text(
-                        "Log In",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
-                      ),
-              ),
-            )),
+          width: double.infinity,
+          height: isDesktop ? 48 : 48,
+          child: ElevatedButton(
+            onPressed: loginController.isLoading.value ? null : _handleLogin,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 0,
+            ),
+            child: loginController.isLoading.value
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Text(
+                    "Log In",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                  ),
+          ),
+        )),
       ],
     );
   }
 
-  Widget _buildSocialLoginSection() {
+  Widget _buildSocialLoginSection(bool isDesktop) {
     return Column(
       children: [
         Row(
@@ -342,7 +593,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text("or", style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+              child: Text("or", style: TextStyle(fontSize: isDesktop ? 14 : 14, color: Colors.grey.shade600)),
             ),
             Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
           ],
@@ -350,7 +601,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
-          height: 48,
+          height: isDesktop ? 48 : 48,
           child: OutlinedButton.icon(
             onPressed: _handleGoogleLogin,
             style: OutlinedButton.styleFrom(
@@ -380,7 +631,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
-          height: 48,
+          height: isDesktop ? 48 : 48,
           child: OutlinedButton.icon(
             onPressed: _handleAppleLogin,
             style: OutlinedButton.styleFrom(
@@ -411,7 +662,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildPrivacyNotice() {
+  Widget _buildPrivacyNotice(bool isDesktop) {
     return Column(
       children: [
         const Divider(color: Colors.grey, thickness: 1),
@@ -420,7 +671,7 @@ class _LoginScreenState extends State<LoginScreen> {
           "Templink uses cookies for analytics, personalized content, and ads. "
           "By using Templink's services, you agree to the use of cookies.",
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.5),
+          style: TextStyle(fontSize: isDesktop ? 12 : 12, color: Colors.grey.shade600, height: 1.5),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -430,19 +681,19 @@ class _LoginScreenState extends State<LoginScreen> {
             GestureDetector(
               onTap: () {},
               child: Text("Privacy Policy",
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600, decoration: TextDecoration.underline)),
+                  style: TextStyle(fontSize: isDesktop ? 12 : 12, color: Colors.grey.shade600, decoration: TextDecoration.underline)),
             ),
-            Text("•", style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            Text("•", style: TextStyle(fontSize: isDesktop ? 12 : 12, color: Colors.grey.shade600)),
             GestureDetector(
               onTap: () {},
               child: Text("Terms of Service",
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600, decoration: TextDecoration.underline)),
+                  style: TextStyle(fontSize: isDesktop ? 12 : 12, color: Colors.grey.shade600, decoration: TextDecoration.underline)),
             ),
-            Text("•", style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            Text("•", style: TextStyle(fontSize: isDesktop ? 12 : 12, color: Colors.grey.shade600)),
             GestureDetector(
               onTap: () {},
               child: Text("Cookie Policy",
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600, decoration: TextDecoration.underline)),
+                  style: TextStyle(fontSize: isDesktop ? 12 : 12, color: Colors.grey.shade600, decoration: TextDecoration.underline)),
             ),
           ],
         ),

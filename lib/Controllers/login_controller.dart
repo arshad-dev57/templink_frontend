@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Services/auth_api_service.dart';
-import 'package:templink/Services/notification_api_service.dart';
 import '../Services/Notificaton_Service.dart';
 import '../Employeer/Screens/Employeer_homescreen.dart';
 import '../Employee/Screens/Employee_homescreen.dart';
@@ -72,44 +71,44 @@ class LoginController extends GetxController {
 
       // ✅ OneSignal login
       // print("🟡 Initializing OneSignal for user: $userId");
-      await NotificationService.instance.login(userId);
+      // await NotificationService.instance.login(userId);
 
       // ✅ Stabilize hone do
       print("🟡 Waiting for OneSignal to stabilize (4 seconds)...");
       await Future.delayed(const Duration(seconds: 4));
 
-      await NotificationService.instance.verifyDeviceRegistration();
-      await NotificationService.instance.debugPrintState(from: "after_login");
+      // await NotificationService.instance.verifyDeviceRegistration();
+      // await NotificationService.instance.debugPrintState(from: "after_login");
 
       // ✅ Subscription ID lo — raw userId pass karo (without dev:)
       final subId = OneSignal.User.pushSubscription.id;
       print("🔔 Using subscription ID: $subId");
 
-      final Map<String, dynamic> result = await NotificationApi.sendLoginSuccessPush(
-        userId: userId,           // raw mongo ID — backend dev: lagayega
-        subscriptionId: subId,   // ye foran kaam karta hai
-      );
+      // final Map<String, dynamic> result = await NotificationApi.sendLoginSuccessPush(
+      //   userId: userId,           // raw mongo ID — backend dev: lagayega
+      //   subscriptionId: subId,   // ye foran kaam karta hai
+      // );
 
-      if (result.containsKey('status')) {
-        final String status = result['status'].toString();
+      // if (result.containsKey('status')) {
+      //   final String status = result['status'].toString();
 
-        // if (status == 'subscription_pending') {
-        //   print("🟡 Subscription still activating, retrying in 10 seconds");
-        //   Future.delayed(const Duration(seconds: 12), () async {
-        //     print("🟡 Sending delayed follow-up notification");
-        //     await NotificationApi.sendLoginSuccessPush(
-        //       userId: userId,
-        //       subscriptionId: subId,
-        //       title: "Welcome to Templink",
-        //       message: "You're all set up to receive notifications",
-        //     );
-        //   });
-        // } else if (status == 'sent') {
-        //   print("✅ Notification sent successfully");
-        // } else {
-        //   print("⚠️ Notification status: $status");
-        // }
-      }
+      //   if (status == 'subscription_pending') {
+      //     print("🟡 Subscription still activating, retrying in 10 seconds");
+      //     Future.delayed(const Duration(seconds: 12), () async {
+      //       print("🟡 Sending delayed follow-up notification");
+      //       await NotificationApi.sendLoginSuccessPush(
+      //         userId: userId,
+      //         subscriptionId: subId,
+      //         title: "Welcome to Templink",
+      //         message: "You're all set up to receive notifications",
+      //       );
+      //     });
+      //   } else if (status == 'sent') {
+      //     print("✅ Notification sent successfully");
+      //   } else {
+      //     print("⚠️ Notification status: $status");
+      //   }
+      // }
 
       // Navigate based on role
       if (role == "employee") {
