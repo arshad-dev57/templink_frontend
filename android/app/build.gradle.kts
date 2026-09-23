@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.templink"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -29,14 +29,13 @@ android {
 
     buildTypes {
         release {
-            // ⚠️ IMPORTANT: release build ke liye signingConfig apna lagana hota hai
-            // Abhi debug signing rakhi hui hai (testing ok)
+            // Debug signing is being used temporarily for testing.
+            // Configure your release keystore before production distribution.
             signingConfig = signingConfigs.getByName("debug")
 
             isMinifyEnabled = false
             isShrinkResources = false
 
-            // ✅ IMPORTANT: proguard rules apply karna
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -44,7 +43,6 @@ android {
         }
 
         debug {
-            // optional - explicitly off
             isMinifyEnabled = false
             isShrinkResources = false
         }
