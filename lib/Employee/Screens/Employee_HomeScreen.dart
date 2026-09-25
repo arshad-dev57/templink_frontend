@@ -30,6 +30,9 @@ import 'package:templink/Global_Screens/Chat_Users_List_Screen.dart';
 import 'package:templink/Global_Screens/Notification_Screen.dart';
 import 'package:templink/Global_Screens/Search_Screen.dart';
 import 'package:templink/Global_Screens/login_screen.dart';
+import 'package:templink/Global_Screens/Settings_Screen.dart';
+import 'package:templink/Global_Screens/Reports_Screen.dart';
+import 'package:templink/Global_Screens/Help_Support_Screen.dart';
 import 'package:templink/Services/Notificaton_Service.dart';
 import 'package:templink/Utils/colors.dart';
 import 'package:templink/Utils/responsive.dart';
@@ -96,6 +99,9 @@ class EmployeeNavigationController extends GetxController {
   void goToMyJobs() => currentIndex.value = 16;
   void goToLiveProjects() => currentIndex.value = 17;
   void goToDiscoverProjects() => currentIndex.value = 18;
+  void goToSettings() => currentIndex.value = 19;
+  void goToReports() => currentIndex.value = 20;
+  void goToHelpSupport() => currentIndex.value = 21;
 
   void goToProjectDetail(ProjectFeedModel project) {
     selectedProject.value = project;
@@ -131,6 +137,8 @@ class EmployeeNavigationController extends GetxController {
         selectedProject.value = null;
         currentIndex.value = 0;
       }
+    } else if (currentIndex.value == 7) {
+      currentIndex.value = 0;
     } else if (currentIndex.value == 12) {
       selectedApplication.value = null;
       currentIndex.value = 10;
@@ -145,7 +153,10 @@ class EmployeeNavigationController extends GetxController {
       currentIndex.value = 1;
     } else if (currentIndex.value == 16 ||
         currentIndex.value == 17 ||
-        currentIndex.value == 18) {
+        currentIndex.value == 18 ||
+        currentIndex.value == 19 ||
+        currentIndex.value == 20 ||
+        currentIndex.value == 21) {
       currentIndex.value = 0;
     } else {
       currentIndex.value = 0;
@@ -190,6 +201,12 @@ class EmployeeNavigationController extends GetxController {
         return 'Live Projects';
       case 18:
         return 'Discover Projects';
+      case 19:
+        return 'Settings';
+      case 20:
+        return 'Reports';
+      case 21:
+        return 'Help & Support';
       default:
         return 'Dashboard';
     }
@@ -316,6 +333,21 @@ class EmployeeNavigationController extends GetxController {
         );
       case 18:
         return const ProjectsDiscoveryScreen(showSidebar: true);
+      case 19:
+        return SettingsScreen(
+          onBackPressed: goBack,
+          showSidebar: false,
+        );
+      case 20:
+        return ReportsScreen(
+          onBackPressed: goBack,
+          showSidebar: false,
+        );
+      case 21:
+        return HelpSupportScreen(
+          onBackPressed: goBack,
+          showSidebar: false,
+        );
       default:
         return const HomeContentWeb();
     }
@@ -581,6 +613,25 @@ class _EmployeeHomeScreenWebState extends State<EmployeeHomeScreenWeb> {
                     Icons.currency_bitcoin, 'Buy Coins', expanded, () {
                   navController.goToCoinsPurchase();
                 }),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Divider(height: 1),
+                ),
+                _webExtraNavItem(
+                    Icons.settings_outlined, 'Settings', expanded, () {
+                  debugPrint('Settings tapped');
+                  navController.goToSettings();
+                }),
+                _webExtraNavItem(
+                    Icons.assessment_outlined, 'Reports', expanded, () {
+                  debugPrint('Reports tapped');
+                  navController.goToReports();
+                }),
+                _webExtraNavItem(
+                    Icons.help_outline, 'Help & Support', expanded, () {
+                  debugPrint('Help & Support tapped');
+                  navController.goToHelpSupport();
+                }),
               ],
             ),
           ),
@@ -670,6 +721,12 @@ class _EmployeeHomeScreenWebState extends State<EmployeeHomeScreenWeb> {
           navController.currentIndex.value == 10) isSelected = true;
       if (label == 'Buy Coins' &&
           navController.currentIndex.value == 11) isSelected = true;
+      if (label == 'Settings' &&
+          navController.currentIndex.value == 19) isSelected = true;
+      if (label == 'Reports' &&
+          navController.currentIndex.value == 20) isSelected = true;
+      if (label == 'Help & Support' &&
+          navController.currentIndex.value == 21) isSelected = true;
 
       return GestureDetector(
         onTap: onTap,
@@ -2679,15 +2736,24 @@ class _MobileDrawer extends StatelessWidget {
                 _DrawerItem(
                     icon: Icons.assignment_outlined,
                     title: 'Reports',
-                    onTap: () {}),
+                    onTap: () {
+                      navController.goToReports();
+                      Navigator.pop(context);
+                    }),
                 _DrawerItem(
                     icon: Icons.settings_outlined,
                     title: 'Settings',
-                    onTap: () {}),
+                    onTap: () {
+                      navController.goToSettings();
+                      Navigator.pop(context);
+                    }),
                 _DrawerItem(
                     icon: Icons.help_outline,
                     title: 'Help & Support',
-                    onTap: () {}),
+                    onTap: () {
+                      navController.goToHelpSupport();
+                      Navigator.pop(context);
+                    }),
                 const _LogoutItem(),
                 const _Footer(),
               ],

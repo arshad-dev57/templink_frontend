@@ -1,144 +1,391 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Employee/Screens/Employee_Profile_Screen.dart';
-import 'package:templink/Employeer/Screens/Emplyeer_profile_screen.dart';
 
 
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+class SettingsScreen extends StatefulWidget {
+  final VoidCallback? onBackPressed;
+  final bool showSidebar;
+
+  const SettingsScreen({
+    super.key,
+    this.onBackPressed,
+    this.showSidebar = true,
+  });
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _emailNotifications = true;
+  bool _pushNotifications = true;
+  bool _darkMode = false;
+  String _selectedLanguage = 'English';
+  bool _isLoading = false;
 
   static const Color kGreen = Color(0xFF14A800);
 
   @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _emailNotifications = prefs.getBool('email_notifications') ?? true;
+      _pushNotifications = prefs.getBool('push_notifications') ?? true;
+      _darkMode = prefs.getBool('dark_mode') ?? false;
+      _selectedLanguage = prefs.getString('language') ?? 'English';
+    });
+  }
+
+  Future<void> _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('email_notifications', _emailNotifications);
+    await prefs.setBool('push_notifications', _pushNotifications);
+    await prefs.setBool('dark_mode', _darkMode);
+    await prefs.setString('language', _selectedLanguage);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.white,
-      
-        title: const Text(
-          'Settings',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.w600,
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: Column(
+        children: [
+          _buildTopBar(),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _buildContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (widget.showSidebar && widget.onBackPressed != null)
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              onPressed: widget.onBackPressed,
+            ),
+          const Text(
+            "Settings",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            "Manage your account settings",
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        _sectionTitle('Account'),
+        _tile(
+          icon: Icons.person_outline,
+          title: 'Profile',
+          subtitle: 'Manage your profile details',
+          onTap: () {
+            Get.to(() => const EmployeeProfileScreen());
+          },
+        ),
+        _tile(
+          icon: Icons.lock_outline,
+          title: 'Password & Security',
+          subtitle: 'Change password, security settings',
+          onTap: () {
+            _showComingSoonDialog('Password & Security');
+          },
+        ),
+        _tile(
+          icon: Icons.notifications_none,
+          title: 'Notification Settings',
+          subtitle: 'Email, push notifications & alerts',
+          onTap: () {
+            _showNotificationSettings();
+          },
+        ),
+
+        const SizedBox(height: 12),
+        _sectionTitle('Payments'),
+        _tile(
+          icon: Icons.payments_outlined,
+          title: 'Billing & Payments',
+          subtitle: 'Payment methods, invoices, billing info',
+          onTap: () {
+            _showComingSoonDialog('Billing & Payments');
+          },
+        ),
+
+        const SizedBox(height: 12),
+        _sectionTitle('Preferences'),
+        _tile(
+          icon: Icons.language_outlined,
+          title: 'Language',
+          subtitle: 'Current: $_selectedLanguage',
+          onTap: () {
+            _showLanguageSettings();
+          },
+        ),
+        _tile(
+          icon: Icons.dark_mode_outlined,
+          title: 'Appearance',
+          subtitle: _darkMode ? 'Dark mode enabled' : 'Light mode enabled',
+          onTap: () {
+            _showAppearanceSettings();
+          },
+        ),
+
+
+        const SizedBox(height: 12),
+        _sectionTitle('Legal'),
+        _tileExternal(
+          icon: Icons.privacy_tip_outlined,
+          title: 'Privacy Policy',
+          onTap: () {
+            _showComingSoonDialog('Privacy Policy');
+          },
+        ),
+        _tileExternal(
+          icon: Icons.description_outlined,
+          title: 'Terms of Service',
+          onTap: () {
+            _showComingSoonDialog('Terms of Service');
+          },
+        ),
+
+        const SizedBox(height: 16),
+        _sectionTitle('Account Management'),
+        _dangerTile(
+          title: 'Deactivate account',
+          subtitle: 'Temporarily disable your account',
+          onTap: () {
+            _showDeactivateDialog();
+          },
+        ),
+        const SizedBox(height: 8),
+        _dangerTile(
+          title: 'Close account',
+          subtitle: 'This will permanently close your account',
+          onTap: () {
+            _showCloseAccountDialog();
+          },
+        ),
+      ],
+    );
+  }
+
+  void _showNotificationSettings() {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Notification Settings'),
+        content: StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SwitchListTile(
+                  title: const Text('Email Notifications'),
+                  subtitle: const Text('Receive updates via email'),
+                  value: _emailNotifications,
+                  onChanged: (value) {
+                    setState(() {
+                      _emailNotifications = value;
+                    });
+                    setDialogState(() {
+                      _emailNotifications = value;
+                    });
+                    _saveSettings();
+                  },
+                ),
+                SwitchListTile(
+                  title: const Text('Push Notifications'),
+                  subtitle: const Text('Receive push notifications'),
+                  value: _pushNotifications,
+                  onChanged: (value) {
+                    setState(() {
+                      _pushNotifications = value;
+                    });
+                    setDialogState(() {
+                      _pushNotifications = value;
+                    });
+                    _saveSettings();
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLanguageSettings() {
+    final languages = ['English', 'Spanish', 'French', 'German', 'Arabic', 'Urdu'];
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Select Language'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: languages.length,
+            itemBuilder: (context, index) {
+              final language = languages[index];
+              return RadioListTile<String>(
+                title: Text(language),
+                value: language,
+                groupValue: _selectedLanguage,
+                onChanged: (value) {
+                  setState(() {
+                    _selectedLanguage = value!;
+                  });
+                  _saveSettings();
+                  Get.back();
+                },
+              );
+            },
           ),
         ),
-        centerTitle: false,
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
-          _sectionTitle('Account'),
-          _tile(
-            context,
-            icon: Icons.person_outline,
-            title: 'Profile',
-            subtitle: 'Manage your profile details',
-            onTap: () {
-              // Get.to(() => const EmployerProfileScreen(
-              // )); 
+    );
+  }
+
+  void _showAppearanceSettings() {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Appearance'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<bool>(
+              title: const Text('Light Mode'),
+              value: false,
+              groupValue: _darkMode,
+              onChanged: (value) {
+                setState(() {
+                  _darkMode = value!;
+                });
+                _saveSettings();
+                Get.back();
+              },
+            ),
+            RadioListTile<bool>(
+              title: const Text('Dark Mode'),
+              value: true,
+              groupValue: _darkMode,
+              onChanged: (value) {
+                setState(() {
+                  _darkMode = value!;
+                });
+                _saveSettings();
+                Get.back();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeactivateDialog() {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Deactivate Account'),
+        content: const Text(
+          'Are you sure you want to deactivate your account? You can reactivate it later by logging in.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              _showComingSoonDialog('Account Deactivation');
             },
+            child: const Text('Deactivate', style: TextStyle(color: Colors.red)),
           ),
-          _tile(
-            context,
-            icon: Icons.lock_outline,
-            title: 'Password & Security',
-            subtitle: 'Change password, security settings',
-            onTap: () {},
-          ),
-          _tile(
-            context,
-            icon: Icons.notifications_none,
-            title: 'Notification Settings',
-            subtitle: 'Email, push notifications & alerts',
-            onTap: () {},
-          ),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 12),
-          _sectionTitle('Payments'),
-          _tile(
-            context,
-            icon: Icons.payments_outlined,
-            title: 'Billing & Payments',
-            subtitle: 'Payment methods, invoices, billing info',
-            onTap: () {
-              // Get.to(() => paymentview());
+  void _showCloseAccountDialog() {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Close Account'),
+        content: const Text(
+          'Are you sure you want to permanently close your account? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              _showComingSoonDialog('Account Closure');
             },
+            child: const Text('Close Account', style: TextStyle(color: Colors.red)),
           ),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 12),
-          _sectionTitle('Preferences'),
-          _tile(
-            context,
-            icon: Icons.language_outlined,
-            title: 'Language',
-            subtitle: 'Choose app language',
-            onTap: () {},
-          ),
-          _tile(
-            context,
-            icon: Icons.dark_mode_outlined,
-            title: 'Appearance',
-            subtitle: 'Light/Dark mode',
-            onTap: () {},
-          ),
-
-          const SizedBox(height: 12),
-          _sectionTitle('Support'),
-          _tile(
-            context,
-            icon: Icons.help_outline,
-            title: 'Help Center',
-            subtitle: 'FAQs and support resources',
-            onTap: () {},
-          ),
-          _tile(
-            context,
-            icon: Icons.chat_bubble_outline,
-            title: 'Contact Support',
-            subtitle: 'Reach out for help',
-            onTap: () {},
-          ),
-          _tile(
-            context,
-            icon: Icons.bug_report_outlined,
-            title: 'Report a Problem',
-            subtitle: 'Tell us what’s not working',
-            onTap: () {},
-          ),
-
-          const SizedBox(height: 12),
-          _sectionTitle('Legal'),
-          _tileExternal(
-            context,
-            icon: Icons.privacy_tip_outlined,
-            title: 'Privacy Policy',
-            onTap: () {},
-          ),
-          _tileExternal(
-            context,
-            icon: Icons.description_outlined,
-            title: 'Terms of Service',
-            onTap: () {},
-          ),
-
-          const SizedBox(height: 16),
-          _sectionTitle('Account Management'),
-          _dangerTile(
-            context,
-            title: 'Deactivate account',
-            subtitle: 'Temporarily disable your account',
-            onTap: () {},
-          ),
-          const SizedBox(height: 8),
-          _dangerTile(
-            context,
-            title: 'Close account',
-            subtitle: 'This will permanently close your account',
-            onTap: () {},
+  void _showComingSoonDialog(String feature) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Coming Soon'),
+        content: Text('$feature feature will be available soon.'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -160,15 +407,13 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _tile(
-    BuildContext context, {
+  Widget _tile({
     required IconData icon,
     required String title,
     String? subtitle,
     required VoidCallback onTap,
   }) {
     return _baseTile(
-      context,
       leading: Icon(icon, color: Colors.black87),
       title: title,
       subtitle: subtitle,
@@ -177,14 +422,12 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _tileExternal(
-    BuildContext context, {
+  Widget _tileExternal({
     required IconData icon,
     required String title,
     required VoidCallback onTap,
   }) {
     return _baseTile(
-      context,
       leading: Icon(icon, color: Colors.black87),
       title: title,
       subtitle: null,
@@ -193,8 +436,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _dangerTile(
-    BuildContext context, {
+  Widget _dangerTile({
     required String title,
     required String subtitle,
     required VoidCallback onTap,
@@ -228,8 +470,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _baseTile(
-    BuildContext context, {
+  Widget _baseTile({
     required Widget leading,
     required String title,
     String? subtitle,
