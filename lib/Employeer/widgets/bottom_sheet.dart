@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:templink/Global_Screens/Settings_Screen.dart';
 import 'package:templink/Utils/colors.dart';
 
 class CustomBottomSheets {
@@ -70,7 +72,7 @@ class CustomBottomSheets {
               iconColor: Colors.blue.shade700,
               onTap: () {
                 Navigator.pop(context);
-                // Navigate to settings
+                Get.to(() => const SettingsScreen());
               },
             ),
 

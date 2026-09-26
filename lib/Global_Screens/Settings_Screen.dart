@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:templink/Employee/Screens/Employee_Profile_Screen.dart';
+import 'package:templink/Employee/Screens/wallet_screen.dart';
+import 'package:templink/Global_Screens/Change_Password_Screen.dart';
 
 
 class SettingsScreen extends StatefulWidget {
@@ -129,7 +130,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Password & Security',
           subtitle: 'Change password, security settings',
           onTap: () {
-            _showComingSoonDialog('Password & Security');
+            Get.to(() => const ChangePasswordScreen());
           },
         ),
         _tile(
@@ -148,29 +149,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Billing & Payments',
           subtitle: 'Payment methods, invoices, billing info',
           onTap: () {
-            _showComingSoonDialog('Billing & Payments');
+            Get.to(() => const WalletScreen());
           },
         ),
-
-        const SizedBox(height: 12),
-        _sectionTitle('Preferences'),
-        _tile(
-          icon: Icons.language_outlined,
-          title: 'Language',
-          subtitle: 'Current: $_selectedLanguage',
-          onTap: () {
-            _showLanguageSettings();
-          },
-        ),
-        _tile(
-          icon: Icons.dark_mode_outlined,
-          title: 'Appearance',
-          subtitle: _darkMode ? 'Dark mode enabled' : 'Light mode enabled',
-          onTap: () {
-            _showAppearanceSettings();
-          },
-        ),
-
 
         const SizedBox(height: 12),
         _sectionTitle('Legal'),
@@ -209,6 +190,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ],
     );
   }
+
+
 
   void _showNotificationSettings() {
     Get.dialog(
@@ -257,74 +240,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Text('Close'),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showLanguageSettings() {
-    final languages = ['English', 'Spanish', 'French', 'German', 'Arabic', 'Urdu'];
-    Get.dialog(
-      AlertDialog(
-        title: const Text('Select Language'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: languages.length,
-            itemBuilder: (context, index) {
-              final language = languages[index];
-              return RadioListTile<String>(
-                title: Text(language),
-                value: language,
-                groupValue: _selectedLanguage,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedLanguage = value!;
-                  });
-                  _saveSettings();
-                  Get.back();
-                },
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showAppearanceSettings() {
-    Get.dialog(
-      AlertDialog(
-        title: const Text('Appearance'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<bool>(
-              title: const Text('Light Mode'),
-              value: false,
-              groupValue: _darkMode,
-              onChanged: (value) {
-                setState(() {
-                  _darkMode = value!;
-                });
-                _saveSettings();
-                Get.back();
-              },
-            ),
-            RadioListTile<bool>(
-              title: const Text('Dark Mode'),
-              value: true,
-              groupValue: _darkMode,
-              onChanged: (value) {
-                setState(() {
-                  _darkMode = value!;
-                });
-                _saveSettings();
-                Get.back();
-              },
-            ),
-          ],
-        ),
       ),
     );
   }
