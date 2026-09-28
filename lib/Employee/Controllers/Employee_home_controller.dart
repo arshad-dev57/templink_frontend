@@ -343,9 +343,8 @@ class EmployeeHomeController extends GetxController {
       if (resetList) {
         isLoadingProjects.value = true;
       } else {
-        if (useLazyLoading) {
-          isLoadingMoreProjects.value = true;
-        }
+        if (isLoadingMoreProjects.value) return;
+        isLoadingMoreProjects.value = true;
       }
       projectsError.value = null;
       
@@ -475,9 +474,8 @@ class EmployeeHomeController extends GetxController {
       if (resetList) {
         isLoadingTalents.value = true;
       } else {
-        if (useLazyLoading) {
-          isLoadingMoreTalents.value = true;
-        }
+        if (isLoadingMoreTalents.value) return;
+        isLoadingMoreTalents.value = true;
       }
       talentsError.value = null;
       

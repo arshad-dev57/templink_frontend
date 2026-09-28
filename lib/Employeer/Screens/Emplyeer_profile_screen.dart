@@ -24,7 +24,8 @@ class EmployerProfileScreen extends StatefulWidget {
 class _EmployerProfileScreenState extends State<EmployerProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final EmployerProfileController controller = Get.put(EmployerProfileController());
+  final EmployerProfileController controller =
+      Get.put(EmployerProfileController());
 
   @override
   void initState() {
@@ -57,21 +58,21 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
 
   // ==================== WEB LAYOUT (FIXED) ====================
   Widget _buildWebLayout() {
+    if (widget.showSidebar) {
+      // When showing sidebar, don't show top bar - the main layout handles it
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: _buildWebContent(),
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      body: widget.showSidebar
-          ? Column(
-              children: [
-                _buildWebTopBar(),
-                Expanded(child: _buildWebContent()),
-              ],
-            )
-          : Column(
-              children: [
-                _buildWebTopBar(),
-                Expanded(child: _buildWebContent()),
-              ],
-            ),
+      body: Column(
+        children: [
+          _buildWebTopBar(),
+          Expanded(child: _buildWebContent()),
+        ],
+      ),
     );
   }
 
@@ -106,8 +107,9 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
           const Spacer(),
           ElevatedButton.icon(
             onPressed: () {
-final navController = Get.find<EmployerNavigationController>();
-    navController.goToEditProfile();            },
+              final navController = Get.find<EmployerNavigationController>();
+              navController.goToEditProfile();
+            },
             icon: const Icon(Icons.edit, size: 18),
             label: const Text('Edit Profile'),
             style: ElevatedButton.styleFrom(
@@ -233,7 +235,9 @@ final navController = Get.find<EmployerNavigationController>();
             children: [
               Flexible(
                 child: Text(
-                  controller.companyName.value.isEmpty ? 'Company Name' : controller.companyName.value,
+                  controller.companyName.value.isEmpty
+                      ? 'Company Name'
+                      : controller.companyName.value,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -250,7 +254,9 @@ final navController = Get.find<EmployerNavigationController>();
           ),
           const SizedBox(height: 8),
           Text(
-            controller.industry.value.isEmpty ? 'Industry' : '${controller.industry.value} • ${controller.fullCompanyLocation}',
+            controller.industry.value.isEmpty
+                ? 'Industry'
+                : '${controller.industry.value} • ${controller.fullCompanyLocation}',
             style: const TextStyle(fontSize: 13, color: Colors.black54),
             textAlign: TextAlign.center,
           ),
@@ -265,7 +271,8 @@ final navController = Get.find<EmployerNavigationController>();
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.check_circle, color: Colors.blue.shade700, size: 14),
+                  Icon(Icons.check_circle,
+                      color: Colors.blue.shade700, size: 14),
                   const SizedBox(width: 4),
                   Text(
                     'Verified Employer',
@@ -310,18 +317,26 @@ final navController = Get.find<EmployerNavigationController>();
         children: [
           const Text(
             'Contact Information',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87),
           ),
           const SizedBox(height: 12),
-          if (controller.phone.value.isNotEmpty && controller.phone.value != 'null')
+          if (controller.phone.value.isNotEmpty &&
+              controller.phone.value != 'null')
             _buildContactRow(Icons.phone, controller.phone.value),
-          if (controller.companyEmail.value.isNotEmpty && controller.companyEmail.value != 'null')
+          if (controller.companyEmail.value.isNotEmpty &&
+              controller.companyEmail.value != 'null')
             _buildContactRow(Icons.email, controller.companyEmail.value),
-          if (controller.website.value.isNotEmpty && controller.website.value != 'null')
+          if (controller.website.value.isNotEmpty &&
+              controller.website.value != 'null')
             _buildContactRow(Icons.language, controller.website.value),
-          if (controller.workModel.value.isNotEmpty && controller.workModel.value != 'null')
+          if (controller.workModel.value.isNotEmpty &&
+              controller.workModel.value != 'null')
             _buildContactRow(Icons.business_center, controller.workModel.value),
-          if (controller.linkedin.value.isNotEmpty && controller.linkedin.value != 'null')
+          if (controller.linkedin.value.isNotEmpty &&
+              controller.linkedin.value != 'null')
             _buildContactRow(Icons.link, controller.linkedin.value),
         ],
       ),
@@ -395,21 +410,27 @@ final navController = Get.find<EmployerNavigationController>();
           _buildSectionCardWeb(
             title: 'About Company',
             child: Text(
-              controller.about.value.isEmpty ? 'No description provided.' : controller.about.value,
-              style: const TextStyle(fontSize: 14, height: 1.6, color: Colors.black87),
+              controller.about.value.isEmpty
+                  ? 'No description provided.'
+                  : controller.about.value,
+              style: const TextStyle(
+                  fontSize: 14, height: 1.6, color: Colors.black87),
             ),
           ),
           const SizedBox(height: 16),
-          if (controller.mission.value.isNotEmpty && controller.mission.value != 'null')
+          if (controller.mission.value.isNotEmpty &&
+              controller.mission.value != 'null')
             _buildSectionCardWeb(
               title: 'Our Mission',
               child: Text(
                 controller.mission.value,
-                style: const TextStyle(fontSize: 14, height: 1.6, color: Colors.black87),
+                style: const TextStyle(
+                    fontSize: 14, height: 1.6, color: Colors.black87),
               ),
             ),
           const SizedBox(height: 16),
-          if (controller.cultureTags.isNotEmpty && controller.cultureTags.isNotEmpty)
+          if (controller.cultureTags.isNotEmpty &&
+              controller.cultureTags.isNotEmpty)
             _buildSectionCardWeb(
               title: 'Company Culture',
               child: Wrap(
@@ -500,14 +521,16 @@ final navController = Get.find<EmployerNavigationController>();
             children: [
               Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
               const SizedBox(height: 16),
-              const Text('No team members yet', style: TextStyle(fontSize: 16, color: Colors.grey)),
+              const Text('No team members yet',
+                  style: TextStyle(fontSize: 16, color: Colors.grey)),
             ],
           ),
         );
       }
 
-      final activeMembers = controller.teamMembers.where((m) => m['status'] == 'active').toList();
-      
+      final activeMembers =
+          controller.teamMembers.where((m) => m['status'] == 'active').toList();
+
       return Column(
         children: [
           // Stats row
@@ -519,39 +542,55 @@ final navController = Get.find<EmployerNavigationController>();
             ),
             child: Row(
               children: [
-                Expanded(child: _buildTeamStatWeb('${controller.teamMembers.length}', 'Total', Icons.people, primary)),
-                Expanded(child: _buildTeamStatWeb('${activeMembers.length}', 'Active', Icons.circle, Colors.green)),
-                Expanded(child: _buildTeamStatWeb('${controller.teamMembers.length - activeMembers.length}', 'Past', Icons.history, Colors.grey)),
+                Expanded(
+                    child: _buildTeamStatWeb('${controller.teamMembers.length}',
+                        'Total', Icons.people, primary)),
+                Expanded(
+                    child: _buildTeamStatWeb('${activeMembers.length}',
+                        'Active', Icons.circle, Colors.green)),
+                Expanded(
+                    child: _buildTeamStatWeb(
+                        '${controller.teamMembers.length - activeMembers.length}',
+                        'Past',
+                        Icons.history,
+                        Colors.grey)),
               ],
             ),
           ),
           const SizedBox(height: 16),
           ...activeMembers.map((member) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _buildTeamMemberCardWeb(member, isActive: true),
-          )),
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildTeamMemberCardWeb(member, isActive: true),
+              )),
         ],
       );
     });
   }
 
-  Widget _buildTeamStatWeb(String value, String label, IconData icon, Color color) {
+  Widget _buildTeamStatWeb(
+      String value, String label, IconData icon, Color color) {
     return Column(
       children: [
         Icon(icon, color: color, size: 20),
         const SizedBox(height: 8),
-        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+        Text(label,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
       ],
     );
   }
 
-  Widget _buildTeamMemberCardWeb(Map<String, dynamic> member, {required bool isActive}) {
+  Widget _buildTeamMemberCardWeb(Map<String, dynamic> member,
+      {required bool isActive}) {
     final employee = member['employee'] ?? {};
     final name = employee['name'] ?? 'Unknown';
     final photoUrl = employee['photoUrl'] ?? '';
     final title = employee['title'] ?? 'Team Member';
-    final hiredAt = member['hiredAt'] != null ? DateTime.parse(member['hiredAt'].toString()) : null;
+    final hiredAt = member['hiredAt'] != null
+        ? DateTime.parse(member['hiredAt'].toString())
+        : null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -559,33 +598,51 @@ final navController = Get.find<EmployerNavigationController>();
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4)
+        ],
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 24,
             backgroundColor: primary.withOpacity(0.1),
-            backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-            child: photoUrl.isEmpty ? Text(name[0].toUpperCase(), style: TextStyle(color: primary, fontSize: 18)) : null,
+            backgroundImage:
+                photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+            child: photoUrl.isEmpty
+                ? Text(name[0].toUpperCase(),
+                    style: TextStyle(color: primary, fontSize: 18))
+                : null,
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                Text(title, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                Text(name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(title,
+                    style:
+                        TextStyle(fontSize: 13, color: Colors.grey.shade600)),
                 if (hiredAt != null)
-                  Text('Joined ${_formatDate(hiredAt)}', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                  Text('Joined ${_formatDate(hiredAt)}',
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade500)),
               ],
             ),
           ),
           if (isActive)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(12)),
-              child: Text('Active', style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontWeight: FontWeight.w500)),
+              decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12)),
+              child: Text('Active',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.green.shade700,
+                      fontWeight: FontWeight.w500)),
             ),
         ],
       ),
@@ -638,7 +695,8 @@ final navController = Get.find<EmployerNavigationController>();
                     unselectedLabelColor: Colors.black45,
                     indicatorColor: primary,
                     indicatorWeight: 3,
-                    labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    labelStyle: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600),
                     tabs: const [
                       Tab(text: 'About'),
                       Tab(text: 'Team'),
@@ -668,51 +726,101 @@ final navController = Get.find<EmployerNavigationController>();
       child: Column(
         children: [
           Container(
-            width: 100, height: 100,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(50), border: Border.all(color: Colors.white, width: 4), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))]),
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(50),
+                border: Border.all(color: Colors.white, width: 4),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4))
+                ]),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(50),
-              child: controller.logoUrl.value.isNotEmpty ? Image.network(controller.logoUrl.value, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _buildDefaultLogo()) : _buildDefaultLogo(),
+              child: controller.logoUrl.value.isNotEmpty
+                  ? Image.network(controller.logoUrl.value,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          _buildDefaultLogo())
+                  : _buildDefaultLogo(),
             ),
           ),
           const SizedBox(height: 16),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             Flexible(
               child: Text(
-                controller.companyName.value.isEmpty ? 'Company Name' : controller.companyName.value,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                controller.companyName.value.isEmpty
+                    ? 'Company Name'
+                    : controller.companyName.value,
+                style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (controller.isVerified.value) ...[const SizedBox(width: 6), Icon(Icons.verified, color: Colors.blue.shade600, size: 22)],
+            if (controller.isVerified.value) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.verified, color: Colors.blue.shade600, size: 22)
+            ],
           ]),
           const SizedBox(height: 4),
-          Text('${controller.industry.value.isEmpty ? 'Industry' : controller.industry.value} • ${controller.fullCompanyLocation}', style: const TextStyle(fontSize: 13, color: Colors.black54)),
+          Text(
+              '${controller.industry.value.isEmpty ? 'Industry' : controller.industry.value} • ${controller.fullCompanyLocation}',
+              style: const TextStyle(fontSize: 13, color: Colors.black54)),
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(children: [
-              Expanded(child: OutlinedButton.icon(onPressed: () => Get.to(() => const EditEmployerProfileScreen()), icon: const Icon(Icons.edit, size: 18), label: const Text('Edit Profile'), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), side: BorderSide(color: primary), foregroundColor: primary))),
+              Expanded(
+                  child: OutlinedButton.icon(
+                      onPressed: () =>
+                          Get.to(() => const EditEmployerProfileScreen()),
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text('Edit Profile'),
+                      style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: BorderSide(color: primary),
+                          foregroundColor: primary))),
               const SizedBox(width: 12),
-              Expanded(child: ElevatedButton.icon(onPressed: () {}, icon: const Icon(Icons.share, size: 18), label: const Text('Share'), style: ElevatedButton.styleFrom(backgroundColor: primary, padding: const EdgeInsets.symmetric(vertical: 12), elevation: 0))),
+              Expanded(
+                  child: ElevatedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.share, size: 18),
+                      label: const Text('Share'),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: primary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 0))),
             ]),
           ),
           const SizedBox(height: 20),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(children: [
-              Expanded(child: _buildStatCardMobile(controller.activePosts.value, 'ACTIVE POSTS')),
+              Expanded(
+                  child: _buildStatCardMobile(
+                      controller.activePosts.value, 'ACTIVE POSTS')),
               const SizedBox(width: 12),
-              Expanded(child: _buildStatCardMobile(controller.totalHired.value, 'TOTAL HIRED')),
+              Expanded(
+                  child: _buildStatCardMobile(
+                      controller.totalHired.value, 'TOTAL HIRED')),
             ]),
           ),
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(children: [
-              Expanded(child: _buildStatCardMobile(controller.companySizeLabel.value, 'SIZE')),
+              Expanded(
+                  child: _buildStatCardMobile(
+                      controller.companySizeLabel.value, 'SIZE')),
               const SizedBox(width: 12),
-              Expanded(child: _buildStatCardMobile(controller.ratingDisplay.value, 'RATING')),
+              Expanded(
+                  child: _buildStatCardMobile(
+                      controller.ratingDisplay.value, 'RATING')),
             ]),
           ),
         ],
@@ -723,11 +831,28 @@ final navController = Get.find<EmployerNavigationController>();
   Widget _buildStatCardMobile(String value, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2))]),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2))
+          ]),
       child: Column(children: [
-        Text(value.isEmpty ? '0' : value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
+        Text(value.isEmpty ? '0' : value,
+            style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87)),
         const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade600, letterSpacing: 0.5)),
+        Text(label,
+            style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade600,
+                letterSpacing: 0.5)),
       ]),
     );
   }
@@ -738,23 +863,56 @@ final navController = Get.find<EmployerNavigationController>();
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          _buildSectionCardMobile(title: 'About Company', child: Text(controller.about.value.isEmpty ? 'No description provided.' : controller.about.value, style: const TextStyle(fontSize: 14, height: 1.6, color: Colors.black87))),
+          _buildSectionCardMobile(
+              title: 'About Company',
+              child: Text(
+                  controller.about.value.isEmpty
+                      ? 'No description provided.'
+                      : controller.about.value,
+                  style: const TextStyle(
+                      fontSize: 14, height: 1.6, color: Colors.black87))),
           const SizedBox(height: 12),
-          if (controller.mission.value.isNotEmpty && controller.mission.value != 'null')
-            _buildSectionCardMobile(title: 'Our Mission', child: Text(controller.mission.value, style: const TextStyle(fontSize: 14, height: 1.6, color: Colors.black87))),
+          if (controller.mission.value.isNotEmpty &&
+              controller.mission.value != 'null')
+            _buildSectionCardMobile(
+                title: 'Our Mission',
+                child: Text(controller.mission.value,
+                    style: const TextStyle(
+                        fontSize: 14, height: 1.6, color: Colors.black87))),
           const SizedBox(height: 12),
           if (controller.cultureTags.isNotEmpty)
-            _buildSectionCardMobile(title: 'Company Culture', child: Wrap(spacing: 8, runSpacing: 8, children: controller.cultureTags.map((tag) => _buildChipMobile(tag, Icons.favorite_border)).toList())),
+            _buildSectionCardMobile(
+                title: 'Company Culture',
+                child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: controller.cultureTags
+                        .map((tag) =>
+                            _buildChipMobile(tag, Icons.favorite_border))
+                        .toList())),
           const SizedBox(height: 12),
           _buildSectionCardMobile(
             title: 'Contact Info',
             child: Column(
               children: [
-                if (controller.phone.value.isNotEmpty && controller.phone.value != 'null') _buildContactRowMobile(Icons.phone, controller.phone.value),
-                if (controller.companyEmail.value.isNotEmpty && controller.companyEmail.value != 'null') _buildContactRowMobile(Icons.email, controller.companyEmail.value),
-                if (controller.website.value.isNotEmpty && controller.website.value != 'null') _buildContactRowMobile(Icons.language, controller.website.value),
-                if (controller.linkedin.value.isNotEmpty && controller.linkedin.value != 'null') _buildContactRowMobile(Icons.link, controller.linkedin.value),
-                if (controller.workModel.value.isNotEmpty && controller.workModel.value != 'null') _buildContactRowMobile(Icons.business_center, controller.workModel.value),
+                if (controller.phone.value.isNotEmpty &&
+                    controller.phone.value != 'null')
+                  _buildContactRowMobile(Icons.phone, controller.phone.value),
+                if (controller.companyEmail.value.isNotEmpty &&
+                    controller.companyEmail.value != 'null')
+                  _buildContactRowMobile(
+                      Icons.email, controller.companyEmail.value),
+                if (controller.website.value.isNotEmpty &&
+                    controller.website.value != 'null')
+                  _buildContactRowMobile(
+                      Icons.language, controller.website.value),
+                if (controller.linkedin.value.isNotEmpty &&
+                    controller.linkedin.value != 'null')
+                  _buildContactRowMobile(Icons.link, controller.linkedin.value),
+                if (controller.workModel.value.isNotEmpty &&
+                    controller.workModel.value != 'null')
+                  _buildContactRowMobile(
+                      Icons.business_center, controller.workModel.value),
               ],
             ),
           ),
@@ -770,25 +928,37 @@ final navController = Get.find<EmployerNavigationController>();
         children: [
           Icon(icon, size: 18, color: Colors.grey.shade600),
           const SizedBox(width: 12),
-          Expanded(child: Text(text, style: TextStyle(fontSize: 13, color: Colors.grey.shade700))),
+          Expanded(
+              child: Text(text,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700))),
         ],
       ),
     );
   }
 
-  Widget _buildSectionCardMobile({required String title, required Widget child}) {
+  Widget _buildSectionCardMobile(
+      {required String title, required Widget child}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87)),
           const SizedBox(height: 12),
           child,
         ],
@@ -799,13 +969,15 @@ final navController = Get.find<EmployerNavigationController>();
   Widget _buildChipMobile(String label, IconData icon) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+          color: Colors.grey.shade100, borderRadius: BorderRadius.circular(16)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: Colors.grey.shade600),
           const SizedBox(width: 6),
-          Text(label, style:  TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+          Text(label,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
         ],
       ),
     );
@@ -822,8 +994,15 @@ final navController = Get.find<EmployerNavigationController>();
   // ==================== SHARED UTILITIES ====================
   Widget _buildDefaultLogo() {
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1A3A52), borderRadius: BorderRadius.circular(56)),
-      child: Center(child: Text(controller.companyInitials, style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold))),
+      decoration: BoxDecoration(
+          color: const Color(0xFF1A3A52),
+          borderRadius: BorderRadius.circular(56)),
+      child: Center(
+          child: Text(controller.companyInitials,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 40,
+                  fontWeight: FontWeight.bold))),
     );
   }
 
@@ -831,7 +1010,8 @@ final navController = Get.find<EmployerNavigationController>();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Container(
         padding: const EdgeInsets.all(20),
         height: MediaQuery.of(context).size.height * 0.7,
@@ -840,19 +1020,29 @@ final navController = Get.find<EmployerNavigationController>();
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Team Members', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                const Text('Team Members',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context)),
               ],
             ),
             const SizedBox(height: 16),
             Obx(() {
-              final activeCount = controller.teamMembers.where((m) => m['status'] == 'active').length;
+              final activeCount = controller.teamMembers
+                  .where((m) => m['status'] == 'active')
+                  .length;
               final pastCount = controller.teamMembers.length - activeCount;
               return Row(
                 children: [
-                  Expanded(child: _buildStatChip('Active: $activeCount', Icons.circle, Colors.green)),
+                  Expanded(
+                      child: _buildStatChip(
+                          'Active: $activeCount', Icons.circle, Colors.green)),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildStatChip('Past: $pastCount', Icons.history, Colors.grey)),
+                  Expanded(
+                      child: _buildStatChip(
+                          'Past: $pastCount', Icons.history, Colors.grey)),
                 ],
               );
             }),
@@ -866,7 +1056,7 @@ final navController = Get.find<EmployerNavigationController>();
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child:  TabBar(
+                    child: TabBar(
                       tabs: [
                         Tab(text: 'Active Members'),
                         Tab(text: 'Past Members'),
@@ -883,8 +1073,14 @@ final navController = Get.find<EmployerNavigationController>();
                   SizedBox(
                     height: MediaQuery.of(context).size.height * 0.45,
                     child: Obx(() {
-                      final activeMembers = controller.teamMembers.where((m) => m['status'] == 'active').toList();
-                      final pastMembers = controller.teamMembers.where((m) => m['status'] == 'left' || m['status'] == 'terminated').toList();
+                      final activeMembers = controller.teamMembers
+                          .where((m) => m['status'] == 'active')
+                          .toList();
+                      final pastMembers = controller.teamMembers
+                          .where((m) =>
+                              m['status'] == 'left' ||
+                              m['status'] == 'terminated')
+                          .toList();
                       return TabBarView(
                         children: [
                           _buildMembersListView(activeMembers, isActive: true),
@@ -915,21 +1111,26 @@ final navController = Get.find<EmployerNavigationController>();
         children: [
           Icon(icon, color: color, size: 14),
           const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13, color: color, fontWeight: FontWeight.w500)),
         ],
       ),
     );
   }
 
-  Widget _buildMembersListView(List<Map<String, dynamic>> members, {required bool isActive}) {
+  Widget _buildMembersListView(List<Map<String, dynamic>> members,
+      {required bool isActive}) {
     if (members.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(isActive ? Icons.people_outline : Icons.history, size: 50, color: Colors.grey.shade400),
+            Icon(isActive ? Icons.people_outline : Icons.history,
+                size: 50, color: Colors.grey.shade400),
             const SizedBox(height: 12),
-            Text(isActive ? 'No active members' : 'No past members', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+            Text(isActive ? 'No active members' : 'No past members',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
           ],
         ),
       );
@@ -942,8 +1143,12 @@ final navController = Get.find<EmployerNavigationController>();
         final name = employee['name'] ?? 'Unknown';
         final photoUrl = employee['photoUrl'] ?? '';
         final title = employee['title'] ?? 'Team Member';
-        final hiredAt = member['hiredAt'] != null ? DateTime.parse(member['hiredAt'].toString()) : null;
-        final leftAt = member['leftAt'] != null ? DateTime.parse(member['leftAt'].toString()) : null;
+        final hiredAt = member['hiredAt'] != null
+            ? DateTime.parse(member['hiredAt'].toString())
+            : null;
+        final leftAt = member['leftAt'] != null
+            ? DateTime.parse(member['leftAt'].toString())
+            : null;
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
@@ -957,18 +1162,31 @@ final navController = Get.find<EmployerNavigationController>();
               CircleAvatar(
                 radius: 20,
                 backgroundColor: primary.withOpacity(0.1),
-                backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                child: photoUrl.isEmpty ? Text(name[0], style: TextStyle(color: primary)) : null,
+                backgroundImage:
+                    photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                child: photoUrl.isEmpty
+                    ? Text(name[0], style: TextStyle(color: primary))
+                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                    Text(title, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                    if (hiredAt != null) Text('Hired ${_formatDate(hiredAt)}', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                    if (leftAt != null) Text('Left ${_formatDate(leftAt)}', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                    Text(name,
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text(title,
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600)),
+                    if (hiredAt != null)
+                      Text('Hired ${_formatDate(hiredAt)}',
+                          style: TextStyle(
+                              fontSize: 10, color: Colors.grey.shade500)),
+                    if (leftAt != null)
+                      Text('Left ${_formatDate(leftAt)}',
+                          style: TextStyle(
+                              fontSize: 10, color: Colors.grey.shade500)),
                   ],
                 ),
               ),
@@ -994,16 +1212,18 @@ final navController = Get.find<EmployerNavigationController>();
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar tabBar;
   _SliverAppBarDelegate(this.tabBar);
-  
+
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => Container(color: Colors.white, child: tabBar);
-  
+  Widget build(
+          BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      Container(color: Colors.white, child: tabBar);
+
   @override
   double get maxExtent => tabBar.preferredSize.height;
-  
+
   @override
   double get minExtent => tabBar.preferredSize.height;
-  
+
   @override
   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) => false;
 }

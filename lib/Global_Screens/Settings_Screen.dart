@@ -5,7 +5,6 @@ import 'package:templink/Employee/Screens/Employee_Profile_Screen.dart';
 import 'package:templink/Employee/Screens/wallet_screen.dart';
 import 'package:templink/Global_Screens/Change_Password_Screen.dart';
 
-
 class SettingsScreen extends StatefulWidget {
   final VoidCallback? onBackPressed;
   final bool showSidebar;
@@ -55,6 +54,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.showSidebar) {
+      // When showing sidebar, don't show top bar - the main layout handles it
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _buildContent(),
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: Column(
@@ -141,7 +149,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _showNotificationSettings();
           },
         ),
-
         const SizedBox(height: 12),
         _sectionTitle('Payments'),
         _tile(
@@ -152,7 +159,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Get.to(() => const WalletScreen());
           },
         ),
-
         const SizedBox(height: 12),
         _sectionTitle('Legal'),
         _tileExternal(
@@ -169,7 +175,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _showComingSoonDialog('Terms of Service');
           },
         ),
-
         const SizedBox(height: 16),
         _sectionTitle('Account Management'),
         _dangerTile(
@@ -190,8 +195,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ],
     );
   }
-
-
 
   void _showNotificationSettings() {
     Get.dialog(
@@ -261,7 +264,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Get.back();
               _showComingSoonDialog('Account Deactivation');
             },
-            child: const Text('Deactivate', style: TextStyle(color: Colors.red)),
+            child:
+                const Text('Deactivate', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -285,7 +289,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Get.back();
               _showComingSoonDialog('Account Closure');
             },
-            child: const Text('Close Account', style: TextStyle(color: Colors.red)),
+            child: const Text('Close Account',
+                style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

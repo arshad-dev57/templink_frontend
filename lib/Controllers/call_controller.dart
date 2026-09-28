@@ -19,7 +19,6 @@ import 'chat_socket_controller.dart';
 enum CallState { idle, calling, incoming, connected, ended }
 
 class CallController extends GetxController {
-  // ─── Observables ───────────────────────────────────────────
   var callState    = CallState.idle.obs;
   var isMuted      = false.obs;
   var isSpeakerOn  = false.obs;
