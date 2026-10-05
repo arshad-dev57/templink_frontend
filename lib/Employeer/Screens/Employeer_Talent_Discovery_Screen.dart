@@ -1455,25 +1455,23 @@ class _TalentDiscoveryScreenState extends State<TalentDiscoveryScreen> {
 
   // ==================== MOBILE LAYOUT (WITH PAGINATION BUTTONS) ====================
   Widget _buildMobileLayout() {
+    // Parent EmployerHomeScreenMobile already provides AppBar when embedded.
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('Find Talent',
-            style: TextStyle(
-                color: Colors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.bold)),
-        leading: widget.showSidebar
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black),
-                onPressed: () => navController.goBack())
-            : null,
-        bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1),
-            child: Container(color: Colors.grey[200], height: 1)),
-      ),
+      appBar: widget.showSidebar
+          ? null
+          : AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              title: const Text('Find Talent',
+                  style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold)),
+              bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(1),
+                  child: Container(color: Colors.grey[200], height: 1)),
+            ),
       body: _isLoading && homeController.talents.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : Column(

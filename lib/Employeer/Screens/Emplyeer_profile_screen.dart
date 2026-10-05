@@ -651,6 +651,53 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
 
   // ==================== MOBILE LAYOUT ====================
   Widget _buildMobileLayout() {
+    // Parent EmployerHomeScreenMobile already provides AppBar when embedded.
+    final body = Obx(() {
+      if (controller.isLoading.value) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      return NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverToBoxAdapter(child: _buildProfileHeaderMobile()),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverAppBarDelegate(
+                TabBar(
+                  controller: _tabController,
+                  labelColor: primary,
+                  unselectedLabelColor: Colors.black45,
+                  indicatorColor: primary,
+                  indicatorWeight: 3,
+                  labelStyle: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600),
+                  tabs: const [
+                    Tab(text: 'About'),
+                    Tab(text: 'Team'),
+                  ],
+                ),
+              ),
+            ),
+          ];
+        },
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildAboutTabMobile(),
+            _buildTeamTabMobile(),
+          ],
+        ),
+      );
+    });
+
+    if (widget.showSidebar) {
+      return Scaffold(
+        backgroundColor: Colors.grey[50],
+        body: body,
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -677,44 +724,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen>
           ),
         ],
       ),
-      body: Obx(() {
-        if (controller.isLoading.value) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        return NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
-            return [
-              SliverToBoxAdapter(child: _buildProfileHeaderMobile()),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SliverAppBarDelegate(
-                  TabBar(
-                    controller: _tabController,
-                    labelColor: primary,
-                    unselectedLabelColor: Colors.black45,
-                    indicatorColor: primary,
-                    indicatorWeight: 3,
-                    labelStyle: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600),
-                    tabs: const [
-                      Tab(text: 'About'),
-                      Tab(text: 'Team'),
-                    ],
-                  ),
-                ),
-              ),
-            ];
-          },
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildAboutTabMobile(),
-              _buildTeamTabMobile(),
-            ],
-          ),
-        );
-      }),
+      body: body,
     );
   }
 

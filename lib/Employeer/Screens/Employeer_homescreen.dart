@@ -173,6 +173,21 @@ class EmployerNavigationController extends GetxController {
     currentIndex.value = 14;
   }
 
+  /// Nested detail screens only — sidebar / bottom-nav destinations use menu.
+  bool get isNestedScreen {
+    if (showTalentDiscovery.value || showProjectsDiscovery.value) return false;
+    switch (currentIndex.value) {
+      case 12: // Project Details
+      case 13: // Live Project Details
+      case 14: // Talent Profile
+      case 15: // Edit Profile
+      case 17: // Project Feed Details
+        return true;
+      default:
+        return false;
+    }
+  }
+
   void goBack() {
     if (showTalentDiscovery.value) {
       showTalentDiscovery.value = false;
@@ -1024,10 +1039,8 @@ class EmployerHomeScreenMobile extends StatelessWidget {
         centerTitle: false,
         toolbarHeight: 56,
         leading: Obx(() {
-          final canGoBack = navController.currentIndex.value != 0 ||
-              navController.showTalentDiscovery.value ||
-              navController.showProjectsDiscovery.value;
-          if (canGoBack) {
+          // Nested detail screens → back; sidebar/bottom-nav pages → menu
+          if (navController.isNestedScreen) {
             return IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.black87, size: 22),
               onPressed: () => navController.goBack(),
@@ -1180,13 +1193,37 @@ class _NavIconMobile extends StatelessWidget {
     required this.label,
   });
 
+  void _onNavTap() {
+    switch (index) {
+      case 0:
+        navController.goToDashboard();
+        break;
+      case 1:
+        navController.goToMessages();
+        break;
+      case 2:
+        navController.goToProposalsReceived();
+        break;
+      case 3:
+        navController.goToMyStats();
+        break;
+      case 4:
+        navController.goToSettings();
+        break;
+      default:
+        navController.currentIndex.value = index;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final selected = navController.currentIndex.value == index;
+      final selected = !navController.showTalentDiscovery.value &&
+          !navController.showProjectsDiscovery.value &&
+          navController.currentIndex.value == index;
       return Expanded(
         child: GestureDetector(
-          onTap: () => navController.currentIndex.value = index,
+          onTap: _onNavTap,
           behavior: HitTestBehavior.opaque,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
