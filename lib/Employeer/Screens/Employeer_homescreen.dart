@@ -36,6 +36,7 @@ import 'package:templink/Global_Screens/Chat_Users_List_Screen.dart';
 import 'package:templink/Global_Screens/Notification_Screen.dart';
 import 'package:templink/Global_Screens/Settings_Screen.dart';
 import 'package:templink/Global_Screens/login_screen.dart';
+import 'package:templink/Screens/crm/crm_main_screen.dart';
 import 'package:templink/Services/Notificaton_Service.dart';
 import 'package:templink/Utils/colors.dart';
 import 'package:templink/Utils/responsive.dart';
@@ -55,6 +56,19 @@ class EmployerNavigationController extends GetxController {
   final sidebarExpanded = true.obs;
   final showTalentDiscovery = false.obs;
   final showProjectsDiscovery = false.obs;
+
+  // CRM state — indices 100-115 map to CRM subpages
+  final isCrmExpanded = false.obs;
+  final crmSubpageIndex = 0.obs;
+
+  void goToCrm([int subpage = 0]) {
+    showTalentDiscovery.value = false;
+    showProjectsDiscovery.value = false;
+    crmSubpageIndex.value = subpage;
+    currentIndex.value = 100 + subpage;
+  }
+
+  bool get isInCrm => currentIndex.value >= 100 && currentIndex.value <= 115;
 
   final selectedEmployerProject = Rxn<EmployerProject>();
   final selectedTalent = Rxn<TalentModel>();
@@ -228,6 +242,23 @@ class EmployerNavigationController extends GetxController {
       case 15: return 'Edit Profile';
       case 16: return 'Discover Projects';
       case 17: return 'Project Details';
+      // CRM pages
+      case 100: return 'CRM Dashboard';
+      case 101: return 'CRM · Leads';
+      case 102: return 'CRM · Contacts';
+      case 103: return 'CRM · Companies';
+      case 104: return 'CRM · Deals';
+      case 105: return 'CRM · Pipeline';
+      case 106: return 'CRM · Tasks';
+      case 107: return 'CRM · Calendar';
+      case 108: return 'CRM · Meetings';
+      case 109: return 'CRM · Notes';
+      case 110: return 'CRM · Emails';
+      case 111: return 'CRM · Cases';
+      case 112: return 'CRM · Products';
+      case 113: return 'CRM · Quotations';
+      case 114: return 'CRM · Reports';
+      case 115: return 'CRM · Settings';
       default: return 'Dashboard';
     }
   }
@@ -238,6 +269,13 @@ class EmployerNavigationController extends GetxController {
     }
     if (showProjectsDiscovery.value) {
       return const ProjectsDiscoveryScreen(showSidebar: true);
+    }
+    // CRM subpages 100-115
+    if (currentIndex.value >= 100 && currentIndex.value <= 115) {
+      return CrmMainScreen(
+        subpageIndex: currentIndex.value - 100,
+        onNavigateSubmenu: (i) => goToCrm(i),
+      );
     }
     switch (currentIndex.value) {
       case 0: return const HomeContentWeb();
@@ -524,23 +562,54 @@ class _NavItems extends StatelessWidget {
     {'icon': Icons.live_tv_outlined, 'label': 'Live Projects', 'index': 11},
   ];
 
+  static const List<Map<String, dynamic>> _crmSubItems = [
+    {'label': 'Dashboard', 'icon': Icons.dashboard_outlined, 'subIndex': 0},
+    {'label': 'Leads', 'icon': Icons.person_add_alt_1_outlined, 'subIndex': 1},
+    {'label': 'Contacts', 'icon': Icons.contacts_outlined, 'subIndex': 2},
+    {'label': 'Companies', 'icon': Icons.business_outlined, 'subIndex': 3},
+    {'label': 'Deals', 'icon': Icons.handshake_outlined, 'subIndex': 4},
+    {'label': 'Pipeline', 'icon': Icons.account_tree_outlined, 'subIndex': 5},
+    {'label': 'Tasks', 'icon': Icons.task_alt_outlined, 'subIndex': 6},
+    {'label': 'Calendar', 'icon': Icons.calendar_month_outlined, 'subIndex': 7},
+    {'label': 'Meetings', 'icon': Icons.video_call_outlined, 'subIndex': 8},
+    {'label': 'Notes', 'icon': Icons.sticky_note_2_outlined, 'subIndex': 9},
+    {'label': 'Emails', 'icon': Icons.mail_outline, 'subIndex': 10},
+    {'label': 'Cases', 'icon': Icons.support_agent_outlined, 'subIndex': 11},
+    {'label': 'Products', 'icon': Icons.inventory_2_outlined, 'subIndex': 12},
+    {'label': 'Quotations', 'icon': Icons.request_quote_outlined, 'subIndex': 13},
+    {'label': 'Reports', 'icon': Icons.bar_chart_outlined, 'subIndex': 14},
+    {'label': 'Settings', 'icon': Icons.tune_outlined, 'subIndex': 15},
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      children: [
-        ...mainNavItems.map((item) => _NavItemTile(item: item, expanded: expanded, navController: navController)),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 8, vertical: 6),
-          child: Divider(height: 1, color: Colors.grey.shade100),
-        ),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 8, vertical: 6),
-          child: Divider(height: 1, color: Colors.grey.shade100),
-        ),
-        ...extraNavItems.map((item) => _ExtraNavItemTile(item: item, expanded: expanded, navController: navController)),
-      ],
-    );
+    return Obx(() {
+      final isCrmActive = navController.isInCrm;
+      final isCrmOpen = navController.isCrmExpanded.value;
+      return ListView(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        children: [
+          ...mainNavItems.map((item) => _NavItemTile(item: item, expanded: expanded, navController: navController)),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 8, vertical: 6),
+            child: Divider(height: 1, color: Colors.grey.shade100),
+          ),
+          // CRM expandable menu item
+          _CrmNavTile(
+            expanded: expanded,
+            navController: navController,
+            isCrmActive: isCrmActive,
+            isCrmOpen: isCrmOpen,
+            crmSubItems: _crmSubItems,
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 8, vertical: 6),
+            child: Divider(height: 1, color: Colors.grey.shade100),
+          ),
+          ...extraNavItems.map((item) => _ExtraNavItemTile(item: item, expanded: expanded, navController: navController)),
+        ],
+      );
+    });
   }
 }
 
@@ -656,6 +725,130 @@ class _ExtraNavItemTile extends StatelessWidget {
         ),
       );
     });
+  }
+}
+
+// ==================== CRM NAV TILE ====================
+class _CrmNavTile extends StatelessWidget {
+  final bool expanded;
+  final EmployerNavigationController navController;
+  final bool isCrmActive;
+  final bool isCrmOpen;
+  final List<Map<String, dynamic>> crmSubItems;
+
+  const _CrmNavTile({
+    required this.expanded,
+    required this.navController,
+    required this.isCrmActive,
+    required this.isCrmOpen,
+    required this.crmSubItems,
+  });
+
+  static const Color _crmAccent = Color(0xFF6366F1);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // CRM header tile
+        GestureDetector(
+          onTap: () {
+            if (!expanded) {
+              // Collapsed sidebar: directly open CRM dashboard
+              navController.goToCrm(0);
+            } else {
+              navController.isCrmExpanded.toggle();
+              if (!navController.isCrmExpanded.value && isCrmActive) {
+                // keep CRM active but close submenu
+              }
+            }
+          },
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            padding: EdgeInsets.symmetric(horizontal: expanded ? 10 : 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isCrmActive ? _crmAccent.withOpacity(0.10) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: const Icon(Icons.hub_outlined, color: Colors.white, size: 12),
+                ),
+                if (expanded) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'CRM',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isCrmActive ? FontWeight.w700 : FontWeight.w600,
+                        color: isCrmActive ? _crmAccent : Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    isCrmOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: Colors.grey.shade400,
+                    size: 16,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        // Submenu
+        if (expanded && isCrmOpen)
+          ...crmSubItems.map((sub) {
+            final subIndex = sub['subIndex'] as int;
+            final isSelected = navController.currentIndex.value == 100 + subIndex;
+            return GestureDetector(
+              onTap: () => navController.goToCrm(subIndex),
+              child: Container(
+                margin: const EdgeInsets.only(left: 28, right: 6, top: 1, bottom: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: isSelected ? _crmAccent.withOpacity(0.10) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(7),
+                  border: isSelected
+                      ? Border(left: BorderSide(color: _crmAccent, width: 3))
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    Icon(sub['icon'] as IconData,
+                        size: 15,
+                        color: isSelected ? _crmAccent : Colors.grey.shade500),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        sub['label'] as String,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          color: isSelected ? _crmAccent : Colors.grey.shade700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
+    );
   }
 }
 
@@ -1106,6 +1299,8 @@ class _MobileDrawer extends StatelessWidget {
                   _drawerItem(Icons.person_outline, 'Profile', () { navController.goToProfile(); Navigator.pop(context); }),
                   _drawerItem(Icons.build_outlined, 'Office Management', () { navController.goToHubDashboard(); Navigator.pop(context); }),
                   _drawerItem(Icons.settings_outlined, 'Settings', () { navController.goToSettings(); Navigator.pop(context); }),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _drawerItem(Icons.hub_outlined, 'CRM', () { navController.goToCrm(0); Navigator.pop(context); }, color: const Color(0xFF6366F1)),
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   _drawerItem(Icons.logout_outlined, 'Log Out', _handleLogout, color: Colors.red),
                   const SizedBox(height: 12),

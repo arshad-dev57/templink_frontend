@@ -1,4 +1,4 @@
-// lib/Employee/Screens/Employee_Home_Screen.dart
+﻿// lib/Employee/Screens/Employee_Home_Screen.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -33,6 +33,7 @@ import 'package:templink/Global_Screens/login_screen.dart';
 import 'package:templink/Global_Screens/Settings_Screen.dart';
 import 'package:templink/Global_Screens/Reports_Screen.dart';
 import 'package:templink/Global_Screens/Help_Support_Screen.dart';
+import 'package:templink/Screens/crm/crm_main_screen.dart';
 import 'package:templink/Services/Notificaton_Service.dart';
 import 'package:templink/Utils/colors.dart';
 import 'package:templink/Utils/responsive.dart';
@@ -102,6 +103,17 @@ class EmployeeNavigationController extends GetxController {
   void goToSettings() => currentIndex.value = 19;
   void goToReports() => currentIndex.value = 20;
   void goToHelpSupport() => currentIndex.value = 21;
+
+  // CRM state — indices 100-115
+  final isCrmExpanded = false.obs;
+  final crmSubpageIndex = 0.obs;
+
+  void goToCrm([int subpage = 0]) {
+    crmSubpageIndex.value = subpage;
+    currentIndex.value = 100 + subpage;
+  }
+
+  bool get isInCrm => currentIndex.value >= 100 && currentIndex.value <= 115;
 
   void goToProjectDetail(ProjectFeedModel project) {
     selectedProject.value = project;
@@ -207,6 +219,23 @@ class EmployeeNavigationController extends GetxController {
         return 'Reports';
       case 21:
         return 'Help & Support';
+      // CRM pages
+      case 100: return 'CRM Dashboard';
+      case 101: return 'CRM · Leads';
+      case 102: return 'CRM · Contacts';
+      case 103: return 'CRM · Companies';
+      case 104: return 'CRM · Deals';
+      case 105: return 'CRM · Pipeline';
+      case 106: return 'CRM · Tasks';
+      case 107: return 'CRM · Calendar';
+      case 108: return 'CRM · Meetings';
+      case 109: return 'CRM · Notes';
+      case 110: return 'CRM · Emails';
+      case 111: return 'CRM · Cases';
+      case 112: return 'CRM · Products';
+      case 113: return 'CRM · Quotations';
+      case 114: return 'CRM · Reports';
+      case 115: return 'CRM · Settings';
       default:
         return 'Dashboard';
     }
@@ -349,6 +378,13 @@ class EmployeeNavigationController extends GetxController {
           showSidebar: false,
         );
       default:
+        // CRM subpages 100-115
+        if (currentIndex.value >= 100 && currentIndex.value <= 115) {
+          return CrmMainScreen(
+            subpageIndex: currentIndex.value - 100,
+            onNavigateSubmenu: (i) => goToCrm(i),
+          );
+        }
         return const HomeContentWeb();
     }
   }
@@ -632,6 +668,12 @@ class _EmployeeHomeScreenWebState extends State<EmployeeHomeScreenWeb> {
                   debugPrint('Help & Support tapped');
                   navController.goToHelpSupport();
                 }),
+                // ── CRM Section ──
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Divider(height: 1),
+                ),
+                _buildCrmExpandable(expanded),
               ],
             ),
           ),
@@ -777,6 +819,131 @@ class _EmployeeHomeScreenWebState extends State<EmployeeHomeScreenWeb> {
     });
   }
 
+  static const Color _crmAccent = Color(0xFF6366F1);
+
+  static const List<Map<String, dynamic>> _crmSubItems = [
+    {'label': 'Dashboard', 'icon': Icons.dashboard_outlined, 'subIndex': 0},
+    {'label': 'Leads', 'icon': Icons.person_add_alt_1_outlined, 'subIndex': 1},
+    {'label': 'Contacts', 'icon': Icons.contacts_outlined, 'subIndex': 2},
+    {'label': 'Companies', 'icon': Icons.business_outlined, 'subIndex': 3},
+    {'label': 'Deals', 'icon': Icons.handshake_outlined, 'subIndex': 4},
+    {'label': 'Pipeline', 'icon': Icons.account_tree_outlined, 'subIndex': 5},
+    {'label': 'Tasks', 'icon': Icons.task_alt_outlined, 'subIndex': 6},
+    {'label': 'Calendar', 'icon': Icons.calendar_month_outlined, 'subIndex': 7},
+    {'label': 'Meetings', 'icon': Icons.video_call_outlined, 'subIndex': 8},
+    {'label': 'Notes', 'icon': Icons.sticky_note_2_outlined, 'subIndex': 9},
+    {'label': 'Emails', 'icon': Icons.mail_outline, 'subIndex': 10},
+    {'label': 'Cases', 'icon': Icons.support_agent_outlined, 'subIndex': 11},
+    {'label': 'Products', 'icon': Icons.inventory_2_outlined, 'subIndex': 12},
+    {'label': 'Quotations', 'icon': Icons.request_quote_outlined, 'subIndex': 13},
+    {'label': 'Reports', 'icon': Icons.bar_chart_outlined, 'subIndex': 14},
+    {'label': 'Settings', 'icon': Icons.tune_outlined, 'subIndex': 15},
+  ];
+
+  Widget _buildCrmExpandable(bool expanded) {
+    return Obx(() {
+      final isCrmActive = navController.isInCrm;
+      final isCrmOpen = navController.isCrmExpanded.value;
+      return Column(
+        children: [
+          GestureDetector(
+            onTap: () {
+              if (!expanded) {
+                navController.goToCrm(0);
+              } else {
+                navController.isCrmExpanded.toggle();
+              }
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: EdgeInsets.symmetric(
+                horizontal: expanded ? 12 : 16,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: isCrmActive ? _crmAccent.withOpacity(0.10) : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.hub_outlined, color: Colors.white, size: 13),
+                  ),
+                  if (expanded) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'CRM',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: isCrmActive ? FontWeight.w700 : FontWeight.w600,
+                          color: isCrmActive ? _crmAccent : Colors.black87,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      isCrmOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                      color: Colors.grey.shade400,
+                      size: 18,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (expanded && isCrmOpen)
+            ..._crmSubItems.map((sub) {
+              final subIndex = sub['subIndex'] as int;
+              final isSelected = navController.currentIndex.value == 100 + subIndex;
+              return GestureDetector(
+                onTap: () => navController.goToCrm(subIndex),
+                child: Container(
+                  margin: const EdgeInsets.only(left: 32, right: 8, top: 1, bottom: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? _crmAccent.withOpacity(0.10) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: isSelected
+                        ? Border(left: BorderSide(color: _crmAccent, width: 3))
+                        : null,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(sub['icon'] as IconData,
+                          size: 16,
+                          color: isSelected ? _crmAccent : Colors.grey.shade500),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          sub['label'] as String,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            color: isSelected ? _crmAccent : Colors.grey.shade700,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
+      );
+    });
+  }
   Widget _webLogoutTile(bool expanded) {
     return GestureDetector(
       onTap: _handleLogout,
