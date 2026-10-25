@@ -14,7 +14,7 @@ class MyStatsScreen extends StatefulWidget {
   final VoidCallback? onNavigateToWallet;
   final VoidCallback? onBackPressed;
   final bool showSidebar;
-  
+
   const MyStatsScreen({
     Key? key,
     this.onNavigateToCoins,
@@ -30,8 +30,13 @@ class MyStatsScreen extends StatefulWidget {
 class _MyStatsScreenState extends State<MyStatsScreen> {
   final EmployeeStatsController controller = Get.put(EmployeeStatsController());
   String _selectedTimeRange = 'Last 12 Months';
-  final List<String> _timeRanges = ['Last 7 Days', 'Last 30 Days', 'Last 90 Days', 'Last 12 Months'];
-  
+  final List<String> _timeRanges = [
+    'Last 7 Days',
+    'Last 30 Days',
+    'Last 90 Days',
+    'Last 12 Months'
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +59,13 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
 
   // ==================== WEB LAYOUT ====================
   Widget _buildWebLayout() {
+    if (widget.showSidebar) {
+      // When showing sidebar, don't show top bar - the main layout handles it
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: _buildWebContent(),
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: Column(
@@ -122,7 +134,7 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth > 900;
-              
+
               if (isWide) {
                 return _buildTwoColumnLayout();
               } else {
@@ -186,7 +198,70 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
   }
 
   // ==================== MOBILE LAYOUT ====================
+  void _handleBack() {
+    // When embedded in employer/employee home shell, switch tabs instead of
+    // popping the home route (which left a blank screen).
+    if (widget.onBackPressed != null) {
+      widget.onBackPressed!();
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
   Widget _buildMobileLayout() {
+    final isEmbedded = widget.onBackPressed != null || widget.showSidebar;
+
+    final body = Obx(() {
+      if (controller.isLoading.value) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      return RefreshIndicator(
+        onRefresh: () => controller.fetchAllStats(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "View proposal history, earnings, profiles",
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildEarningsCard(),
+              const SizedBox(height: 20),
+              _buildBalanceCard(),
+              const SizedBox(height: 20),
+              _buildProposalsCard(),
+              const SizedBox(height: 20),
+              _buildRecentActivity(),
+              const SizedBox(height: 20),
+              _buildPerformanceMetrics(),
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      );
+    });
+
+    // Parent home shell already provides AppBar/top bar — avoid a nested
+    // AppBar whose Navigator.pop would remove the entire home screen.
+    if (isEmbedded) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _handleBack();
+        },
+        child: Scaffold(
+          backgroundColor: Colors.grey.shade50,
+          body: body,
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -194,7 +269,7 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
         elevation: 0.5,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _handleBack,
         ),
         title: const Text(
           "My Stats",
@@ -206,41 +281,7 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
         ),
         centerTitle: false,
       ),
-      body: Obx(() {
-        if (controller.isLoading.value) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        return RefreshIndicator(
-          onRefresh: () => controller.fetchAllStats(),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "View proposal history, earnings, profiles",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.black54,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _buildEarningsCard(),
-                const SizedBox(height: 20),
-                _buildBalanceCard(),
-                const SizedBox(height: 20),
-                _buildProposalsCard(),
-                const SizedBox(height: 20),
-                _buildRecentActivity(),
-                const SizedBox(height: 20),
-                _buildPerformanceMetrics(),
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
-        );
-      }),
+      body: body,
     );
   }
 
@@ -248,7 +289,7 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
   Widget _buildBalanceCard() {
     final totalPoints = controller.pointsBalance.value;
     final totalPointsTarget = 2000;
-    
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -303,9 +344,9 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Points Section with Buy Coins Button
           Row(
             children: [
@@ -340,7 +381,8 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                         // Buy Coins Button - Separate
                         GestureDetector(
                           onTap: () {
-                            final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+                            final isWeb = Responsive.isDesktop(context) ||
+                                Responsive.isTablet(context);
                             if (isWeb && widget.onNavigateToCoins != null) {
                               widget.onNavigateToCoins!();
                             } else {
@@ -348,16 +390,19 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                             }
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               color: primary.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: primary.withOpacity(0.3)),
+                              border:
+                                  Border.all(color: primary.withOpacity(0.3)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.add_circle_outline, color: primary, size: 16),
+                                const Icon(Icons.add_circle_outline,
+                                    color: primary, size: 16),
                                 const SizedBox(width: 4),
                                 Text(
                                   "Buy Coins",
@@ -389,7 +434,8 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                           child: LinearProgressIndicator(
                             value: totalPoints / totalPointsTarget,
                             backgroundColor: Colors.grey.shade200,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.orange),
                             borderRadius: BorderRadius.circular(4),
                             minHeight: 6,
                           ),
@@ -409,14 +455,14 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Divider
           Divider(color: Colors.grey.shade300, height: 1),
-          
+
           const SizedBox(height: 16),
-          
+
           // Wallet Section with Go to Wallet Button
           Row(
             children: [
@@ -451,7 +497,8 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                         // Go to Wallet Button - Separate
                         GestureDetector(
                           onTap: () {
-                            final isWeb = Responsive.isDesktop(context) || Responsive.isTablet(context);
+                            final isWeb = Responsive.isDesktop(context) ||
+                                Responsive.isTablet(context);
                             if (isWeb && widget.onNavigateToWallet != null) {
                               widget.onNavigateToWallet!();
                             } else {
@@ -459,16 +506,19 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                             }
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               color: Colors.green.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.green.withOpacity(0.3)),
+                              border: Border.all(
+                                  color: Colors.green.withOpacity(0.3)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.arrow_forward, color: Colors.green, size: 14),
+                                const Icon(Icons.arrow_forward,
+                                    color: Colors.green, size: 14),
                                 const SizedBox(width: 4),
                                 Text(
                                   "Go to Wallet",
@@ -573,7 +623,8 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
               ),
               const SizedBox(width: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.green.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -710,7 +761,7 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          
+
           // Stats Overview - Responsive grid
           LayoutBuilder(
             builder: (context, constraints) {
@@ -718,10 +769,28 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
               if (isWide) {
                 return Row(
                   children: [
-                    Expanded(child: _statBox(label: 'Total', value: controller.totalProposals.value.toString(), color: Colors.blue)),
-                    Expanded(child: _statBox(label: 'Accepted', value: controller.acceptedProposals.value.toString(), color: Colors.green)),
-                    Expanded(child: _statBox(label: 'Pending', value: controller.pendingProposals.value.toString(), color: Colors.orange)),
-                    Expanded(child: _statBox(label: 'Rejected', value: controller.rejectedProposals.value.toString(), color: Colors.red)),
+                    Expanded(
+                        child: _statBox(
+                            label: 'Total',
+                            value: controller.totalProposals.value.toString(),
+                            color: Colors.blue)),
+                    Expanded(
+                        child: _statBox(
+                            label: 'Accepted',
+                            value:
+                                controller.acceptedProposals.value.toString(),
+                            color: Colors.green)),
+                    Expanded(
+                        child: _statBox(
+                            label: 'Pending',
+                            value: controller.pendingProposals.value.toString(),
+                            color: Colors.orange)),
+                    Expanded(
+                        child: _statBox(
+                            label: 'Rejected',
+                            value:
+                                controller.rejectedProposals.value.toString(),
+                            color: Colors.red)),
                   ],
                 );
               } else {
@@ -729,18 +798,30 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                   spacing: 16,
                   runSpacing: 12,
                   children: [
-                    _statBox(label: 'Total', value: controller.totalProposals.value.toString(), color: Colors.blue),
-                    _statBox(label: 'Accepted', value: controller.acceptedProposals.value.toString(), color: Colors.green),
-                    _statBox(label: 'Pending', value: controller.pendingProposals.value.toString(), color: Colors.orange),
-                    _statBox(label: 'Rejected', value: controller.rejectedProposals.value.toString(), color: Colors.red),
+                    _statBox(
+                        label: 'Total',
+                        value: controller.totalProposals.value.toString(),
+                        color: Colors.blue),
+                    _statBox(
+                        label: 'Accepted',
+                        value: controller.acceptedProposals.value.toString(),
+                        color: Colors.green),
+                    _statBox(
+                        label: 'Pending',
+                        value: controller.pendingProposals.value.toString(),
+                        color: Colors.orange),
+                    _statBox(
+                        label: 'Rejected',
+                        value: controller.rejectedProposals.value.toString(),
+                        color: Colors.red),
                   ],
                 );
               }
             },
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Contracts Stats - Responsive
           Container(
             padding: const EdgeInsets.all(12),
@@ -755,9 +836,21 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _contractStat(label: 'Active', value: controller.activeContracts.value.toString(), icon: Icons.play_circle, color: Colors.green),
-                      _contractStat(label: 'Completed', value: controller.completedContracts.value.toString(), icon: Icons.check_circle, color: Colors.blue),
-                      _contractStat(label: 'Working', value: controller.workingProjects.value.toString(), icon: Icons.work, color: Colors.purple),
+                      _contractStat(
+                          label: 'Active',
+                          value: controller.activeContracts.value.toString(),
+                          icon: Icons.play_circle,
+                          color: Colors.green),
+                      _contractStat(
+                          label: 'Completed',
+                          value: controller.completedContracts.value.toString(),
+                          icon: Icons.check_circle,
+                          color: Colors.blue),
+                      _contractStat(
+                          label: 'Working',
+                          value: controller.workingProjects.value.toString(),
+                          icon: Icons.work,
+                          color: Colors.purple),
                     ],
                   );
                 } else {
@@ -766,29 +859,45 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                     runSpacing: 12,
                     alignment: WrapAlignment.center,
                     children: [
-                      _contractStat(label: 'Active', value: controller.activeContracts.value.toString(), icon: Icons.play_circle, color: Colors.green),
-                      _contractStat(label: 'Completed', value: controller.completedContracts.value.toString(), icon: Icons.check_circle, color: Colors.blue),
-                      _contractStat(label: 'Working', value: controller.workingProjects.value.toString(), icon: Icons.work, color: Colors.purple),
+                      _contractStat(
+                          label: 'Active',
+                          value: controller.activeContracts.value.toString(),
+                          icon: Icons.play_circle,
+                          color: Colors.green),
+                      _contractStat(
+                          label: 'Completed',
+                          value: controller.completedContracts.value.toString(),
+                          icon: Icons.check_circle,
+                          color: Colors.blue),
+                      _contractStat(
+                          label: 'Working',
+                          value: controller.workingProjects.value.toString(),
+                          icon: Icons.work,
+                          color: Colors.purple),
                     ],
                   );
                 }
               },
             ),
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Proposal Progress
           _proposalProgress(
             label: "Proposals Sent",
             value: controller.totalProposals.value,
-            maxValue: controller.totalProposals.value > 0 ? controller.totalProposals.value : 1,
+            maxValue: controller.totalProposals.value > 0
+                ? controller.totalProposals.value
+                : 1,
           ),
           const SizedBox(height: 12),
           _proposalProgress(
             label: "Accepted",
             value: controller.acceptedProposals.value,
-            maxValue: controller.totalProposals.value > 0 ? controller.totalProposals.value : 1,
+            maxValue: controller.totalProposals.value > 0
+                ? controller.totalProposals.value
+                : 1,
           ),
           const SizedBox(height: 12),
           _proposalProgress(
@@ -801,7 +910,8 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
     );
   }
 
-  Widget _statBox({required String label, required String value, required Color color}) {
+  Widget _statBox(
+      {required String label, required String value, required Color color}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -825,7 +935,11 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
     );
   }
 
-  Widget _contractStat({required String label, required String value, required IconData icon, required Color color}) {
+  Widget _contractStat(
+      {required String label,
+      required String value,
+      required IconData icon,
+      required Color color}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -890,7 +1004,7 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
             if (controller.isLoadingActivity.value) {
               return const Center(child: CircularProgressIndicator());
             }
-            
+
             if (controller.recentActivities.isEmpty) {
               return Center(
                 child: Padding(
@@ -902,11 +1016,13 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                 ),
               );
             }
-            
+
             return ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: controller.recentActivities.length > 3 ? 3 : controller.recentActivities.length,
+              itemCount: controller.recentActivities.length > 3
+                  ? 3
+                  : controller.recentActivities.length,
               itemBuilder: (context, index) {
                 final activity = controller.recentActivities[index];
                 return _activityItem(activity);
@@ -949,10 +1065,10 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
     final status = activity['status'];
     final color = controller.getActivityColor(status);
     final icon = controller.getActivityIcon(type);
-    final date = activity['date'] != null 
-        ? DateTime.parse(activity['date'].toString()) 
+    final date = activity['date'] != null
+        ? DateTime.parse(activity['date'].toString())
         : DateTime.now();
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -1057,13 +1173,39 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
               if (isWide) {
                 return Row(
                   children: [
-                    Expanded(child: _metricCard(title: 'Response Rate', value: '${controller.responseRate.value}%', subtitle: '', icon: Icons.timer_outlined, color: Colors.blue)),
+                    Expanded(
+                        child: _metricCard(
+                            title: 'Response Rate',
+                            value: '${controller.responseRate.value}%',
+                            subtitle: '',
+                            icon: Icons.timer_outlined,
+                            color: Colors.blue)),
                     const SizedBox(width: 12),
-                    Expanded(child: _metricCard(title: 'Success Rate', value: '${controller.successRate.value}%', subtitle: '', icon: Icons.check_circle_outline, color: Colors.green)),
+                    Expanded(
+                        child: _metricCard(
+                            title: 'Success Rate',
+                            value: '${controller.successRate.value}%',
+                            subtitle: '',
+                            icon: Icons.check_circle_outline,
+                            color: Colors.green)),
                     const SizedBox(width: 12),
-                    Expanded(child: _metricCard(title: 'Rating', value: controller.averageRating.value.toStringAsFixed(1), subtitle: '', icon: Icons.star_outline, color: Colors.orange)),
+                    Expanded(
+                        child: _metricCard(
+                            title: 'Rating',
+                            value: controller.averageRating.value
+                                .toStringAsFixed(1),
+                            subtitle: '',
+                            icon: Icons.star_outline,
+                            color: Colors.orange)),
                     const SizedBox(width: 12),
-                    Expanded(child: _metricCard(title: 'Projects', value: controller.completedProjects.value.toString(), subtitle: '', icon: Icons.work_outline, color: Colors.purple)),
+                    Expanded(
+                        child: _metricCard(
+                            title: 'Projects',
+                            value:
+                                controller.completedProjects.value.toString(),
+                            subtitle: '',
+                            icon: Icons.work_outline,
+                            color: Colors.purple)),
                   ],
                 );
               } else {
@@ -1075,10 +1217,31 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
                   mainAxisSpacing: 12,
                   childAspectRatio: 1.6,
                   children: [
-                    _metricCard(title: 'Response Rate', value: '${controller.responseRate.value}%', subtitle: '', icon: Icons.timer_outlined, color: Colors.blue),
-                    _metricCard(title: 'Success Rate', value: '${controller.successRate.value}%', subtitle: '', icon: Icons.check_circle_outline, color: Colors.green),
-                    _metricCard(title: 'Rating', value: controller.averageRating.value.toStringAsFixed(1), subtitle: '', icon: Icons.star_outline, color: Colors.orange),
-                    _metricCard(title: 'Projects', value: controller.completedProjects.value.toString(), subtitle: '', icon: Icons.work_outline, color: Colors.purple),
+                    _metricCard(
+                        title: 'Response Rate',
+                        value: '${controller.responseRate.value}%',
+                        subtitle: '',
+                        icon: Icons.timer_outlined,
+                        color: Colors.blue),
+                    _metricCard(
+                        title: 'Success Rate',
+                        value: '${controller.successRate.value}%',
+                        subtitle: '',
+                        icon: Icons.check_circle_outline,
+                        color: Colors.green),
+                    _metricCard(
+                        title: 'Rating',
+                        value:
+                            controller.averageRating.value.toStringAsFixed(1),
+                        subtitle: '',
+                        icon: Icons.star_outline,
+                        color: Colors.orange),
+                    _metricCard(
+                        title: 'Projects',
+                        value: controller.completedProjects.value.toString(),
+                        subtitle: '',
+                        icon: Icons.work_outline,
+                        color: Colors.purple),
                   ],
                 );
               }
@@ -1207,7 +1370,7 @@ class _MyStatsScreenState extends State<MyStatsScreen> {
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date).inDays;
-    
+
     if (difference == 0) return 'Today';
     if (difference == 1) return 'Yesterday';
     if (difference < 7) return '$difference days ago';

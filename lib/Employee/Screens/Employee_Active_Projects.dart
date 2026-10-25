@@ -165,11 +165,12 @@ class _EmployeeActiveProjectsScreenState
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: _border),
         ),
-        leading: widget.onBackPressed != null
+        leading: (!widget.showSidebar && widget.onBackPressed != null)
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new, size: 18),
                 onPressed: widget.onBackPressed)
             : null,
+        automaticallyImplyLeading: !widget.showSidebar,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_outlined, size: 20),
