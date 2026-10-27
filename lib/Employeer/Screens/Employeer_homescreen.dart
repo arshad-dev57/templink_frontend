@@ -240,7 +240,6 @@ class EmployerNavigationController extends GetxController {
     if (showTalentDiscovery.value) return 'Find Talent';
     if (showProjectsDiscovery.value) return 'Discover Projects';
     switch (currentIndex.value) {
-<<<<<<< HEAD
       case 0: return 'Dashboard';
       case 1: return 'Messages';
       case 2: return 'Proposals Received';
@@ -277,46 +276,6 @@ class EmployerNavigationController extends GetxController {
       case 114: return 'CRM · Reports';
       case 115: return 'CRM · Settings';
       default: return 'Dashboard';
-=======
-      case 0:
-        return 'Dashboard';
-      case 1:
-        return 'Messages';
-      case 2:
-        return 'Proposals Received';
-      case 3:
-        return 'My Stats';
-      case 4:
-        return 'Settings';
-      case 5:
-        return 'Profile';
-      case 6:
-        return 'Office Management';
-      case 7:
-        return 'Job Applications';
-      case 8:
-        return 'Hired Candidates';
-      case 9:
-        return 'My Projects';
-      case 10:
-        return 'My Jobs';
-      case 11:
-        return 'Live Projects';
-      case 12:
-        return 'Project Details';
-      case 13:
-        return 'Live Project Details';
-      case 14:
-        return 'Talent Profile';
-      case 15:
-        return 'Edit Profile';
-      case 16:
-        return 'Discover Projects';
-      case 17:
-        return 'Project Details';
-      default:
-        return 'Dashboard';
->>>>>>> dd85499b2bbcf6ead2dc61fa4b4cf4c449f31ab3
     }
   }
 
@@ -712,7 +671,6 @@ class _NavItems extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
     return Obx(() {
       final isCrmActive = navController.isInCrm;
       final isCrmOpen = navController.isCrmExpanded.value;
@@ -740,27 +698,6 @@ class _NavItems extends StatelessWidget {
         ],
       );
     });
-=======
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      children: [
-        ...mainNavItems.map((item) => _NavItemTile(
-            item: item, expanded: expanded, navController: navController)),
-        Padding(
-          padding:
-              EdgeInsets.symmetric(horizontal: expanded ? 12 : 8, vertical: 6),
-          child: Divider(height: 1, color: Colors.grey.shade100),
-        ),
-        Padding(
-          padding:
-              EdgeInsets.symmetric(horizontal: expanded ? 12 : 8, vertical: 6),
-          child: Divider(height: 1, color: Colors.grey.shade100),
-        ),
-        ...extraNavItems.map((item) => _ExtraNavItemTile(
-            item: item, expanded: expanded, navController: navController)),
-      ],
-    );
->>>>>>> dd85499b2bbcf6ead2dc61fa4b4cf4c449f31ab3
   }
 }
 
@@ -1617,14 +1554,13 @@ class _MobileDrawer extends StatelessWidget {
                     Navigator.pop(context);
                   }),
                   const Divider(height: 1, indent: 16, endIndent: 16),
-<<<<<<< HEAD
-                  _drawerItem(Icons.hub_outlined, 'CRM', () { navController.goToCrm(0); Navigator.pop(context); }, color: const Color(0xFF6366F1)),
+                  _drawerItem(Icons.hub_outlined, 'CRM', () {
+                    navController.goToCrm(0);
+                    Navigator.pop(context);
+                  }, color: const Color(0xFF6366F1)),
                   const Divider(height: 1, indent: 16, endIndent: 16),
-                  _drawerItem(Icons.logout_outlined, 'Log Out', _handleLogout, color: Colors.red),
-=======
                   _drawerItem(Icons.logout_outlined, 'Log Out', _handleLogout,
                       color: Colors.red),
->>>>>>> dd85499b2bbcf6ead2dc61fa4b4cf4c449f31ab3
                   const SizedBox(height: 12),
                   Text('© 2024 Templink · v2.1.0',
                       style:
